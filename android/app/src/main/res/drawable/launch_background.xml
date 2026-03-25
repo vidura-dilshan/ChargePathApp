@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Copy to BOTH:
+    android/app/src/main/res/drawable/launch_background.xml
+    android/app/src/main/res/drawable-v21/launch_background.xml
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- 1. Brand background -->
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#F0F6FF" />
+        </shape>
+    </item>
+
+    <!-- 2. Blue circle -->
+    <item
+        android:width="100dp"
+        android:height="100dp"
+        android:gravity="center"
+        android:bottom="100dp">
+        <shape android:shape="oval">
+            <solid android:color="#248bf2" />
+        </shape>
+    </item>
+
+    <!-- 3. Icon — 30dp keeps all corners well inside the 90dp circle -->
+    <item
+        android:width="30dp"
+        android:height="30dp"
+        android:gravity="center"
+        android:bottom="100dp">
+        <bitmap
+            android:gravity="center"
+            android:src="@mipmap/ic_launcher" />
+    </item>
+
+</layer-list>

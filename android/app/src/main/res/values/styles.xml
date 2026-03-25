@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  android/app/src/main/res/values/styles.xml
+-->
+<resources>
+
+    <!--
+      LaunchTheme: shown by Android BEFORE Flutter renders anything.
+      - Theme.Black.NoTitleBar makes the window fullscreen with no title bar,
+        matching Flutter's fullscreen display exactly.
+      - windowBackground points to our brand-colored launch_background.xml.
+      - windowFullscreen + windowLayoutInDisplayCutoutMode ensure it fills
+        edge-to-edge including the status bar area, same as Flutter.
+    -->
+    <style name="LaunchTheme" parent="@android:style/Theme.Black.NoTitleBar">
+        <item name="android:windowBackground">@drawable/launch_background</item>
+        <item name="android:windowFullscreen">false</item>
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+        <item name="android:statusBarColor">#F0F6FF</item>
+        <item name="android:navigationBarColor">#F0F6FF</item>
+    </style>
+
+    <!--
+      NormalTheme: Flutter switches to this after its first frame renders.
+      Transparent background lets Flutter draw its own UI with no flicker.
+    -->
+    <style name="NormalTheme" parent="@android:style/Theme.Black.NoTitleBar">
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowFullscreen">false</item>
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+        <item name="android:statusBarColor">#F0F6FF</item>
+        <item name="android:navigationBarColor">#F0F6FF</item>
+    </style>
+
+</resources>

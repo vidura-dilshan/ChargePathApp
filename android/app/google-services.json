@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "367357238311",
+    "project_id": "chargepath-3214e",
+    "storage_bucket": "chargepath-3214e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:367357238311:android:f95c400fdd4b813fdb4202",
+        "android_client_info": {
+          "package_name": "com.example.chargepath"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "367357238311-hrmhiif2m8f9vhsh4hrc2opov4oe3rhi.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB6eaON_9NA9DmNjxSdqxy5dYwoLmZuXZc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "367357238311-hrmhiif2m8f9vhsh4hrc2opov4oe3rhi.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
