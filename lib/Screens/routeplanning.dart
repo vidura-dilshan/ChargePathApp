@@ -36,11 +36,8 @@ class _RoutePlanningPageState extends State<RoutePlanningPage> {
   final Completer<GoogleMapController> _controller = Completer();
   bool _isLoading = false;
 
-  // ── CHANGE 1: Removed default text — fields show only the hint ────────────
   final TextEditingController _startController = TextEditingController();
   final TextEditingController _endController = TextEditingController();
-  // ─────────────────────────────────────────────────────────────────────────
-
   final TextEditingController _rangeController =
       TextEditingController(text: "100");
 
@@ -184,92 +181,200 @@ class _RoutePlanningPageState extends State<RoutePlanningPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
         automaticallyImplyLeading: false,
         title: const Text(
           "Route Planning",
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: Colors.black87,
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+          ),
         ),
         centerTitle: true,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(color: Colors.grey.shade100, height: 1),
+        ),
       ),
       body: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
+          padding: const EdgeInsets.fromLTRB(20, 24, 20, 100),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildLocationHeader(),
-              const SizedBox(height: 24),
-              _buildSectionTitle("Vehicle Settings", Icons.electric_car),
+              // ── ROUTE LOCATIONS CARD ──────────────────────────────────────
+              _buildCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildSectionTitle(
+                        "Plan Your Route", Icons.alt_route_rounded),
+                    const SizedBox(height: 20),
+                    _buildLocationHeader(),
+                  ],
+                ),
+              ),
+
               const SizedBox(height: 16),
-              _buildBatterySlider(),
-              const SizedBox(height: 16),
-              const Text("Max Range (km)",
-                  style: TextStyle(color: Colors.grey)),
-              const SizedBox(height: 8),
-              _buildBlueTextBox("e.g. 100", _rangeController,
-                  isNumber: true),
-              const SizedBox(height: 16),
-              _buildConnectorSelector(),
-              const SizedBox(height: 24),
+
+              // ── VEHICLE SETTINGS CARD ─────────────────────────────────────
+              _buildCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildSectionTitle(
+                        "Vehicle Settings", Icons.electric_car_rounded),
+                    const SizedBox(height: 20),
+                    _buildBatterySlider(),
+                    const SizedBox(height: 20),
+                    _buildLabeledField(
+                      label: "Max Range",
+                      sublabel: "km",
+                      child: _buildBlueTextBox(
+                          "e.g. 100", _rangeController,
+                          isNumber: true),
+                    ),
+                    const SizedBox(height: 16),
+                    _buildConnectorSelector(),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              // ── PLAN ROUTE BUTTON ─────────────────────────────────────────
               SizedBox(
                 width: double.infinity,
-                child: ElevatedButton(
+                height: 56,
+                child: ElevatedButton.icon(
                   onPressed: _isLoading ? null : _fetchRoute,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _primaryColor,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                  ),
-                  child: _isLoading
+                  icon: _isLoading
                       ? const SizedBox(
                           height: 20,
                           width: 20,
                           child: CircularProgressIndicator(
-                              color: Colors.white))
-                      : const Text("Plan Route",
-                          style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold)),
+                              color: Colors.white, strokeWidth: 2.5),
+                        )
+                      : const Icon(Icons.navigation_rounded,
+                          color: Colors.white, size: 20),
+                  label: Text(
+                    _isLoading ? "Planning..." : "Plan Route",
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _primaryColor,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16)),
+                  ),
                 ),
               ),
+
               const SizedBox(height: 24),
-              _buildSectionTitle("Route Preview", Icons.map),
-              const SizedBox(height: 16),
-              _buildMapPreview(),
-              const SizedBox(height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  _buildSectionTitle("Charging Stops", Icons.ev_station),
-                  Text("${_routeStops.length} stops",
-                      style: TextStyle(color: Colors.grey[600])),
-                ],
+
+              // ── MAP PREVIEW CARD ──────────────────────────────────────────
+              _buildCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildSectionTitle(
+                        "Route Preview", Icons.map_rounded),
+                    const SizedBox(height: 16),
+                    _buildMapPreview(),
+                  ],
+                ),
               ),
+
               const SizedBox(height: 16),
-              _routeStops.isEmpty
-                  ? Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(20),
-                        child: Text("Route not calculated yet",
-                            style: TextStyle(color: Colors.grey[400])),
-                      ),
-                    )
-                  : ListView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: _routeStops.length,
-                      itemBuilder: (ctx, index) =>
-                          _buildStopItem(index + 1, _routeStops[index]),
+
+              // ── CHARGING STOPS CARD ───────────────────────────────────────
+              _buildCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        _buildSectionTitle(
+                            "Charging Stops", Icons.ev_station_rounded),
+                        if (_routeStops.isNotEmpty)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: _accentGreen.withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              "${_routeStops.length} stops",
+                              style: TextStyle(
+                                color: _accentGreen,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
-              const SizedBox(height: 24),
-              _buildSectionTitle("Trip Summary", Icons.summarize),
+                    const SizedBox(height: 16),
+                    _routeStops.isEmpty
+                        ? Center(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                  vertical: 24),
+                              child: Column(
+                                children: [
+                                  Icon(Icons.ev_station_outlined,
+                                      size: 48,
+                                      color: Colors.grey.shade300),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    "Route not calculated yet",
+                                    style: TextStyle(
+                                      color: Colors.grey.shade400,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                        : ListView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: _routeStops.length,
+                            itemBuilder: (ctx, index) =>
+                                _buildStopItem(
+                                    index + 1, _routeStops[index]),
+                          ),
+                  ],
+                ),
+              ),
+
               const SizedBox(height: 16),
-              _buildTripSummaryGrid(),
+
+              // ── TRIP SUMMARY CARD ─────────────────────────────────────────
+              _buildCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildSectionTitle(
+                        "Trip Summary", Icons.summarize_rounded),
+                    const SizedBox(height: 16),
+                    _buildTripSummaryGrid(),
+                  ],
+                ),
+              ),
             ],
           ),
         ),
@@ -277,44 +382,189 @@ class _RoutePlanningPageState extends State<RoutePlanningPage> {
     );
   }
 
-  // --- WIDGET BUILDERS (unchanged) ---
+  // ── WIDGET BUILDERS ───────────────────────────────────────────────────────
+
+  /// Generic white card container
+  Widget _buildCard({required Widget child}) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0253A4).withOpacity(0.06),
+            blurRadius: 20,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
 
   Widget _buildSectionTitle(String title, IconData icon) {
     return Row(
       children: [
-        Icon(icon, color: _primaryColor, size: 20),
-        const SizedBox(width: 8),
-        Text(title,
-            style: const TextStyle(
-                fontSize: 18, fontWeight: FontWeight.bold)),
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: _primaryColor.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, color: _primaryColor, size: 18),
+        ),
+        const SizedBox(width: 10),
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
+          ),
+        ),
       ],
     );
   }
 
+  /// Location header with Origin / Destination labels above each field
   Widget _buildLocationHeader() {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // ── Vertical route line ─────────────────────────────────────────────
         Padding(
-          padding: const EdgeInsets.only(top: 15),
+          padding: const EdgeInsets.only(top: 34),
           child: Column(
             children: [
-              const Icon(Icons.circle, color: Colors.green, size: 12),
-              Container(width: 2, height: 45, color: Colors.grey[300]),
-              const Icon(Icons.circle, color: Colors.red, size: 12),
+              Container(
+                width: 14,
+                height: 14,
+                decoration: BoxDecoration(
+                  color: _accentGreen,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: _accentGreen.withOpacity(0.4),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+              ),
+              ...List.generate(
+                6,
+                (_) => Container(
+                  width: 2,
+                  height: 8,
+                  margin: const EdgeInsets.symmetric(vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(1),
+                  ),
+                ),
+              ),
+              Container(
+                width: 14,
+                height: 14,
+                decoration: BoxDecoration(
+                  color: Colors.red.shade500,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.red.withOpacity(0.35),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
         ),
+
         const SizedBox(width: 16),
+
+        // ── Labeled input fields ────────────────────────────────────────────
         Expanded(
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildBlueTextBox("Origin", _startController),
-              const SizedBox(height: 12),
-              _buildBlueTextBox("Destination", _endController),
+              // Origin label + field
+              _buildFieldLabel("Origin", Icons.my_location_rounded,
+                  Colors.green.shade600),
+              const SizedBox(height: 6),
+              _buildBlueTextBox("Enter starting point", _startController),
+
+              const SizedBox(height: 16),
+
+              // Destination label + field
+              _buildFieldLabel("Destination", Icons.location_on_rounded,
+                  Colors.red.shade500),
+              const SizedBox(height: 6),
+              _buildBlueTextBox("Enter destination", _endController),
             ],
           ),
         ),
+      ],
+    );
+  }
+
+  /// Label row shown above each input field
+  Widget _buildFieldLabel(String text, IconData icon, Color color) {
+    return Row(
+      children: [
+        Icon(icon, size: 14, color: color),
+        const SizedBox(width: 5),
+        Text(
+          text,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            color: color,
+            letterSpacing: 0.3,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Helper to wrap a field with a label + optional sub-label
+  Widget _buildLabeledField({
+    required String label,
+    String? sublabel,
+    required Widget child,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey.shade700,
+              ),
+            ),
+            if (sublabel != null) ...[
+              const SizedBox(width: 4),
+              Text(
+                "($sublabel)",
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey.shade400,
+                ),
+              ),
+            ],
+          ],
+        ),
+        const SizedBox(height: 8),
+        child,
       ],
     );
   }
@@ -323,85 +573,139 @@ class _RoutePlanningPageState extends State<RoutePlanningPage> {
       {bool isNumber = false}) {
     return Container(
       decoration: BoxDecoration(
-          color: _lightFillColor,
-          borderRadius: BorderRadius.circular(12)),
+        color: _lightFillColor,
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: TextField(
         controller: controller,
         keyboardType:
             isNumber ? TextInputType.number : TextInputType.text,
         decoration: InputDecoration(
           hintText: hint,
+          hintStyle: TextStyle(
+            color: Colors.grey.shade400,
+            fontSize: 14,
+            fontWeight: FontWeight.w400,
+          ),
           border: InputBorder.none,
           contentPadding:
               const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          suffixIcon: isNumber
+              ? Icon(Icons.speed_rounded,
+                  size: 18, color: _primaryColor.withOpacity(0.5))
+              : Icon(Icons.search_rounded,
+                  size: 18, color: _primaryColor.withOpacity(0.5)),
         ),
-        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+        style: const TextStyle(
+            fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black87),
       ),
     );
   }
 
   Widget _buildConnectorSelector() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text("Connector Type",
-            style: TextStyle(color: Colors.grey)),
-        const SizedBox(height: 8),
-        Container(
-          padding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-          decoration: BoxDecoration(
-              color: _lightFillColor,
-              borderRadius: BorderRadius.circular(12)),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: _selectedConnector,
-              isExpanded: true,
-              icon:
-                  Icon(Icons.keyboard_arrow_down, color: _primaryColor),
-              items: _connectorOptions.map((String value) {
-                return DropdownMenuItem<String>(
-                  value: value,
-                  child: Row(
-                    children: [
-                      Icon(Icons.electrical_services,
-                          color: _primaryColor, size: 20),
-                      const SizedBox(width: 10),
-                      Text(value,
-                          style: const TextStyle(
-                              fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                );
-              }).toList(),
-              onChanged: (newValue) =>
-                  setState(() => _selectedConnector = newValue!),
-            ),
+    return _buildLabeledField(
+      label: "Connector Type",
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+        decoration: BoxDecoration(
+          color: _lightFillColor,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: DropdownButtonHideUnderline(
+          child: DropdownButton<String>(
+            value: _selectedConnector,
+            isExpanded: true,
+            icon: Icon(Icons.keyboard_arrow_down_rounded,
+                color: _primaryColor),
+            items: _connectorOptions.map((String value) {
+              return DropdownMenuItem<String>(
+                value: value,
+                child: Row(
+                  children: [
+                    Icon(Icons.electrical_services_rounded,
+                        color: _primaryColor, size: 18),
+                    const SizedBox(width: 10),
+                    Text(
+                      value,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 14),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+            onChanged: (newValue) =>
+                setState(() => _selectedConnector = newValue!),
           ),
         ),
-      ],
+      ),
     );
   }
 
   Widget _buildBatterySlider() {
+    // Determine colour based on level
+    final Color batteryColor = _currentBattery < 20
+        ? Colors.red.shade500
+        : _currentBattery < 50
+            ? Colors.orange.shade600
+            : _accentGreen;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text("Current Battery Level"),
-            Text("${_currentBattery.toInt()}%",
-                style: const TextStyle(fontWeight: FontWeight.bold)),
+            Text(
+              "Current Battery Level",
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey.shade700,
+              ),
+            ),
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+              decoration: BoxDecoration(
+                color: batteryColor.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    _currentBattery > 70
+                        ? Icons.battery_full_rounded
+                        : _currentBattery > 30
+                            ? Icons.battery_4_bar_rounded
+                            : Icons.battery_1_bar_rounded,
+                    color: batteryColor,
+                    size: 16,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    "${_currentBattery.toInt()}%",
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: batteryColor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
+        const SizedBox(height: 8),
         SliderTheme(
           data: SliderTheme.of(context).copyWith(
             trackHeight: 6,
-            activeTrackColor: _primaryColor,
+            activeTrackColor: batteryColor,
             inactiveTrackColor: _lightFillColor,
-            thumbColor: _primaryColor,
-            overlayColor: _primaryColor.withOpacity(0.2),
+            thumbColor: batteryColor,
+            overlayColor: batteryColor.withOpacity(0.15),
+            thumbShape:
+                const RoundSliderThumbShape(enabledThumbRadius: 10),
           ),
           child: Slider(
             value: _currentBattery,
@@ -416,11 +720,11 @@ class _RoutePlanningPageState extends State<RoutePlanningPage> {
   }
 
   Widget _buildMapPreview() {
-    return SizedBox(
-      height: 200,
-      width: double.infinity,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(14),
+      child: SizedBox(
+        height: 200,
+        width: double.infinity,
         child: GoogleMap(
           mapType: MapType.normal,
           initialCameraPosition: _kInitialLocation,
@@ -435,7 +739,6 @@ class _RoutePlanningPageState extends State<RoutePlanningPage> {
     );
   }
 
-  // ── CHANGE 2: onTap navigates to ChargingRoute instead of Google Maps ─────
   Widget _buildStopItem(int index, dynamic stop) {
     final double lat = stop['Latitude'];
     final double lng = stop['Longitude'];
@@ -454,73 +757,118 @@ class _RoutePlanningPageState extends State<RoutePlanningPage> {
         );
       },
       child: Container(
-        margin: const EdgeInsets.only(bottom: 16),
-        padding: const EdgeInsets.all(12),
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
+          color: const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(color: Colors.grey.shade100),
-          boxShadow: [
-            BoxShadow(
-                color: Colors.grey.withOpacity(0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 4))
-          ],
         ),
         child: Row(
           children: [
+            // Index badge
             Container(
-              width: 30,
-              height: 30,
+              width: 34,
+              height: 34,
               decoration: BoxDecoration(
-                  color: _accentGreen, shape: BoxShape.circle),
+                color: _accentGreen,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: _accentGreen.withOpacity(0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
               child: Center(
-                  child: Text("$index",
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold))),
+                child: Text(
+                  "$index",
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 14),
+            // Station info
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(name,
-                      style: const TextStyle(
-                          fontWeight: FontWeight.bold)),
                   Text(
-                      "Distance: ${stop['DistancetoFind']} km",
-                      style: TextStyle(
-                          color: Colors.grey[500], fontSize: 12)),
+                    name,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: Colors.black87,
+                    ),
+                  ),
                   const SizedBox(height: 4),
-                  const Row(
+                  Row(
                     children: [
-                      Text("Tap to Navigate",
-                          style: TextStyle(
-                              fontSize: 10,
-                              color: Colors.blue,
-                              fontWeight: FontWeight.bold)),
-                      SizedBox(width: 4),
-                      Icon(Icons.arrow_forward,
-                          size: 10, color: Colors.blue),
+                      Icon(Icons.straighten_rounded,
+                          size: 12, color: Colors.grey.shade400),
+                      const SizedBox(width: 4),
+                      Text(
+                        "${stop['DistancetoFind']} km",
+                        style: TextStyle(
+                            color: Colors.grey.shade500, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(Icons.navigation_rounded,
+                          size: 12, color: _primaryColor),
+                      const SizedBox(width: 4),
+                      Text(
+                        "Tap to Navigate",
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: _primaryColor,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(Icons.arrow_forward_rounded,
+                          size: 11, color: _primaryColor),
                     ],
                   ),
                 ],
               ),
             ),
-            Text(
-              "Need: ${stop['NeedChargePercentage']}",
-              style: TextStyle(
-                  color: _accentGreen,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12),
+            // Charge needed badge
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: _accentGreen.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Column(
+                children: [
+                  Icon(Icons.bolt_rounded,
+                      size: 14, color: _accentGreen),
+                  Text(
+                    "${stop['NeedChargePercentage']}",
+                    style: TextStyle(
+                      color: _accentGreen,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
       ),
     );
   }
-  // ─────────────────────────────────────────────────────────────────────────
 
   Widget _buildTripSummaryGrid() {
     return GridView.count(
@@ -529,38 +877,64 @@ class _RoutePlanningPageState extends State<RoutePlanningPage> {
       crossAxisCount: 2,
       crossAxisSpacing: 12,
       mainAxisSpacing: 12,
-      childAspectRatio: 2.5,
+      childAspectRatio: 2.4,
       children: [
-        _summaryCard(Icons.directions,
-            "${_totalDistance.toStringAsFixed(1)} km", "Total Distance"),
-        _summaryCard(Icons.access_time, "--", "Est. Time"),
-        _summaryCard(Icons.attach_money, "--", "Est. Cost"),
-        _summaryCard(Icons.eco, "0 lbs", "CO2 Saved"),
+        _summaryCard(Icons.straighten_rounded,
+            "${_totalDistance.toStringAsFixed(1)} km", "Total Distance",
+            Colors.blue.shade600),
+        _summaryCard(Icons.access_time_rounded, "--", "Est. Time",
+            Colors.purple.shade400),
+        _summaryCard(Icons.electric_bolt_rounded, "--", "Est. Cost",
+            Colors.orange.shade600),
+        _summaryCard(Icons.eco_rounded, "0 lbs", "CO₂ Saved",
+            Colors.green.shade600),
       ],
     );
   }
 
-  Widget _summaryCard(IconData icon, String value, String label) {
+  Widget _summaryCard(
+      IconData icon, String value, String label, Color iconColor) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-          color: const Color(0xFFF5F9FD),
-          borderRadius: BorderRadius.circular(12)),
+        color: iconColor.withOpacity(0.06),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: iconColor.withOpacity(0.12)),
+      ),
       child: Row(
         children: [
-          Icon(icon, color: _primaryColor, size: 20),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(value,
+          Container(
+            padding: const EdgeInsets.all(7),
+            decoration: BoxDecoration(
+              color: iconColor.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: iconColor, size: 18),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  value,
                   style: const TextStyle(
-                      fontWeight: FontWeight.bold, fontSize: 16)),
-              Text(label,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                    color: Colors.black87,
+                  ),
+                ),
+                Text(
+                  label,
                   style: TextStyle(
-                      color: Colors.grey[600], fontSize: 10)),
-            ],
+                    color: Colors.grey.shade500,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),

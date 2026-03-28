@@ -4,6 +4,7 @@ import 'package:chargepath/Screens/chargingstations.dart';
 import 'package:chargepath/Screens/routeplanning.dart';
 import 'package:chargepath/Screens/bookstation.dart';
 import 'package:chargepath/Widgets/navigationbar.dart';
+import 'package:chargepath/Screens/profilepage.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -15,21 +16,23 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
 
-  final List<Widget> _pages = const [
-    HomePage(),        // index 0 — Home
-    FindStations(),    // index 1 — Charging Stations
-    RoutePlanningPage(), // index 2 — Map / Route Planning
-    // ProfilePage(),  // index 3 — Profile (add when ready)
-  ];
-
   @override
   Widget build(BuildContext context) {
+    final List<Widget> pages = [
+      HomePage(
+        onNavigateToStations: () => setState(() => _selectedIndex = 1),
+      ),
+      const FindStations(),
+      const RoutePlanningPage(),
+      const ProfilePage(),
+    ];
+
     return Scaffold(
       body: Stack(
         children: [
           IndexedStack(
             index: _selectedIndex,
-            children: _pages,
+            children: pages,
           ),
           Positioned(
             bottom: 0,

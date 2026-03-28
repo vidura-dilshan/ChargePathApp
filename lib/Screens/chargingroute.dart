@@ -32,7 +32,9 @@ class _ChargingRouteState extends State<ChargingRoute>
   // ── GOOGLE MAPS ───────────────────────────────────────────────────────────
   static const String _kGoogleApiKey =
       "AIzaSyALER_NJqGFdwseum4UGUk_wTTYZbGK-es";
-  final Completer<GoogleMapController> _controller = Completer();
+
+  // ── CACHED CONTROLLER (key fix for smooth navigation) ─────────────────────
+  GoogleMapController? _mapController;
 
   // ── LOCATION STATE ────────────────────────────────────────────────────────
   LatLng? _currentPosition;
@@ -97,6 +99,7 @@ class _ChargingRouteState extends State<ChargingRoute>
   @override
   void dispose() {
     _positionStream?.cancel();
+    _mapController?.dispose();
     _hudAnimCtrl.dispose();
     _instrAnimCtrl.dispose();
     super.dispose();
@@ -110,54 +113,77 @@ class _ChargingRouteState extends State<ChargingRoute>
     _getUserLocationAndRoute();
   }
 
+  /// Google Maps–style navigation chevron — sharp, blue with white border
   Future<BitmapDescriptor> _createNavigationArrowIcon() async {
-    const int size = 120;
+    const int size = 160;
     final ui.PictureRecorder recorder = ui.PictureRecorder();
     final Canvas canvas = Canvas(recorder);
-
-    final Paint shadowPaint = Paint()
-      ..color = const Color(0xFF0253A4).withOpacity(0.30)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
-
-    final Paint bodyPaint = Paint()
-      ..color = const Color(0xFF0253A4)
-      ..style = PaintingStyle.fill;
-
-    final Paint edgePaint = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3.5
-      ..strokeJoin = StrokeJoin.round;
 
     final double cx = size / 2;
     final double cy = size / 2;
 
-    final Path arrow = Path();
-    arrow.moveTo(cx, cy - 42);
-    arrow.lineTo(cx + 30, cy + 30);
-    arrow.lineTo(cx, cy + 12);
-    arrow.lineTo(cx - 30, cy + 30);
-    arrow.close();
+    // ── outer glow / shadow ───────────────────────────────────────────────
+    final Paint glowPaint = Paint()
+      ..color = const Color(0xFF0253A4).withOpacity(0.22)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
+
+    final Path arrowShape = _buildArrowPath(cx, cy, 54, 22);
 
     canvas.save();
-    canvas.translate(0, 4);
-    canvas.drawPath(arrow, shadowPaint);
+    canvas.translate(0, 6);
+    canvas.drawPath(arrowShape, glowPaint);
     canvas.restore();
 
-    canvas.drawPath(arrow, bodyPaint);
-    canvas.drawPath(arrow, edgePaint);
-    canvas.drawCircle(
-      Offset(cx, cy - 42),
-      4,
-      Paint()..color = Colors.white,
+    // ── white border stroke ───────────────────────────────────────────────
+    canvas.drawPath(
+      arrowShape,
+      Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 7
+        ..strokeJoin = StrokeJoin.round,
+    );
+
+    // ── solid fill ────────────────────────────────────────────────────────
+    canvas.drawPath(
+      arrowShape,
+      Paint()
+        ..color = const Color(0xFF0253A4)
+        ..style = PaintingStyle.fill,
+    );
+
+    // ── inner highlight line ──────────────────────────────────────────────
+    canvas.drawPath(
+      arrowShape,
+      Paint()
+        ..color = Colors.white.withOpacity(0.25)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.5
+        ..strokeJoin = StrokeJoin.round,
     );
 
     final ui.Image img =
         await recorder.endRecording().toImage(size, size);
     final ByteData? byteData =
         await img.toByteData(format: ui.ImageByteFormat.png);
-
     return BitmapDescriptor.fromBytes(byteData!.buffer.asUint8List());
+  }
+
+  /// Builds a clean navigation-chevron path centred on (cx, cy).
+  /// [tip] = half-height from centre to tip; [tail] = half-height to tail
+  Path _buildArrowPath(
+      double cx, double cy, double tip, double tail) {
+    final Path p = Path();
+    // Tip of arrow (pointing up — bearing rotation handled by Marker.rotation)
+    p.moveTo(cx, cy - tip);
+    // Right wing
+    p.lineTo(cx + 32, cy + tail);
+    // Notch
+    p.lineTo(cx, cy + tail - 14);
+    // Left wing
+    p.lineTo(cx - 32, cy + tail);
+    p.close();
+    return p;
   }
 
   Future<BitmapDescriptor> _createLocationDotIcon() async {
@@ -168,27 +194,30 @@ class _ChargingRouteState extends State<ChargingRoute>
     final double cx = size / 2;
     final double cy = size / 2;
 
+    // Pulse rings
     canvas.drawCircle(
       Offset(cx, cy),
-      28,
+      30,
       Paint()
-        ..color = const Color(0xFF0253A4).withOpacity(0.18)
+        ..color = const Color(0xFF0253A4).withOpacity(0.12)
         ..style = PaintingStyle.fill,
     );
     canvas.drawCircle(
       Offset(cx, cy),
-      18,
+      20,
       Paint()
-        ..color = const Color(0xFF0253A4).withOpacity(0.30)
+        ..color = const Color(0xFF0253A4).withOpacity(0.22)
         ..style = PaintingStyle.fill,
     );
+    // White ring
     canvas.drawCircle(
       Offset(cx, cy),
-      12,
+      13,
       Paint()
         ..color = Colors.white
         ..style = PaintingStyle.fill,
     );
+    // Core dot
     canvas.drawCircle(
       Offset(cx, cy),
       9,
@@ -201,7 +230,6 @@ class _ChargingRouteState extends State<ChargingRoute>
         await recorder.endRecording().toImage(size, size);
     final ByteData? byteData =
         await img.toByteData(format: ui.ImageByteFormat.png);
-
     return BitmapDescriptor.fromBytes(byteData!.buffer.asUint8List());
   }
 
@@ -252,8 +280,7 @@ class _ChargingRouteState extends State<ChargingRoute>
       _updateMarkersPreview();
     });
 
-    final GoogleMapController ctrl = await _controller.future;
-    ctrl.animateCamera(
+    _mapController?.animateCamera(
       CameraUpdate.newCameraPosition(
         CameraPosition(target: _currentPosition!, zoom: 14),
       ),
@@ -332,7 +359,6 @@ class _ChargingRouteState extends State<ChargingRoute>
             _isLoading = false;
           });
 
-          // Fit camera to show entire route
           _fitMapToRoute(polylineCoords);
         } else {
           debugPrint("Directions API status: ${data['status']}");
@@ -348,8 +374,8 @@ class _ChargingRouteState extends State<ChargingRoute>
   }
 
   // ── FIT MAP TO SHOW ENTIRE ROUTE ──────────────────────────────────────────
-  Future<void> _fitMapToRoute(List<LatLng> points) async {
-    if (points.isEmpty) return;
+  void _fitMapToRoute(List<LatLng> points) {
+    if (points.isEmpty || _mapController == null) return;
     double minLat = points.first.latitude;
     double maxLat = points.first.latitude;
     double minLng = points.first.longitude;
@@ -362,14 +388,13 @@ class _ChargingRouteState extends State<ChargingRoute>
       if (p.longitude > maxLng) maxLng = p.longitude;
     }
 
-    final GoogleMapController ctrl = await _controller.future;
-    ctrl.animateCamera(
+    _mapController!.animateCamera(
       CameraUpdate.newLatLngBounds(
         LatLngBounds(
           southwest: LatLng(minLat, minLng),
           northeast: LatLng(maxLat, maxLng),
         ),
-        80.0, // padding
+        80.0,
       ),
     );
   }
@@ -432,14 +457,16 @@ class _ChargingRouteState extends State<ChargingRoute>
         icon: _locationDotIcon ?? BitmapDescriptor.defaultMarker,
         anchor: const Offset(0.5, 0.5),
         infoWindow: InfoWindow(title: _startAddress),
+        zIndex: 2,
       ),
       Marker(
         markerId: const MarkerId("destination"),
         position: _destination,
         icon: BitmapDescriptor.defaultMarkerWithHue(
-          BitmapDescriptor.hueRed,
+          BitmapDescriptor.hueAzure,
         ),
         infoWindow: InfoWindow(title: _destinationName),
+        zIndex: 1,
       ),
     };
   }
@@ -453,15 +480,17 @@ class _ChargingRouteState extends State<ChargingRoute>
         anchor: const Offset(0.5, 0.5),
         rotation: bearing,
         flat: true,
+        zIndex: 3,
         consumeTapEvents: false,
       ),
       Marker(
         markerId: const MarkerId("destination"),
         position: _destination,
         icon: BitmapDescriptor.defaultMarkerWithHue(
-          BitmapDescriptor.hueRed,
+          BitmapDescriptor.hueAzure,
         ),
         infoWindow: InfoWindow(title: _destinationName),
+        zIndex: 1,
       ),
     };
   }
@@ -479,8 +508,8 @@ class _ChargingRouteState extends State<ChargingRoute>
 
     _hudAnimCtrl.forward();
 
-    final GoogleMapController ctrl = await _controller.future;
-    ctrl.animateCamera(
+    // Move instantly to navigation view — no animation delay
+    _mapController?.moveCamera(
       CameraUpdate.newCameraPosition(
         CameraPosition(
           target: _currentPosition!,
@@ -494,25 +523,40 @@ class _ChargingRouteState extends State<ChargingRoute>
     _positionStream = Geolocator.getPositionStream(
       locationSettings: const LocationSettings(
         accuracy: LocationAccuracy.bestForNavigation,
-        distanceFilter: 5,
+        distanceFilter: 2, // update every 2 m for smoother tracking
       ),
     ).listen(_onLocationUpdate);
   }
 
   // ── 4. REAL-TIME LOCATION UPDATE ──────────────────────────────────────────
-  Future<void> _onLocationUpdate(Position position) async {
+  /// KEY FIX: use moveCamera (instant, no easing) so the marker and camera
+  /// move together without any async gap or animation conflict.
+  void _onLocationUpdate(Position position) async {
     if (!mounted) return;
 
     final LatLng newPos = LatLng(position.latitude, position.longitude);
     final double bearing = position.heading;
 
+    // Update marker + state synchronously so the icon moves immediately
     setState(() {
       _currentPosition = newPos;
       _currentBearing = bearing;
       _updateMarkersNavigation(newPos, bearing);
     });
 
-    // Step advancement logic
+    // Move camera without animation so it tracks the marker in real time
+    _mapController?.moveCamera(
+      CameraUpdate.newCameraPosition(
+        CameraPosition(
+          target: newPos,
+          zoom: 18,
+          tilt: 60,
+          bearing: bearing,
+        ),
+      ),
+    );
+
+    // ── Step advancement ──────────────────────────────────────────────────
     if (_steps.isNotEmpty && _currentStepIndex < _steps.length) {
       final _NavStep currentStep = _steps[_currentStepIndex];
       final double distToStepEnd = Geolocator.distanceBetween(
@@ -539,7 +583,7 @@ class _ChargingRouteState extends State<ChargingRoute>
       }
     }
 
-    // Arrival detection
+    // ── Arrival detection ─────────────────────────────────────────────────
     final double distToDestination = Geolocator.distanceBetween(
       position.latitude,
       position.longitude,
@@ -553,19 +597,6 @@ class _ChargingRouteState extends State<ChargingRoute>
       _positionStream?.cancel();
       _showArrivalDialog();
     }
-
-    if (!mounted) return;
-    final GoogleMapController ctrl = await _controller.future;
-    ctrl.animateCamera(
-      CameraUpdate.newCameraPosition(
-        CameraPosition(
-          target: newPos,
-          zoom: 18,
-          tilt: 60,
-          bearing: bearing,
-        ),
-      ),
-    );
   }
 
   // ── 5. END NAVIGATION ─────────────────────────────────────────────────────
@@ -581,8 +612,7 @@ class _ChargingRouteState extends State<ChargingRoute>
     });
 
     if (_currentPosition != null) {
-      final GoogleMapController ctrl = await _controller.future;
-      ctrl.animateCamera(
+      _mapController?.animateCamera(
         CameraUpdate.newCameraPosition(
           CameraPosition(
             target: _currentPosition!,
@@ -606,6 +636,13 @@ class _ChargingRouteState extends State<ChargingRoute>
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.15),
+                blurRadius: 30,
+                offset: const Offset(0, 10),
+              ),
+            ],
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -613,13 +650,18 @@ class _ChargingRouteState extends State<ChargingRoute>
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: Colors.green.shade50,
+                  gradient: RadialGradient(
+                    colors: [
+                      Colors.green.shade100,
+                      Colors.green.shade50,
+                    ],
+                  ),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
                   Icons.check_circle_rounded,
                   color: Colors.green.shade600,
-                  size: 48,
+                  size: 52,
                 ),
               ),
               const SizedBox(height: 20),
@@ -638,6 +680,7 @@ class _ChargingRouteState extends State<ChargingRoute>
                 style: TextStyle(
                   color: Colors.grey.shade600,
                   fontSize: 14,
+                  height: 1.5,
                 ),
               ),
               const SizedBox(height: 24),
@@ -650,10 +693,11 @@ class _ChargingRouteState extends State<ChargingRoute>
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _primaryColor,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    padding: const EdgeInsets.symmetric(vertical: 15),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(14),
                     ),
+                    elevation: 0,
                   ),
                   child: const Text(
                     "Done",
@@ -681,15 +725,15 @@ class _ChargingRouteState extends State<ChargingRoute>
           backgroundColor: Colors.transparent,
           insetPadding: const EdgeInsets.all(20),
           child: Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
-                  blurRadius: 15,
-                  offset: const Offset(0, 5),
+                  color: Colors.black.withOpacity(0.15),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
                 ),
               ],
             ),
@@ -702,54 +746,74 @@ class _ChargingRouteState extends State<ChargingRoute>
                   children: [
                     Row(
                       children: [
-                        Icon(Icons.flash_on, color: _primaryColor, size: 20),
-                        const SizedBox(width: 4),
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: _primaryColor.withOpacity(0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(Icons.flash_on,
+                              color: _primaryColor, size: 18),
+                        ),
+                        const SizedBox(width: 8),
                         Text(
-                          'Estimated Total Cost',
+                          'Estimated Cost',
                           style: TextStyle(
-                            color: Colors.grey.shade600,
+                            color: Colors.grey.shade700,
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
                       ],
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.close, size: 20),
-                      onPressed: () => Navigator.pop(context),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
+                    GestureDetector(
+                      onTap: () => Navigator.pop(context),
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade100,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.close,
+                            size: 18, color: Colors.black54),
+                      ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 12),
                 const Text(
-                  'Rs.24.50',
+                  'Rs. 24.50',
                   style: TextStyle(
-                    fontSize: 32,
+                    fontSize: 36,
                     fontWeight: FontWeight.bold,
                     color: Colors.black87,
+                    letterSpacing: -0.5,
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 14),
                 Container(
                   width: double.infinity,
-                  alignment: Alignment.center,
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 8,
-                  ),
+                      horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
                     color: _primaryColor,
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Text(
-                    '${_totalDistance.isNotEmpty && _totalDistance != "--" ? _totalDistance : "?"} to $_destinationName',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.electric_bolt,
+                          color: Colors.white, size: 16),
+                      const SizedBox(width: 6),
+                      Text(
+                        '${_totalDistance != "--" ? _totalDistance : "?"} to $_destinationName',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -784,12 +848,17 @@ class _ChargingRouteState extends State<ChargingRoute>
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          CircularProgressIndicator(color: _primaryColor),
+                          CircularProgressIndicator(
+                            color: _primaryColor,
+                            strokeWidth: 3,
+                          ),
                           const SizedBox(height: 16),
                           Text(
                             "Getting your location...",
-                            style:
-                                TextStyle(color: Colors.grey.shade600),
+                            style: TextStyle(
+                              color: Colors.grey.shade600,
+                              fontSize: 14,
+                            ),
                           ),
                         ],
                       ),
@@ -807,14 +876,13 @@ class _ChargingRouteState extends State<ChargingRoute>
                     polylines: _polylines,
                     markers: _markers,
                     onMapCreated: (GoogleMapController controller) {
-                      if (!_controller.isCompleted) {
-                        _controller.complete(controller);
-                      }
+                      // Cache controller immediately — no Completer needed
+                      _mapController = controller;
                     },
                   ),
           ),
 
-          // ── BACK BUTTON (always visible, preview mode) ─────────────────────
+          // ── BACK BUTTON (preview mode only) ────────────────────────────────
           if (!_isNavigating)
             Positioned(
               top: 48,
@@ -823,21 +891,21 @@ class _ChargingRouteState extends State<ChargingRoute>
                 child: GestureDetector(
                   onTap: () => Navigator.pop(context),
                   child: Container(
-                    width: 44,
-                    height: 44,
+                    width: 46,
+                    height: 46,
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(14),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.12),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
                         ),
                       ],
                     ),
                     child: const Icon(
-                      Icons.arrow_back_ios_new,
+                      Icons.arrow_back_ios_new_rounded,
                       size: 18,
                       color: Colors.black87,
                     ),
@@ -872,26 +940,24 @@ class _ChargingRouteState extends State<ChargingRoute>
               child: _buildNavigationBottomBar(),
             ),
 
-          // ── PREVIEW: VIEW COST ─────────────────────────────────────────────
+          // ── PREVIEW: VIEW COST BUTTON ──────────────────────────────────────
           if (!_isNavigating)
             Positioned(
               top: 60,
-              right: 20,
+              right: 16,
               child: SafeArea(
                 child: GestureDetector(
                   onTap: _showCostPopup,
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
+                        horizontal: 16, vertical: 11),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(30),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.15),
-                          blurRadius: 8,
+                          color: Colors.black.withOpacity(0.12),
+                          blurRadius: 12,
                           offset: const Offset(0, 4),
                         ),
                       ],
@@ -899,23 +965,24 @@ class _ChargingRouteState extends State<ChargingRoute>
                     child: Row(
                       children: [
                         Container(
-                          padding: const EdgeInsets.all(4),
+                          padding: const EdgeInsets.all(5),
                           decoration: BoxDecoration(
                             color: _primaryColor.withOpacity(0.1),
                             shape: BoxShape.circle,
                           ),
                           child: Icon(
-                            Icons.attach_money,
+                            Icons.monetization_on_rounded,
                             color: _primaryColor,
-                            size: 20,
+                            size: 18,
                           ),
                         ),
                         const SizedBox(width: 8),
-                        const Text(
+                        Text(
                           "View Cost",
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            fontSize: 14,
+                            fontSize: 13,
+                            color: Colors.grey.shade800,
                           ),
                         ),
                       ],
@@ -928,41 +995,34 @@ class _ChargingRouteState extends State<ChargingRoute>
           // ── PREVIEW: MAP CONTROLS ──────────────────────────────────────────
           if (!_isNavigating)
             Positioned(
-              top: screenHeight * 0.45 - 130,
+              top: screenHeight * 0.45 - 140,
               right: 16,
               child: Column(
                 children: [
                   _buildMapButton(
-                    Icons.my_location,
-                    onTap: () async {
+                    Icons.my_location_rounded,
+                    onTap: () {
                       if (_currentPosition != null) {
-                        final ctrl = await _controller.future;
-                        ctrl.animateCamera(
+                        _mapController?.animateCamera(
                           CameraUpdate.newCameraPosition(
                             CameraPosition(
-                              target: _currentPosition!,
-                              zoom: 16,
-                            ),
+                                target: _currentPosition!, zoom: 16),
                           ),
                         );
                       }
                     },
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
                   _buildMapButton(
-                    Icons.add,
-                    onTap: () async {
-                      final ctrl = await _controller.future;
-                      ctrl.animateCamera(CameraUpdate.zoomIn());
-                    },
+                    Icons.add_rounded,
+                    onTap: () =>
+                        _mapController?.animateCamera(CameraUpdate.zoomIn()),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
                   _buildMapButton(
-                    Icons.remove,
-                    onTap: () async {
-                      final ctrl = await _controller.future;
-                      ctrl.animateCamera(CameraUpdate.zoomOut());
-                    },
+                    Icons.remove_rounded,
+                    onTap: () =>
+                        _mapController?.animateCamera(CameraUpdate.zoomOut()),
                   ),
                 ],
               ),
@@ -984,9 +1044,9 @@ class _ChargingRouteState extends State<ChargingRoute>
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 20,
-                      offset: const Offset(0, -5),
+                      color: Colors.black.withOpacity(0.06),
+                      blurRadius: 24,
+                      offset: const Offset(0, -6),
                     ),
                   ],
                 ),
@@ -1006,25 +1066,26 @@ class _ChargingRouteState extends State<ChargingRoute>
                     ),
                     Expanded(
                       child: ListView(
-                        padding: const EdgeInsets.fromLTRB(24, 10, 24, 24),
+                        padding:
+                            const EdgeInsets.fromLTRB(24, 10, 24, 24),
                         physics: const BouncingScrollPhysics(),
                         children: [
-                          // Route label
+                          // ── Route header ─────────────────────────────────
                           Row(
                             children: [
                               Container(
-                                padding: const EdgeInsets.all(10),
+                                padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
                                   color: _primaryColor,
-                                  borderRadius: BorderRadius.circular(12),
+                                  borderRadius: BorderRadius.circular(14),
                                 ),
                                 child: const Icon(
-                                  Icons.alt_route,
+                                  Icons.alt_route_rounded,
                                   color: Colors.white,
-                                  size: 24,
+                                  size: 22,
                                 ),
                               ),
-                              const SizedBox(width: 16),
+                              const SizedBox(width: 14),
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment:
@@ -1033,17 +1094,18 @@ class _ChargingRouteState extends State<ChargingRoute>
                                     Text(
                                       '$_startAddress → $_destinationName',
                                       style: const TextStyle(
-                                        fontSize: 17,
+                                        fontSize: 16,
                                         fontWeight: FontWeight.bold,
                                         color: Colors.black87,
                                       ),
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                     ),
+                                    const SizedBox(height: 3),
                                     Text(
                                       'Optimal charging route',
                                       style: TextStyle(
-                                        fontSize: 14,
+                                        fontSize: 13,
                                         color: Colors.grey.shade500,
                                       ),
                                     ),
@@ -1055,37 +1117,50 @@ class _ChargingRouteState extends State<ChargingRoute>
 
                           const SizedBox(height: 24),
 
-                          // Stats row
-                          Row(
-                            mainAxisAlignment:
-                                MainAxisAlignment.spaceAround,
-                            children: [
-                              _buildStatItem(
-                                _totalDistance,
-                                'Distance',
-                                Colors.black87,
-                              ),
-                              _buildStatItem(
-                                _totalDuration,
-                                'Duration',
-                                Colors.black87,
-                              ),
-                              _buildStatItem(
-                                'Rs.24.50',
-                                'Cost',
-                                _primaryColor,
-                              ),
-                            ],
+                          // ── Stats row ─────────────────────────────────────
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                vertical: 16, horizontal: 8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF8FAFC),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Row(
+                              mainAxisAlignment:
+                                  MainAxisAlignment.spaceAround,
+                              children: [
+                                _buildStatItem(
+                                  _totalDistance,
+                                  'Distance',
+                                  Icons.straighten_rounded,
+                                  Colors.black87,
+                                ),
+                                _buildDivider(),
+                                _buildStatItem(
+                                  _totalDuration,
+                                  'Duration',
+                                  Icons.access_time_rounded,
+                                  Colors.black87,
+                                ),
+                                _buildDivider(),
+                                _buildStatItem(
+                                  'Rs.24.50',
+                                  'Cost',
+                                  Icons.electric_bolt_rounded,
+                                  _primaryColor,
+                                ),
+                              ],
+                            ),
                           ),
 
-                          const SizedBox(height: 28),
+                          const SizedBox(height: 24),
 
-                          // Timeline
+                          // ── Timeline ──────────────────────────────────────
                           _buildTimelineItem(
                             index: 1,
                             name: _startAddress,
                             details: 'Start Point • Current Location',
-                            percentage: 'Start',
+                            tag: 'Start',
                             isLast: false,
                           ),
                           _buildTimelineItem(
@@ -1093,13 +1168,13 @@ class _ChargingRouteState extends State<ChargingRoute>
                             name: _destinationName,
                             details:
                                 'Charging Station • $_totalDistance total',
-                            percentage: 'End',
+                            tag: 'End',
                             isLast: true,
                           ),
 
                           const SizedBox(height: 20),
 
-                          // Action buttons
+                          // ── Action buttons ────────────────────────────────
                           Row(
                             children: [
                               Expanded(
@@ -1112,24 +1187,23 @@ class _ChargingRouteState extends State<ChargingRoute>
                                     icon: const Icon(
                                       Icons.navigation_rounded,
                                       color: Colors.white,
+                                      size: 20,
                                     ),
                                     label: Text(
                                       _isLoading
-                                          ? 'Loading route...'
+                                          ? 'Loading...'
                                           : 'Start Navigation',
                                       style: const TextStyle(
-                                        fontSize: 16,
+                                        fontSize: 15,
                                         fontWeight: FontWeight.bold,
                                         color: Colors.white,
                                       ),
                                     ),
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: _isLoading
-                                          ? Colors.grey
+                                          ? Colors.grey.shade400
                                           : _primaryColor,
-                                      elevation: 4,
-                                      shadowColor:
-                                          _primaryColor.withOpacity(0.4),
+                                      elevation: 0,
                                       shape: RoundedRectangleBorder(
                                         borderRadius:
                                             BorderRadius.circular(16),
@@ -1139,8 +1213,8 @@ class _ChargingRouteState extends State<ChargingRoute>
                                 ),
                               ),
                               const SizedBox(width: 12),
-                              _buildIconButton(Icons.bookmark_border),
-                              const SizedBox(width: 12),
+                              _buildIconButton(Icons.bookmark_border_rounded),
+                              const SizedBox(width: 10),
                               _buildIconButton(Icons.share_outlined),
                             ],
                           ),
@@ -1173,7 +1247,7 @@ class _ChargingRouteState extends State<ChargingRoute>
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: _primaryColor.withOpacity(0.4),
+              color: _primaryColor.withOpacity(0.35),
               blurRadius: 20,
               offset: const Offset(0, 8),
             ),
@@ -1181,29 +1255,31 @@ class _ChargingRouteState extends State<ChargingRoute>
         ),
         child: Row(
           children: [
+            // Maneuver icon box
             Container(
-              width: 56,
-              height: 56,
+              width: 52,
+              height: 52,
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
+                color: Colors.white.withOpacity(0.18),
                 borderRadius: BorderRadius.circular(14),
               ),
               child: Icon(
                 _maneuverIcon(step?.maneuver ?? 'straight'),
                 color: Colors.white,
-                size: 30,
+                size: 28,
               ),
             ),
             const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     step?.instruction ?? 'Follow the route',
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 16,
+                      fontSize: 15,
                       fontWeight: FontWeight.bold,
                       height: 1.3,
                     ),
@@ -1212,28 +1288,36 @@ class _ChargingRouteState extends State<ChargingRoute>
                   ),
                   if (step != null) ...[
                     const SizedBox(height: 4),
-                    Text(
-                      'In ${step.distance}',
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.8),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                      ),
+                    Row(
+                      children: [
+                        const Icon(Icons.straighten_rounded,
+                            color: Colors.white70, size: 14),
+                        const SizedBox(width: 4),
+                        Text(
+                          'In ${step.distance}',
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ],
               ),
             ),
+            const SizedBox(width: 10),
+            // End navigation button
             GestureDetector(
               onTap: _endNavigation,
               child: Container(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(9),
                 decoration: BoxDecoration(
                   color: Colors.red.shade400,
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Icon(
-                  Icons.close,
+                  Icons.close_rounded,
                   color: Colors.white,
                   size: 20,
                 ),
@@ -1253,74 +1337,111 @@ class _ChargingRouteState extends State<ChargingRoute>
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withOpacity(0.08),
             blurRadius: 20,
             offset: const Offset(0, -4),
           ),
         ],
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                _remainingDistance,
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: _primaryColor,
+          // Remaining distance
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  _remainingDistance,
+                  style: TextStyle(
+                    fontSize: 26,
+                    fontWeight: FontWeight.bold,
+                    color: _primaryColor,
+                    letterSpacing: -0.5,
+                  ),
                 ),
-              ),
-              Text(
-                'remaining',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey.shade500,
+                Text(
+                  'remaining',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey.shade500,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                _steps.isNotEmpty
-                    ? 'Step ${_currentStepIndex + 1}/${_steps.length}'
-                    : '-- / --',
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black87,
+
+          // Step counter badge
+          Container(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF0F4F8),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  _steps.isNotEmpty
+                      ? '${_currentStepIndex + 1} / ${_steps.length}'
+                      : '-- / --',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
                 ),
-              ),
-              Text(
-                'of route',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey.shade500,
+                Text(
+                  'steps',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey.shade500,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.ev_station, color: Colors.blue, size: 20),
-              Text(
-                _destinationName,
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
+
+          const SizedBox(width: 12),
+
+          // Destination
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Icon(Icons.ev_station_rounded,
+                        color: _primaryColor, size: 16),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Destination',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey.shade500,
+                      ),
+                    ),
+                  ],
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
+                const SizedBox(height: 2),
+                Text(
+                  _destinationName,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.end,
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -1383,33 +1504,41 @@ class _ChargingRouteState extends State<ChargingRoute>
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
             ),
           ],
         ),
-        child: Icon(icon, color: Colors.black87, size: 24),
+        child: Icon(icon, color: Colors.black87, size: 22),
       ),
     );
   }
 
-  Widget _buildStatItem(String value, String label, Color valueColor) {
+  Widget _buildStatItem(
+    String value,
+    String label,
+    IconData icon,
+    Color valueColor,
+  ) {
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
+        Icon(icon, size: 16, color: valueColor.withOpacity(0.7)),
+        const SizedBox(height: 4),
         Text(
           value,
           style: TextStyle(
-            fontSize: 18,
+            fontSize: 16,
             fontWeight: FontWeight.bold,
             color: valueColor,
           ),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 2),
         Text(
           label,
           style: TextStyle(
-            fontSize: 12,
+            fontSize: 11,
             color: Colors.grey.shade500,
             fontWeight: FontWeight.w500,
           ),
@@ -1418,11 +1547,19 @@ class _ChargingRouteState extends State<ChargingRoute>
     );
   }
 
+  Widget _buildDivider() {
+    return Container(
+      height: 32,
+      width: 1,
+      color: Colors.grey.shade200,
+    );
+  }
+
   Widget _buildTimelineItem({
     required int index,
     required String name,
     required String details,
-    required String percentage,
+    required String tag,
     required bool isLast,
   }) {
     return IntrinsicHeight(
@@ -1442,10 +1579,11 @@ class _ChargingRouteState extends State<ChargingRoute>
                   ),
                   child: Center(
                     child: Text(
-                      index.toString(),
+                      '$index',
                       style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
+                        fontSize: 14,
                       ),
                     ),
                   ),
@@ -1454,7 +1592,7 @@ class _ChargingRouteState extends State<ChargingRoute>
                   Expanded(
                     child: Container(
                       width: 2,
-                      color: Colors.grey.shade200,
+                      color: _primaryColor.withOpacity(0.15),
                       margin: const EdgeInsets.symmetric(vertical: 4),
                     ),
                   ),
@@ -1464,7 +1602,7 @@ class _ChargingRouteState extends State<ChargingRoute>
           const SizedBox(width: 12),
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.only(bottom: 24),
+              padding: const EdgeInsets.only(bottom: 20),
               child: Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -1481,27 +1619,35 @@ class _ChargingRouteState extends State<ChargingRoute>
                             name,
                             style: const TextStyle(
                               fontWeight: FontWeight.bold,
-                              fontSize: 15,
+                              fontSize: 14,
                               color: Colors.black87,
                             ),
                           ),
-                          const SizedBox(height: 6),
+                          const SizedBox(height: 4),
                           Text(
                             details,
                             style: TextStyle(
-                              color: Colors.grey.shade600,
-                              fontSize: 13,
+                              color: Colors.grey.shade500,
+                              fontSize: 12,
                             ),
                           ),
                         ],
                       ),
                     ),
-                    Text(
-                      percentage,
-                      style: TextStyle(
-                        color: _primaryColor.withOpacity(0.6),
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: _primaryColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        tag,
+                        style: TextStyle(
+                          color: _primaryColor,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
                       ),
                     ),
                   ],
@@ -1521,9 +1667,9 @@ class _ChargingRouteState extends State<ChargingRoute>
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade300),
+        border: Border.all(color: Colors.grey.shade200),
       ),
-      child: Icon(icon, color: Colors.grey.shade700),
+      child: Icon(icon, color: Colors.grey.shade600, size: 22),
     );
   }
 }

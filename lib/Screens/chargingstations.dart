@@ -3,6 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'chargingroute.dart';
+import 'bookstation.dart';
+import 'favorites_db.dart';
 
 class FindStations extends StatefulWidget {
   const FindStations({super.key});
@@ -26,6 +28,9 @@ class _FindStationsState extends State<FindStations> {
   LatLng? _currentUserPosition;
   bool _isLoadingLocation = false;
 
+  /// Favourite station IDs persisted in SQLite
+  final Set<String> _favoriteIds = {};
+
   // --- FILTER OPTIONS ---
   static const List<String> _connectorTypes = [
     'All',
@@ -36,7 +41,6 @@ class _FindStationsState extends State<FindStations> {
     'CHAdeMO',
     'GBT',
   ];
-
   static const List<String> _availabilityOptions = [
     'All',
     'Available',
@@ -47,6 +51,76 @@ class _FindStationsState extends State<FindStations> {
   void initState() {
     super.initState();
     _getUserLocation();
+    _loadFavorites();
+  }
+
+  // ── LOAD FAVOURITES FROM SQLITE ───────────────────────────────────────────
+  Future<void> _loadFavorites() async {
+    final rows = await FavoritesDb.instance.getAllFavorites();
+    if (mounted) {
+      setState(() {
+        _favoriteIds
+          ..clear()
+          ..addAll(rows.map((r) => r['station_id'] as String));
+      });
+    }
+  }
+
+  // ── TOGGLE FAVOURITE ──────────────────────────────────────────────────────
+  Future<void> _toggleFavorite(
+    String stationId,
+    Map<String, dynamic> data,
+  ) async {
+    final isFav = _favoriteIds.contains(stationId);
+    if (isFav) {
+      await FavoritesDb.instance.removeFavorite(stationId);
+      if (mounted) setState(() => _favoriteIds.remove(stationId));
+      _showTopSnack('Removed from favourites');
+    } else {
+      await FavoritesDb.instance.addFavorite(stationId, data);
+      if (mounted) setState(() => _favoriteIds.add(stationId));
+      _showTopSnack('Added to favourites ⭐');
+    }
+  }
+
+  // ── SNACK AT THE TOP OF THE SCREEN ───────────────────────────────────────
+  void _showTopSnack(String msg) {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.clearSnackBars();
+    messenger.showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(
+              msg.contains('Added')
+                  ? Icons.star_rounded
+                  : Icons.star_outline_rounded,
+              color: Colors.white,
+              size: 18,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                msg,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+        duration: const Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: _primaryColor,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        margin: EdgeInsets.only(
+          bottom: MediaQuery.of(context).size.height - 130,
+          left: 16,
+          right: 16,
+        ),
+      ),
+    );
   }
 
   // ── GET USER LOCATION ─────────────────────────────────────────────────────
@@ -58,7 +132,6 @@ class _FindStationsState extends State<FindStations> {
         if (mounted) setState(() => _isLoadingLocation = false);
         return;
       }
-
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
@@ -71,11 +144,9 @@ class _FindStationsState extends State<FindStations> {
         if (mounted) setState(() => _isLoadingLocation = false);
         return;
       }
-
       final Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
-
       if (mounted) {
         setState(() {
           _currentUserPosition = LatLng(position.latitude, position.longitude);
@@ -88,7 +159,7 @@ class _FindStationsState extends State<FindStations> {
     }
   }
 
-  // ── DISTANCE CALCULATION (returns km) ─────────────────────────────────────
+  // ── DISTANCE CALCULATION ──────────────────────────────────────────────────
   double _calculateDistanceKm(
     double lat1,
     double lng1,
@@ -105,7 +176,6 @@ class _FindStationsState extends State<FindStations> {
     return docs.where((doc) {
       final data = doc.data() as Map<String, dynamic>;
 
-      // --- Availability filter ---
       if (_selectedAvailability != 'All') {
         int availablePlugs =
             int.tryParse(data['available_plugs']?.toString() ?? '0') ?? 0;
@@ -114,19 +184,19 @@ class _FindStationsState extends State<FindStations> {
         if (_selectedAvailability == 'Unavailable' && isAvailable) return false;
       }
 
-      // --- Connector type filter ---
       if (_selectedConnectorType != 'All') {
         String rawConnectors =
             data['supported_connector_types']?.toString() ?? '';
-        List<String> parts =
-            rawConnectors.split(',').map((e) => e.trim()).toList();
+        List<String> parts = rawConnectors
+            .split(',')
+            .map((e) => e.trim())
+            .toList();
         bool hasConnector = parts.any(
           (part) => part.toLowerCase() == _selectedConnectorType.toLowerCase(),
         );
         if (!hasConnector) return false;
       }
 
-      // --- Nearby distance filter ---
       if (_isNearbySelected && _currentUserPosition != null) {
         double? lat = double.tryParse(data['latitude']?.toString() ?? '');
         double? lng = double.tryParse(data['longitude']?.toString() ?? '');
@@ -139,7 +209,6 @@ class _FindStationsState extends State<FindStations> {
         );
         if (distKm > _distanceValue) return false;
       }
-
       return true;
     }).toList();
   }
@@ -160,86 +229,95 @@ class _FindStationsState extends State<FindStations> {
       builder: (_) {
         return StatefulBuilder(
           builder: (ctx, setSheetState) {
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  margin: const EdgeInsets.only(top: 12, bottom: 4),
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
-                    borderRadius: BorderRadius.circular(2),
+            return SafeArea(
+              top: false,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    margin: const EdgeInsets.only(top: 12, bottom: 4),
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
                   ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 12,
-                  ),
-                  child: Row(
-                    children: [
-                      Text(
-                        title,
-                        style: const TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black87,
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 12,
+                    ),
+                    child: Row(
+                      children: [
+                        Text(
+                          title,
+                          style: const TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                          ),
                         ),
-                      ),
-                      const Spacer(),
-                      if (selected != 'All')
-                        TextButton(
-                          onPressed: () {
-                            onSelected('All');
+                        const Spacer(),
+                        if (selected != 'All')
+                          TextButton(
+                            onPressed: () {
+                              onSelected('All');
+                              Navigator.pop(ctx);
+                            },
+                            child: Text(
+                              'Clear',
+                              style: TextStyle(color: _primaryColor),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  ConstrainedBox(
+                    constraints: BoxConstraints(
+                      // ← FIXED: subtract nav bar height so list never overflows
+                      maxHeight:
+                          MediaQuery.of(context).size.height * 0.45 -
+                          MediaQuery.of(context).viewPadding.bottom -
+                          21,
+                    ),
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      physics: const BouncingScrollPhysics(),
+                      itemCount: options.length,
+                      itemBuilder: (_, i) {
+                        final opt = options[i];
+                        final bool isSelected = selected == opt;
+                        return ListTile(
+                          title: Text(
+                            opt,
+                            style: TextStyle(
+                              color: isSelected
+                                  ? _primaryColor
+                                  : Colors.black87,
+                              fontWeight: isSelected
+                                  ? FontWeight.w700
+                                  : FontWeight.normal,
+                            ),
+                          ),
+                          trailing: isSelected
+                              ? Icon(Icons.check_circle, color: _primaryColor)
+                              : const Icon(
+                                  Icons.radio_button_unchecked,
+                                  color: Colors.grey,
+                                ),
+                          onTap: () {
+                            onSelected(opt);
                             Navigator.pop(ctx);
                           },
-                          child: Text(
-                            'Clear',
-                            style: TextStyle(color: _primaryColor),
-                          ),
-                        ),
-                    ],
+                        );
+                      },
+                    ),
                   ),
-                ),
-                const Divider(height: 1),
-                ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxHeight: MediaQuery.of(context).size.height * 0.45,
-                  ),
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    physics: const BouncingScrollPhysics(),
-                    itemCount: options.length,
-                    itemBuilder: (_, i) {
-                      final opt = options[i];
-                      final bool isSelected = selected == opt;
-                      return ListTile(
-                        title: Text(
-                          opt,
-                          style: TextStyle(
-                            color: isSelected ? _primaryColor : Colors.black87,
-                            fontWeight: isSelected
-                                ? FontWeight.w700
-                                : FontWeight.normal,
-                          ),
-                        ),
-                        trailing: isSelected
-                            ? Icon(Icons.check_circle, color: _primaryColor)
-                            : const Icon(
-                                Icons.radio_button_unchecked,
-                                color: Colors.grey,
-                              ),
-                        onTap: () {
-                          onSelected(opt);
-                          Navigator.pop(ctx);
-                        },
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(height: 20),
-              ],
+                  const SizedBox(height: 20),
+                ],
+              ),
             );
           },
         );
@@ -247,6 +325,7 @@ class _FindStationsState extends State<FindStations> {
     );
   }
 
+  // ── BUILD ─────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -255,7 +334,7 @@ class _FindStationsState extends State<FindStations> {
         bottom: false,
         child: Column(
           children: [
-            // ── HEADER (FIXED) ───────────────────────────────────────────────
+            // ── HEADER ──────────────────────────────────────────────────────
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
               child: Row(
@@ -279,7 +358,7 @@ class _FindStationsState extends State<FindStations> {
               ),
             ),
 
-            // ── ALL FIXED CONTROLS ───────────────────────────────────────────
+            // ── FIXED CONTROLS ───────────────────────────────────────────────
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Column(
@@ -288,7 +367,7 @@ class _FindStationsState extends State<FindStations> {
                   const Divider(height: 1, thickness: 1, color: Colors.black12),
                   const SizedBox(height: 20),
 
-                  // ── TOGGLE BUTTONS ─────────────────────────────────────────
+                  // Toggle
                   Container(
                     padding: const EdgeInsets.all(4),
                     decoration: BoxDecoration(
@@ -299,17 +378,22 @@ class _FindStationsState extends State<FindStations> {
                     child: Row(
                       children: [
                         Expanded(
-                          child: _buildToggleButton('Nearby', _isNearbySelected),
+                          child: _buildToggleButton(
+                            'Nearby',
+                            _isNearbySelected,
+                          ),
                         ),
                         Expanded(
                           child: _buildToggleButton(
-                              'All Stations', !_isNearbySelected),
+                            'All Stations',
+                            !_isNearbySelected,
+                          ),
                         ),
                       ],
                     ),
                   ),
 
-                  // ── LOCATION STATUS ────────────────────────────────────────
+                  // Location status
                   if (_isNearbySelected) ...[
                     const SizedBox(height: 10),
                     if (_isLoadingLocation)
@@ -333,14 +417,19 @@ class _FindStationsState extends State<FindStations> {
                     else if (_currentUserPosition == null)
                       Row(
                         children: [
-                          const Icon(Icons.location_off,
-                              color: Colors.orange, size: 16),
+                          const Icon(
+                            Icons.location_off,
+                            color: Colors.orange,
+                            size: 16,
+                          ),
                           const SizedBox(width: 6),
                           Expanded(
                             child: Text(
                               'Location unavailable — showing all stations.',
                               style: TextStyle(
-                                  color: Colors.orange.shade700, fontSize: 12),
+                                color: Colors.orange.shade700,
+                                fontSize: 12,
+                              ),
                             ),
                           ),
                           GestureDetector(
@@ -359,8 +448,11 @@ class _FindStationsState extends State<FindStations> {
                     else
                       Row(
                         children: [
-                          Icon(Icons.location_on,
-                              color: Colors.green.shade600, size: 16),
+                          Icon(
+                            Icons.location_on,
+                            color: Colors.green.shade600,
+                            size: 16,
+                          ),
                           const SizedBox(width: 6),
                           Text(
                             'Showing stations within ${_distanceValue.toInt()} km',
@@ -376,7 +468,7 @@ class _FindStationsState extends State<FindStations> {
 
                   const SizedBox(height: 16),
 
-                  // ── FILTER DROPDOWNS ───────────────────────────────────────
+                  // Filter dropdowns
                   Row(
                     children: [
                       Expanded(
@@ -413,7 +505,7 @@ class _FindStationsState extends State<FindStations> {
                     ],
                   ),
 
-                  // ── ACTIVE FILTER CHIPS ────────────────────────────────────
+                  // Active filter chips
                   if (_selectedConnectorType != 'All' ||
                       _selectedAvailability != 'All') ...[
                     const SizedBox(height: 12),
@@ -423,20 +515,19 @@ class _FindStationsState extends State<FindStations> {
                         if (_selectedConnectorType != 'All')
                           _buildActiveFilterChip(
                             _selectedConnectorType,
-                            () => setState(
-                                () => _selectedConnectorType = 'All'),
+                            () =>
+                                setState(() => _selectedConnectorType = 'All'),
                           ),
                         if (_selectedAvailability != 'All')
                           _buildActiveFilterChip(
                             _selectedAvailability,
-                            () =>
-                                setState(() => _selectedAvailability = 'All'),
+                            () => setState(() => _selectedAvailability = 'All'),
                           ),
                       ],
                     ),
                   ],
 
-                  // ── DISTANCE SLIDER (Nearby only) ──────────────────────────
+                  // Distance slider
                   if (_isNearbySelected) ...[
                     const SizedBox(height: 24),
                     Row(
@@ -452,7 +543,9 @@ class _FindStationsState extends State<FindStations> {
                         ),
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 4),
+                            horizontal: 12,
+                            vertical: 4,
+                          ),
                           decoration: BoxDecoration(
                             color: _lightFillColor,
                             borderRadius: BorderRadius.circular(8),
@@ -476,7 +569,8 @@ class _FindStationsState extends State<FindStations> {
                         overlayColor: _primaryColor.withOpacity(0.1),
                         trackHeight: 6,
                         thumbShape: const RoundSliderThumbShape(
-                            enabledThumbRadius: 10),
+                          enabledThumbRadius: 10,
+                        ),
                       ),
                       child: Slider(
                         value: _distanceValue,
@@ -494,7 +588,7 @@ class _FindStationsState extends State<FindStations> {
               ),
             ),
 
-            // ── ONLY STATIONS LIST SCROLLS ───────────────────────────────────
+            // ── SCROLLABLE STATION LIST ──────────────────────────────────────
             Expanded(
               child: StreamBuilder<QuerySnapshot>(
                 stream: FirebaseFirestore.instance
@@ -504,17 +598,16 @@ class _FindStationsState extends State<FindStations> {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Center(child: CircularProgressIndicator());
                   }
-
                   if (snapshot.hasError) {
                     return Center(child: Text('Error: ${snapshot.error}'));
                   }
-
                   if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
                     return const Center(child: Text('No stations found.'));
                   }
 
-                  final List<QueryDocumentSnapshot> filtered =
-                      _filterStations(snapshot.data!.docs);
+                  final List<QueryDocumentSnapshot> filtered = _filterStations(
+                    snapshot.data!.docs,
+                  );
 
                   if (filtered.isEmpty) {
                     return Padding(
@@ -522,12 +615,14 @@ class _FindStationsState extends State<FindStations> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.ev_station_outlined,
-                              size: 56, color: Colors.grey.shade400),
+                          Icon(
+                            Icons.ev_station_outlined,
+                            size: 56,
+                            color: Colors.grey.shade400,
+                          ),
                           const SizedBox(height: 16),
                           Text(
-                            _isNearbySelected &&
-                                    _currentUserPosition != null
+                            _isNearbySelected && _currentUserPosition != null
                                 ? 'No stations within ${_distanceValue.toInt()} km\nof your location'
                                 : 'No stations match the selected filters',
                             textAlign: TextAlign.center,
@@ -538,12 +633,11 @@ class _FindStationsState extends State<FindStations> {
                             ),
                           ),
                           const SizedBox(height: 16),
-                          if (_isNearbySelected &&
-                              _currentUserPosition != null)
+                          if (_isNearbySelected && _currentUserPosition != null)
                             TextButton.icon(
                               onPressed: () => setState(
-                                () => _distanceValue =
-                                    (_distanceValue + 10).clamp(1, 50),
+                                () => _distanceValue = (_distanceValue + 10)
+                                    .clamp(1, 50),
                               ),
                               icon: Icon(Icons.add, color: _primaryColor),
                               label: Text(
@@ -559,9 +653,8 @@ class _FindStationsState extends State<FindStations> {
                   return ListView.builder(
                     padding: const EdgeInsets.fromLTRB(24, 0, 24, 100),
                     physics: const BouncingScrollPhysics(),
-                    itemCount: filtered.length + 1, // +1 for count header
+                    itemCount: filtered.length + 1,
                     itemBuilder: (context, index) {
-                      // Station count header as first item
                       if (index == 0) {
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 16),
@@ -579,17 +672,21 @@ class _FindStationsState extends State<FindStations> {
                       final doc = filtered[index - 1];
                       final data = doc.data() as Map<String, dynamic>;
 
-                      int availablePlugs = int.tryParse(
-                              data['available_plugs']?.toString() ?? '0') ??
+                      int availablePlugs =
+                          int.tryParse(
+                            data['available_plugs']?.toString() ?? '0',
+                          ) ??
                           0;
-                      int totalSlots = int.tryParse(
-                              data['connector_slots']?.toString() ?? '0') ??
+                      int totalSlots =
+                          int.tryParse(
+                            data['connector_slots']?.toString() ?? '0',
+                          ) ??
                           0;
                       bool isAvailable = availablePlugs > 0;
 
                       String rawConnectors =
                           data['supported_connector_types']?.toString() ??
-                              'Unknown';
+                          'Unknown';
                       List<String> connectorList = rawConnectors
                           .split(',')
                           .map((e) => e.trim())
@@ -597,9 +694,11 @@ class _FindStationsState extends State<FindStations> {
                           .toList();
 
                       double? lat = double.tryParse(
-                          data['latitude']?.toString() ?? '');
+                        data['latitude']?.toString() ?? '',
+                      );
                       double? lng = double.tryParse(
-                          data['longitude']?.toString() ?? '');
+                        data['longitude']?.toString() ?? '',
+                      );
                       String stationName =
                           data['station_name']?.toString() ?? 'Unknown Station';
 
@@ -619,13 +718,16 @@ class _FindStationsState extends State<FindStations> {
                       }
 
                       return _buildStationCard(
+                        doc: doc,
                         name: stationName,
-                        address: data['address']?.toString() ??
+                        address:
+                            data['address']?.toString() ??
                             ((lat != null && lng != null)
                                 ? 'Lat: ${lat.toStringAsFixed(4)}, Lng: ${lng.toStringAsFixed(4)}'
                                 : 'Location unavailable'),
                         distance: distanceText,
-                        availabilityText: '$availablePlugs/$totalSlots Available',
+                        availabilityText:
+                            '$availablePlugs/$totalSlots Available',
                         power:
                             '${data['charging_power']?.toString() ?? '0'} kW',
                         connectors: connectorList,
@@ -763,6 +865,7 @@ class _FindStationsState extends State<FindStations> {
   }
 
   Widget _buildStationCard({
+    required QueryDocumentSnapshot doc,
     required String name,
     required String address,
     required String distance,
@@ -774,6 +877,9 @@ class _FindStationsState extends State<FindStations> {
     required LatLng? stationLatLng,
     required String stationName,
   }) {
+    final data = doc.data() as Map<String, dynamic>;
+    final bool isFav = _favoriteIds.contains(doc.id);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
       padding: const EdgeInsets.all(20),
@@ -812,15 +918,46 @@ class _FindStationsState extends State<FindStations> {
                     Text(
                       address,
                       style: TextStyle(
-                          color: Colors.grey.shade500, fontSize: 13),
+                        color: Colors.grey.shade500,
+                        fontSize: 13,
+                      ),
                     ),
                   ],
                 ),
               ),
               const SizedBox(width: 8),
+
+              // ── ⭐ FAVOURITE STAR BUTTON ──────────────────────────────────
+              GestureDetector(
+                onTap: () => _toggleFavorite(doc.id, data),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: isFav ? Colors.amber.shade50 : Colors.grey.shade50,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: isFav
+                          ? Colors.amber.shade300
+                          : Colors.grey.shade200,
+                    ),
+                  ),
+                  child: Icon(
+                    isFav ? Icons.star_rounded : Icons.star_outline_rounded,
+                    color: isFav ? Colors.amber.shade600 : Colors.grey.shade400,
+                    size: 22,
+                  ),
+                ),
+              ),
+
+              const SizedBox(width: 8),
+
+              // Availability badge
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: statusColor.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(20),
@@ -900,7 +1037,9 @@ class _FindStationsState extends State<FindStations> {
                 .map(
                   (c) => Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 8),
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
                       color: _lightFillColor,
                       borderRadius: BorderRadius.circular(12),
@@ -927,7 +1066,18 @@ class _FindStationsState extends State<FindStations> {
                 child: SizedBox(
                   height: 50,
                   child: ElevatedButton(
-                    onPressed: isAvailable ? () {} : null,
+                    onPressed: isAvailable
+                        ? () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => BookStation(
+                                preSelectedStationId: doc.id,
+                                preSelectedStationName: stationName,
+                                stationData: data,
+                              ),
+                            ),
+                          )
+                        : null,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: isAvailable
                           ? _primaryColor
@@ -941,7 +1091,9 @@ class _FindStationsState extends State<FindStations> {
                     child: Text(
                       isAvailable ? 'Book' : 'Full',
                       style: const TextStyle(
-                          fontWeight: FontWeight.bold, fontSize: 16),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
                     ),
                   ),
                 ),
@@ -954,16 +1106,19 @@ class _FindStationsState extends State<FindStations> {
                     onPressed: stationLatLng == null
                         ? null
                         : () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => ChargingRoute(
-                                  destination: stationLatLng,
-                                  destinationName: stationName,
-                                ),
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => ChargingRoute(
+                                destination: stationLatLng,
+                                destinationName: stationName,
                               ),
                             ),
-                    icon: Icon(Icons.directions,
-                        size: 20, color: _primaryColor),
+                          ),
+                    icon: Icon(
+                      Icons.directions,
+                      size: 20,
+                      color: _primaryColor,
+                    ),
                     label: Text(
                       'Route',
                       style: TextStyle(
