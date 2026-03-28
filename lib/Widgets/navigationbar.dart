@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 class CustomNavBar extends StatelessWidget {
   final int selectedIndex;
   final Function(int) onTabChange;
-  final VoidCallback onCenterTap; // BookStation is handled by the parent
+  final VoidCallback onCenterTap;
 
   const CustomNavBar({
     super.key,
@@ -12,94 +12,131 @@ class CustomNavBar extends StatelessWidget {
     required this.onCenterTap,
   });
 
-  final Color _primaryColor = const Color(0xFF0253A4);
-  final Color _secondaryBlue = const Color(0xFF034485);
+  static const Color _primaryColor = Color(0xFF0253A4);
+  static const Color _secondaryBlue = Color(0xFF034485);
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 55,
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      decoration: BoxDecoration(
+      height: 70,
+      decoration: const BoxDecoration(
         gradient: LinearGradient(
           colors: [_primaryColor, _secondaryBlue],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.2),
-            blurRadius: 20,
-            offset: const Offset(0, -5),
+            color: Color(0x330253A4),
+            blurRadius: 24,
+            spreadRadius: 2,
+            offset: Offset(0, -6),
           ),
         ],
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
+      child: Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.center,
         children: [
-          _buildNavItem(0, Icons.home_rounded),
-          _buildNavItem(1, Icons.map_rounded),
-
-          // Center BookStation button — delegates up to parent, no Navigator here
-          GestureDetector(
-            onTap: onCenterTap,
-            child: Container(
-              height: 48,
-              width: 48,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 5,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Icon(
-                Icons.flash_on_rounded,
-                color: _primaryColor,
-                size: 26,
-              ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildNavItem(0, Icons.home_rounded, 'Home'),
+                _buildNavItem(1, Icons.ev_station_rounded, 'Stations'),
+                const SizedBox(width: 64),
+                _buildNavItem(2, Icons.location_on_rounded, 'Map'),
+                _buildNavItem(3, Icons.person_rounded, 'Profile'),
+              ],
             ),
           ),
 
-          _buildNavItem(2, Icons.history_rounded),
-          _buildNavItem(3, Icons.person_rounded),
+          // Center booking button — subtle, not oversized
+          Positioned(
+            top: -18,
+            child: GestureDetector(
+              onTap: onCenterTap,
+              child: Container(
+                height: 52,
+                width: 52,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x280253A4),
+                      blurRadius: 10,
+                      spreadRadius: 1,
+                      offset: Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.bookmark_added_rounded,
+                  color: _primaryColor,
+                  size: 24,
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildNavItem(int index, IconData icon) {
+  Widget _buildNavItem(int index, IconData icon, String label) {
     final bool isSelected = selectedIndex == index;
 
     return GestureDetector(
-      // Simply tell the parent which index was tapped — nothing else
       onTap: () => onTabChange(index),
       behavior: HitTestBehavior.opaque,
-      child: Container(
-        color: Colors.transparent,
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeInOut,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? Colors.white.withOpacity(0.15)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(14),
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              icon,
-              color: isSelected ? Colors.white : Colors.white54,
-              size: 24,
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 200),
+              child: Icon(
+                icon,
+                key: ValueKey(isSelected),
+                color: isSelected ? Colors.white : Colors.white.withOpacity(0.45),
+                size: isSelected ? 26 : 24,
+              ),
             ),
             const SizedBox(height: 4),
+            AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 200),
+              style: TextStyle(
+                color: isSelected
+                    ? Colors.white
+                    : Colors.white.withOpacity(0.45),
+                fontSize: 10,
+                fontWeight:
+                    isSelected ? FontWeight.w700 : FontWeight.w400,
+                letterSpacing: 0.3,
+              ),
+              child: Text(label),
+            ),
+            const SizedBox(height: 2),
             AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              height: isSelected ? 4 : 0,
-              width: isSelected ? 4 : 0,
-              decoration: const BoxDecoration(
+              duration: const Duration(milliseconds: 250),
+              height: 3,
+              width: isSelected ? 18 : 0,
+              decoration: BoxDecoration(
                 color: Colors.white,
-                shape: BoxShape.circle,
+                borderRadius: BorderRadius.circular(2),
               ),
             ),
           ],

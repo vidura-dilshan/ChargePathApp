@@ -15,12 +15,11 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
 
-  // All tab pages live here — they stay alive and never re-build on tab switch
   final List<Widget> _pages = const [
-    HomePage(),
-    FindStations(),
-    RoutePlanningPage()
-    // ProfilePage(), // replace with your actual profile screen
+    HomePage(),        // index 0 — Home
+    FindStations(),    // index 1 — Charging Stations
+    RoutePlanningPage(), // index 2 — Map / Route Planning
+    // ProfilePage(),  // index 3 — Profile (add when ready)
   ];
 
   @override
@@ -28,13 +27,10 @@ class _MainScreenState extends State<MainScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          // IndexedStack keeps all pages mounted — no rebuilds, no lag
           IndexedStack(
             index: _selectedIndex,
             children: _pages,
           ),
-
-          // Floating nav bar on top
           Positioned(
             bottom: 0,
             left: 0,
@@ -45,7 +41,6 @@ class _MainScreenState extends State<MainScreen> {
                 setState(() => _selectedIndex = index);
               },
               onCenterTap: () {
-                // BookStation is a separate flow, so push it as a modal
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => const BookStation()),

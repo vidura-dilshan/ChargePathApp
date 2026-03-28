@@ -118,7 +118,6 @@ class _FindStationsState extends State<FindStations> {
       if (_selectedConnectorType != 'All') {
         String rawConnectors =
             data['supported_connector_types']?.toString() ?? '';
-        // Split by comma and check if any part matches
         List<String> parts =
             rawConnectors.split(',').map((e) => e.trim()).toList();
         bool hasConnector = parts.any(
@@ -164,7 +163,6 @@ class _FindStationsState extends State<FindStations> {
             return Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Handle
                 Container(
                   margin: const EdgeInsets.only(top: 12, bottom: 4),
                   width: 40,
@@ -257,7 +255,7 @@ class _FindStationsState extends State<FindStations> {
         bottom: false,
         child: Column(
           children: [
-            // ── HEADER ──────────────────────────────────────────────────────
+            // ── HEADER (FIXED) ───────────────────────────────────────────────
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
               child: Row(
@@ -281,17 +279,13 @@ class _FindStationsState extends State<FindStations> {
               ),
             ),
 
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(24, 10, 24, 100),
-                physics: const BouncingScrollPhysics(),
-                clipBehavior: Clip.none,
+            // ── ALL FIXED CONTROLS ───────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Divider(
-                    height: 1,
-                    thickness: 1,
-                    color: Colors.black12,
-                  ),
+                  const Divider(height: 1, thickness: 1, color: Colors.black12),
                   const SizedBox(height: 20),
 
                   // ── TOGGLE BUTTONS ─────────────────────────────────────────
@@ -305,16 +299,11 @@ class _FindStationsState extends State<FindStations> {
                     child: Row(
                       children: [
                         Expanded(
-                          child: _buildToggleButton(
-                            'Nearby',
-                            _isNearbySelected,
-                          ),
+                          child: _buildToggleButton('Nearby', _isNearbySelected),
                         ),
                         Expanded(
                           child: _buildToggleButton(
-                            'All Stations',
-                            !_isNearbySelected,
-                          ),
+                              'All Stations', !_isNearbySelected),
                         ),
                       ],
                     ),
@@ -337,29 +326,21 @@ class _FindStationsState extends State<FindStations> {
                           const SizedBox(width: 8),
                           Text(
                             'Getting your location...',
-                            style: TextStyle(
-                              color: _greyText,
-                              fontSize: 12,
-                            ),
+                            style: TextStyle(color: _greyText, fontSize: 12),
                           ),
                         ],
                       )
                     else if (_currentUserPosition == null)
                       Row(
                         children: [
-                          const Icon(
-                            Icons.location_off,
-                            color: Colors.orange,
-                            size: 16,
-                          ),
+                          const Icon(Icons.location_off,
+                              color: Colors.orange, size: 16),
                           const SizedBox(width: 6),
                           Expanded(
                             child: Text(
                               'Location unavailable — showing all stations.',
                               style: TextStyle(
-                                color: Colors.orange.shade700,
-                                fontSize: 12,
-                              ),
+                                  color: Colors.orange.shade700, fontSize: 12),
                             ),
                           ),
                           GestureDetector(
@@ -378,11 +359,8 @@ class _FindStationsState extends State<FindStations> {
                     else
                       Row(
                         children: [
-                          Icon(
-                            Icons.location_on,
-                            color: Colors.green.shade600,
-                            size: 16,
-                          ),
+                          Icon(Icons.location_on,
+                              color: Colors.green.shade600, size: 16),
                           const SizedBox(width: 6),
                           Text(
                             'Showing stations within ${_distanceValue.toInt()} km',
@@ -446,24 +424,21 @@ class _FindStationsState extends State<FindStations> {
                           _buildActiveFilterChip(
                             _selectedConnectorType,
                             () => setState(
-                              () => _selectedConnectorType = 'All',
-                            ),
+                                () => _selectedConnectorType = 'All'),
                           ),
                         if (_selectedAvailability != 'All')
                           _buildActiveFilterChip(
                             _selectedAvailability,
-                            () => setState(
-                              () => _selectedAvailability = 'All',
-                            ),
+                            () =>
+                                setState(() => _selectedAvailability = 'All'),
                           ),
                       ],
                     ),
                   ],
 
-                  const SizedBox(height: 24),
-
                   // ── DISTANCE SLIDER (Nearby only) ──────────────────────────
                   if (_isNearbySelected) ...[
+                    const SizedBox(height: 24),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -477,9 +452,7 @@ class _FindStationsState extends State<FindStations> {
                         ),
                         Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 4,
-                          ),
+                              horizontal: 12, vertical: 4),
                           decoration: BoxDecoration(
                             color: _lightFillColor,
                             borderRadius: BorderRadius.circular(8),
@@ -503,8 +476,7 @@ class _FindStationsState extends State<FindStations> {
                         overlayColor: _primaryColor.withOpacity(0.1),
                         trackHeight: 6,
                         thumbShape: const RoundSliderThumbShape(
-                          enabledThumbRadius: 10,
-                        ),
+                            enabledThumbRadius: 10),
                       ),
                       child: Slider(
                         value: _distanceValue,
@@ -515,171 +487,158 @@ class _FindStationsState extends State<FindStations> {
                             setState(() => _distanceValue = val),
                       ),
                     ),
-                    const SizedBox(height: 10),
                   ],
 
-                  // ── STATION LIST ───────────────────────────────────────────
-                  StreamBuilder<QuerySnapshot>(
-                    stream: FirebaseFirestore.instance
-                        .collection('users')
-                        .snapshots(),
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState ==
-                          ConnectionState.waiting) {
-                        return const Padding(
-                          padding: EdgeInsets.all(40.0),
-                          child: Center(child: CircularProgressIndicator()),
-                        );
-                      }
+                  const SizedBox(height: 16),
+                ],
+              ),
+            ),
 
-                      if (snapshot.hasError) {
-                        return Center(
-                          child: Text('Error: ${snapshot.error}'),
-                        );
-                      }
+            // ── ONLY STATIONS LIST SCROLLS ───────────────────────────────────
+            Expanded(
+              child: StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('users')
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
 
-                      if (!snapshot.hasData ||
-                          snapshot.data!.docs.isEmpty) {
-                        return const Center(
-                          child: Text('No stations found.'),
-                        );
-                      }
+                  if (snapshot.hasError) {
+                    return Center(child: Text('Error: ${snapshot.error}'));
+                  }
 
-                      final List<QueryDocumentSnapshot> filtered =
-                          _filterStations(snapshot.data!.docs);
+                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                    return const Center(child: Text('No stations found.'));
+                  }
 
-                      if (filtered.isEmpty) {
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 40),
-                          child: Column(
-                            children: [
-                              Icon(
-                                Icons.ev_station_outlined,
-                                size: 56,
-                                color: Colors.grey.shade400,
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                _isNearbySelected &&
-                                        _currentUserPosition != null
-                                    ? 'No stations within ${_distanceValue.toInt()} km\nof your location'
-                                    : 'No stations match the selected filters',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: _greyText,
-                                  fontSize: 14,
-                                  height: 1.5,
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              if (_isNearbySelected &&
-                                  _currentUserPosition != null)
-                                TextButton.icon(
-                                  onPressed: () => setState(
-                                    () => _distanceValue =
-                                        (_distanceValue + 10).clamp(1, 50),
-                                  ),
-                                  icon: Icon(Icons.add, color: _primaryColor),
-                                  label: Text(
-                                    'Increase radius',
-                                    style: TextStyle(color: _primaryColor),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        );
-                      }
+                  final List<QueryDocumentSnapshot> filtered =
+                      _filterStations(snapshot.data!.docs);
 
-                      // ── Station count header ──
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                  if (filtered.isEmpty) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 40),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 16),
-                            child: Text(
-                              '${filtered.length} station${filtered.length == 1 ? '' : 's'} found',
-                              style: TextStyle(
-                                color: _greyText,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                              ),
+                          Icon(Icons.ev_station_outlined,
+                              size: 56, color: Colors.grey.shade400),
+                          const SizedBox(height: 16),
+                          Text(
+                            _isNearbySelected &&
+                                    _currentUserPosition != null
+                                ? 'No stations within ${_distanceValue.toInt()} km\nof your location'
+                                : 'No stations match the selected filters',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: _greyText,
+                              fontSize: 14,
+                              height: 1.5,
                             ),
                           ),
-                          ...filtered.map((doc) {
-                            final data =
-                                doc.data() as Map<String, dynamic>;
-
-                            int availablePlugs = int.tryParse(
-                                    data['available_plugs']?.toString() ??
-                                        '0') ??
-                                0;
-                            int totalSlots = int.tryParse(
-                                    data['connector_slots']?.toString() ??
-                                        '0') ??
-                                0;
-                            bool isAvailable = availablePlugs > 0;
-
-                            String rawConnectors =
-                                data['supported_connector_types']
-                                        ?.toString() ??
-                                    'Unknown';
-                            List<String> connectorList = rawConnectors
-                                .split(',')
-                                .map((e) => e.trim())
-                                .where((e) => e.isNotEmpty)
-                                .toList();
-
-                            double? lat = double.tryParse(
-                                data['latitude']?.toString() ?? '');
-                            double? lng = double.tryParse(
-                                data['longitude']?.toString() ?? '');
-                            String stationName =
-                                data['station_name']?.toString() ??
-                                    'Unknown Station';
-
-                            // Calculate real distance
-                            String distanceText = 'N/A';
-                            if (_currentUserPosition != null &&
-                                lat != null &&
-                                lng != null) {
-                              double distKm = _calculateDistanceKm(
-                                _currentUserPosition!.latitude,
-                                _currentUserPosition!.longitude,
-                                lat,
-                                lng,
-                              );
-                              distanceText = distKm < 1
-                                  ? '${(distKm * 1000).toInt()} m away'
-                                  : '${distKm.toStringAsFixed(1)} km away';
-                            }
-
-                            return _buildStationCard(
-                              name: stationName,
-                              address: data['address']?.toString() ??
-                                  ((lat != null && lng != null)
-                                      ? 'Lat: ${lat.toStringAsFixed(4)}, Lng: ${lng.toStringAsFixed(4)}'
-                                      : 'Location unavailable'),
-                              distance: distanceText,
-                              availabilityText:
-                                  '$availablePlugs/$totalSlots Available',
-                              power:
-                                  '${data['charging_power']?.toString() ?? '0'} kW',
-                              connectors: connectorList,
-                              statusColor:
-                                  isAvailable ? Colors.green : Colors.red,
-                              isAvailable: isAvailable,
-                              stationLatLng:
-                                  (lat != null && lng != null)
-                                      ? LatLng(lat, lng)
-                                      : null,
-                              stationName: stationName,
-                            );
-                          }),
+                          const SizedBox(height: 16),
+                          if (_isNearbySelected &&
+                              _currentUserPosition != null)
+                            TextButton.icon(
+                              onPressed: () => setState(
+                                () => _distanceValue =
+                                    (_distanceValue + 10).clamp(1, 50),
+                              ),
+                              icon: Icon(Icons.add, color: _primaryColor),
+                              label: Text(
+                                'Increase radius',
+                                style: TextStyle(color: _primaryColor),
+                              ),
+                            ),
                         ],
+                      ),
+                    );
+                  }
+
+                  return ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 100),
+                    physics: const BouncingScrollPhysics(),
+                    itemCount: filtered.length + 1, // +1 for count header
+                    itemBuilder: (context, index) {
+                      // Station count header as first item
+                      if (index == 0) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: Text(
+                            '${filtered.length} station${filtered.length == 1 ? '' : 's'} found',
+                            style: TextStyle(
+                              color: _greyText,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        );
+                      }
+
+                      final doc = filtered[index - 1];
+                      final data = doc.data() as Map<String, dynamic>;
+
+                      int availablePlugs = int.tryParse(
+                              data['available_plugs']?.toString() ?? '0') ??
+                          0;
+                      int totalSlots = int.tryParse(
+                              data['connector_slots']?.toString() ?? '0') ??
+                          0;
+                      bool isAvailable = availablePlugs > 0;
+
+                      String rawConnectors =
+                          data['supported_connector_types']?.toString() ??
+                              'Unknown';
+                      List<String> connectorList = rawConnectors
+                          .split(',')
+                          .map((e) => e.trim())
+                          .where((e) => e.isNotEmpty)
+                          .toList();
+
+                      double? lat = double.tryParse(
+                          data['latitude']?.toString() ?? '');
+                      double? lng = double.tryParse(
+                          data['longitude']?.toString() ?? '');
+                      String stationName =
+                          data['station_name']?.toString() ?? 'Unknown Station';
+
+                      String distanceText = 'N/A';
+                      if (_currentUserPosition != null &&
+                          lat != null &&
+                          lng != null) {
+                        double distKm = _calculateDistanceKm(
+                          _currentUserPosition!.latitude,
+                          _currentUserPosition!.longitude,
+                          lat,
+                          lng,
+                        );
+                        distanceText = distKm < 1
+                            ? '${(distKm * 1000).toInt()} m away'
+                            : '${distKm.toStringAsFixed(1)} km away';
+                      }
+
+                      return _buildStationCard(
+                        name: stationName,
+                        address: data['address']?.toString() ??
+                            ((lat != null && lng != null)
+                                ? 'Lat: ${lat.toStringAsFixed(4)}, Lng: ${lng.toStringAsFixed(4)}'
+                                : 'Location unavailable'),
+                        distance: distanceText,
+                        availabilityText: '$availablePlugs/$totalSlots Available',
+                        power:
+                            '${data['charging_power']?.toString() ?? '0'} kW',
+                        connectors: connectorList,
+                        statusColor: isAvailable ? Colors.green : Colors.red,
+                        isAvailable: isAvailable,
+                        stationLatLng: (lat != null && lng != null)
+                            ? LatLng(lat, lng)
+                            : null,
+                        stationName: stationName,
                       );
                     },
-                  ),
-                ],
+                  );
+                },
               ),
             ),
           ],
@@ -759,8 +718,7 @@ class _FindStationsState extends State<FindStations> {
                 style: TextStyle(
                   color: isActive ? _primaryColor : Colors.black87,
                   fontSize: 13,
-                  fontWeight:
-                      isActive ? FontWeight.w700 : FontWeight.w500,
+                  fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
                 ),
                 overflow: TextOverflow.ellipsis,
               ),
@@ -854,19 +812,15 @@ class _FindStationsState extends State<FindStations> {
                     Text(
                       address,
                       style: TextStyle(
-                        color: Colors.grey.shade500,
-                        fontSize: 13,
-                      ),
+                          color: Colors.grey.shade500, fontSize: 13),
                     ),
                   ],
                 ),
               ),
               const SizedBox(width: 8),
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
-                ),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
                   color: statusColor.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(20),
@@ -921,11 +875,7 @@ class _FindStationsState extends State<FindStations> {
               ),
               Row(
                 children: [
-                  const Icon(
-                    Icons.flash_on,
-                    size: 18,
-                    color: Colors.orange,
-                  ),
+                  const Icon(Icons.flash_on, size: 18, color: Colors.orange),
                   const SizedBox(width: 6),
                   Text(
                     power,
@@ -950,9 +900,7 @@ class _FindStationsState extends State<FindStations> {
                 .map(
                   (c) => Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
+                        horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
                       color: _lightFillColor,
                       borderRadius: BorderRadius.circular(12),
@@ -993,9 +941,7 @@ class _FindStationsState extends State<FindStations> {
                     child: Text(
                       isAvailable ? 'Book' : 'Full',
                       style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
+                          fontWeight: FontWeight.bold, fontSize: 16),
                     ),
                   ),
                 ),
@@ -1016,11 +962,8 @@ class _FindStationsState extends State<FindStations> {
                                 ),
                               ),
                             ),
-                    icon: Icon(
-                      Icons.directions,
-                      size: 20,
-                      color: _primaryColor,
-                    ),
+                    icon: Icon(Icons.directions,
+                        size: 20, color: _primaryColor),
                     label: Text(
                       'Route',
                       style: TextStyle(
