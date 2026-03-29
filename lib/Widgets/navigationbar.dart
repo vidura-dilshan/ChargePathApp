@@ -47,7 +47,7 @@ class CustomNavBar extends StatelessWidget {
                 _buildNavItem(0, Icons.home_rounded, 'Home'),
                 _buildNavItem(1, Icons.ev_station_rounded, 'Stations'),
                 const SizedBox(width: 64),
-                _buildNavItem(2, Icons.location_on_rounded, 'Map'),
+                _buildNavItem(2, Icons.location_on_rounded, 'Planner'),
                 _buildNavItem(3, Icons.person_rounded, 'Profile'),
               ],
             ),
