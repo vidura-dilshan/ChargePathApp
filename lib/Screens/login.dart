@@ -34,8 +34,9 @@ class _LogInState extends State<LogIn> {
       _showErrorDialog("Please enter your email address.");
       return false;
     }
-    if (!RegExp(r"^[a-zA-Z0-9.]+@[a-zA-Z0-9]+\.[a-zA-Z]+")
-        .hasMatch(_emailController.text.trim())) {
+    if (!RegExp(
+      r"^[^\s@]+@[^\s@]+\.[^\s@]+$",
+    ).hasMatch(_emailController.text.trim())) {
       _showErrorDialog("Please enter a valid email address.");
       return false;
     }
@@ -63,16 +64,18 @@ class _LogInState extends State<LogIn> {
           password: _passwordController.text.trim(),
         );
       } else {
-        await FirebaseAuth.instance.createUserWithEmailAndPassword(
-          email: _emailController.text.trim(),
-          password: _passwordController.text.trim(),
-        );
+        final credential = await FirebaseAuth.instance
+            .createUserWithEmailAndPassword(
+              email: _emailController.text.trim(),
+              password: _passwordController.text.trim(),
+            );
+        await credential.user?.sendEmailVerification();
       }
       // Success is handled by AuthWrapper in main.dart
     } on FirebaseAuthException catch (e) {
       // If error, turn off loading so user can retry
       if (mounted) setState(() => _isLoading = false);
-      
+
       String errorMessage = "An error occurred";
       switch (e.code) {
         case 'user-not-found':
@@ -137,7 +140,7 @@ class _LogInState extends State<LogIn> {
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
             child: const Text('Okay'),
-          )
+          ),
         ],
       ),
     );
@@ -191,7 +194,10 @@ class _LogInState extends State<LogIn> {
                             color: Colors.white,
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.arrow_back, color: Colors.black),
+                          child: const Icon(
+                            Icons.arrow_back,
+                            color: Colors.black,
+                          ),
                         ),
                       ),
                     ),
@@ -220,9 +226,14 @@ class _LogInState extends State<LogIn> {
                             height: 40,
                             width: 40,
                             decoration: BoxDecoration(
-                                color: _primaryColor, shape: BoxShape.circle),
-                            child: const Icon(Icons.ev_station_rounded,
-                                color: Colors.white, size: 24),
+                              color: _primaryColor,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.ev_station_rounded,
+                              color: Colors.white,
+                              size: 24,
+                            ),
                           ),
                         ],
                       ),
@@ -260,14 +271,17 @@ class _LogInState extends State<LogIn> {
                                     value: _rememberMe,
                                     activeColor: _primaryColor,
                                     shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(4)),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
                                     onChanged: (value) =>
                                         setState(() => _rememberMe = value!),
                                   ),
                                 ),
                                 const SizedBox(width: 8),
-                                Text('Remember me',
-                                    style: TextStyle(color: Colors.grey[600])),
+                                Text(
+                                  'Remember me',
+                                  style: TextStyle(color: Colors.grey[600]),
+                                ),
                               ],
                             ),
                             TextButton(
@@ -275,8 +289,9 @@ class _LogInState extends State<LogIn> {
                               child: Text(
                                 'Forget Password?',
                                 style: TextStyle(
-                                    color: _primaryColor,
-                                    fontWeight: FontWeight.w600),
+                                  color: _primaryColor,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ),
                           ],
@@ -292,12 +307,15 @@ class _LogInState extends State<LogIn> {
                             foregroundColor: Colors.white,
                             elevation: 0,
                             shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(30)),
+                              borderRadius: BorderRadius.circular(30),
+                            ),
                           ),
                           child: Text(
                             _isLogin ? 'Login' : 'Create Account',
                             style: const TextStyle(
-                                fontSize: 18, fontWeight: FontWeight.bold),
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                       ),
@@ -320,17 +338,22 @@ class _LogInState extends State<LogIn> {
                             child: Text(
                               _isLogin ? "Sign up" : "Login",
                               style: TextStyle(
-                                  color: _primaryColor,
-                                  fontWeight: FontWeight.bold),
+                                color: _primaryColor,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
                         ],
                       ),
                       const SizedBox(height: 15),
                       Center(
-                        child: Text("OR",
-                            style: TextStyle(
-                                color: Colors.grey[400], fontSize: 12)),
+                        child: Text(
+                          "OR",
+                          style: TextStyle(
+                            color: Colors.grey[400],
+                            fontSize: 12,
+                          ),
+                        ),
                       ),
                       const SizedBox(height: 15),
                       SizedBox(
@@ -341,7 +364,8 @@ class _LogInState extends State<LogIn> {
                           style: OutlinedButton.styleFrom(
                             side: BorderSide(color: Colors.grey.shade300),
                             shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(30)),
+                              borderRadius: BorderRadius.circular(30),
+                            ),
                           ),
                           icon: Image.network(
                             'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/768px-Google_%22G%22_logo.svg.png',
@@ -353,9 +377,10 @@ class _LogInState extends State<LogIn> {
                           label: const Text(
                             "Sign in with Google",
                             style: TextStyle(
-                                color: Colors.black87,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w500),
+                              color: Colors.black87,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ),
                       ),
@@ -412,8 +437,10 @@ class _LogInState extends State<LogIn> {
           hintText: hintText,
           hintStyle: TextStyle(color: Colors.grey[500]),
           border: InputBorder.none,
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 20,
+            vertical: 16,
+          ),
         ),
       ),
     );
@@ -422,19 +449,28 @@ class _LogInState extends State<LogIn> {
 
 class BottomWaveClipper extends CustomClipper<Path> {
   @override
-
   Path getClip(Size size) {
     var path = Path();
     path.lineTo(0, size.height - 40);
     var firstControlPoint = Offset(size.width / 4, size.height);
     var firstEndPoint = Offset(size.width / 2.25, size.height - 30);
-    path.quadraticBezierTo(firstControlPoint.dx, firstControlPoint.dy,
-        firstEndPoint.dx, firstEndPoint.dy);
-    var secondControlPoint =
-        Offset(size.width - (size.width / 3.25), size.height - 80);
+    path.quadraticBezierTo(
+      firstControlPoint.dx,
+      firstControlPoint.dy,
+      firstEndPoint.dx,
+      firstEndPoint.dy,
+    );
+    var secondControlPoint = Offset(
+      size.width - (size.width / 3.25),
+      size.height - 80,
+    );
     var secondEndPoint = Offset(size.width, size.height - 40);
-    path.quadraticBezierTo(secondControlPoint.dx, secondControlPoint.dy,
-        secondEndPoint.dx, secondEndPoint.dy);
+    path.quadraticBezierTo(
+      secondControlPoint.dx,
+      secondControlPoint.dy,
+      secondEndPoint.dx,
+      secondEndPoint.dy,
+    );
     path.lineTo(size.width, 0);
     path.close();
     return path;
