@@ -389,7 +389,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // ── EMPTY STATE ────────────────────────────────────────────────────────────
   Widget _buildEmptyFavourites() {
     return Center(
       child: Padding(
@@ -431,7 +430,6 @@ class _HomePageState extends State<HomePage> {
             ),
             const SizedBox(height: 30),
 
-            // ── GO TO FIND STATIONS BUTTON (now tappable) ──────────────────
             GestureDetector(
               onTap: widget.onNavigateToStations, // ← triggers tab switch
               child: Container(

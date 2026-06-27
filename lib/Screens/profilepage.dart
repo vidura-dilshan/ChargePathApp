@@ -14,7 +14,6 @@ class _ProfilePageState extends State<ProfilePage> {
   static const Color _primaryColor = Color(0xFF0253A4);
   static const Color _lightFillColor = Color(0xFFE6EFF8);
 
-  // ── RESOLVE DISPLAY NAME (same logic as HomePage) ──────────────────────────
   String get _displayName {
     final user = FirebaseAuth.instance.currentUser;
     if (user?.displayName != null && user!.displayName!.trim().isNotEmpty) {
@@ -95,7 +94,6 @@ class _ProfilePageState extends State<ProfilePage> {
       backgroundColor: Colors.white,
       body: Stack(
         children: [
-          // ── 1. BACKGROUND WAVE HEADER (same as HomePage) ──────────────────
           ClipPath(
             clipper: _BottomWaveClipper(),
             child: Container(
