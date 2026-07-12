@@ -2,6 +2,7 @@ import 'package:chargepath/Widgets/loadingscreen.dart'; // Import the loader
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:flutter/services.dart';
 
 class LogIn extends StatefulWidget {
   const LogIn({super.key});
@@ -21,6 +22,8 @@ class _LogInState extends State<LogIn> {
 
   final Color _primaryColor = const Color(0xFF0253A4);
   final Color _lightFillColor = const Color(0xFFE6EFF8);
+
+
 
   @override
   void dispose() {
@@ -106,27 +109,180 @@ class _LogInState extends State<LogIn> {
     }
   }
 
-  Future<void> _signInWithGoogle() async {
-    setState(() => _isLoading = true);
+  Future<void> _resetPassword() async {
+    final String email = _emailController.text.trim();
+
+    if (email.isEmpty) {
+      _showErrorDialog(
+        "Please enter your email address before resetting your password.",
+      );
+      return;
+    }
+
+    if (!RegExp(r"^[^\s@]+@[^\s@]+\.[^\s@]+$").hasMatch(email)) {
+      _showErrorDialog("Please enter a valid email address.");
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
     try {
-      final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+
+      if (!mounted) return;
+
+      setState(() {
+        _isLoading = false;
+      });
+
+      showDialog(
+        context: context,
+        builder: (dialogContext) {
+          return AlertDialog(
+            title: const Text("Password Reset Email Sent"),
+            content: Text(
+              "A password reset link has been sent to $email. "
+                  "Please check your inbox and spam folder.",
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(dialogContext).pop();
+                },
+                child: const Text("Okay"),
+              ),
+            ],
+          );
+        },
+      );
+    } on FirebaseAuthException catch (error) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+
+      String errorMessage;
+
+      switch (error.code) {
+        case "invalid-email":
+          errorMessage = "The email address is invalid.";
+          break;
+
+        case "user-not-found":
+          errorMessage = "No account was found with this email address.";
+          break;
+
+        case "network-request-failed":
+          errorMessage = "Please check your internet connection.";
+          break;
+
+        case "too-many-requests":
+          errorMessage =
+          "Too many reset attempts were made. Please try again later.";
+          break;
+
+        default:
+          errorMessage =
+              error.message ?? "Unable to send the password reset email.";
+      }
+
+      _showErrorDialog(errorMessage);
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+
+      _showErrorDialog("An unexpected error occurred.");
+    }
+  }
+
+  Future<void> _signInWithGoogle() async {
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+      });
+    }
+
+    try {
+      final GoogleSignIn googleSignIn = GoogleSignIn();
+
+      // Opens the Google account selection window.
+      final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
+
+      // The user closed the account selection window.
       if (googleUser == null) {
-        setState(() => _isLoading = false);
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
         return;
       }
+
+      // Gets the authentication tokens from Google.
       final GoogleSignInAuthentication googleAuth =
-          await googleUser.authentication;
+      await googleUser.authentication;
+
       final OAuthCredential credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
+
+      // Uses the Google credential to sign in to Firebase.
       await FirebaseAuth.instance.signInWithCredential(credential);
-    } on FirebaseAuthException catch (e) {
-      if (mounted) setState(() => _isLoading = false);
-      _showErrorDialog(e.message ?? "Google Sign-In failed");
-    } catch (e) {
-      if (mounted) setState(() => _isLoading = false);
-      _showErrorDialog("An error occurred during Google Sign-In");
+
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    } on FirebaseAuthException catch (error) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+
+      debugPrint("Firebase Auth code: ${error.code}");
+      debugPrint("Firebase Auth message: ${error.message}");
+
+      _showErrorDialog(
+        "Firebase error: ${error.code}\n\n"
+            "${error.message ?? 'Google authentication failed.'}",
+      );
+    } on PlatformException catch (error) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+
+      debugPrint("Google Sign-In code: ${error.code}");
+      debugPrint("Google Sign-In message: ${error.message}");
+      debugPrint("Google Sign-In details: ${error.details}");
+
+      _showErrorDialog(
+        "Google Sign-In error: ${error.code}\n\n"
+            "${error.message ?? 'Please verify your Firebase configuration.'}",
+      );
+    } catch (error, stackTrace) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+
+      debugPrint("Google Sign-In error: $error");
+      debugPrint("Stack trace: $stackTrace");
+
+      _showErrorDialog(
+        "Google Sign-In failed.\n\n$error",
+      );
     }
   }
 
@@ -285,9 +441,9 @@ class _LogInState extends State<LogIn> {
                               ],
                             ),
                             TextButton(
-                              onPressed: () => _showErrorDialog("Coming soon"),
+                              onPressed: _resetPassword,
                               child: Text(
-                                'Forget Password?',
+                                'Forgot Password?',
                                 style: TextStyle(
                                   color: _primaryColor,
                                   fontWeight: FontWeight.w600,
