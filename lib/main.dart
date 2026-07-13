@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'Screens/email_verification.dart';
 import 'Screens/login.dart';
 import 'Screens/mainscreen.dart';
 import 'Widgets/loadingscreen.dart';
@@ -84,8 +85,24 @@ class _AppStartupState extends State<_AppStartup> {
 // AnimatedSwitcher keeps the old widget (LoadingScreen) visible until the
 // new one (MainScreen / LogIn) is fully ready to paint.
 
-class AuthWrapper extends StatelessWidget {
+class AuthWrapper extends StatefulWidget {
   const AuthWrapper({super.key});
+
+  @override
+  State<AuthWrapper> createState() => _AuthWrapperState();
+}
+
+class _AuthWrapperState extends State<AuthWrapper> {
+  bool _requiresEmailVerification(User user) {
+    final usesPasswordProvider = user.providerData.any(
+      (info) => info.providerId == 'password',
+    );
+    return usesPasswordProvider && !user.emailVerified;
+  }
+
+  void _handleEmailVerified() {
+    setState(() {});
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -102,7 +119,16 @@ class AuthWrapper extends StatelessWidget {
             body: Center(child: Text("Auth Error")),
           );
         } else if (snapshot.hasData) {
-          child = const MainScreen(key: ValueKey('main'));
+          final user = snapshot.data!;
+          if (_requiresEmailVerification(user)) {
+            child = EmailVerificationScreen(
+              key: const ValueKey('verify-email'),
+              user: user,
+              onVerified: _handleEmailVerified,
+            );
+          } else {
+            child = const MainScreen(key: ValueKey('main'));
+          }
         } else {
           child = const LogIn(key: ValueKey('login'));
         }
@@ -113,10 +139,8 @@ class AuthWrapper extends StatelessWidget {
           duration: const Duration(milliseconds: 300),
           switchInCurve: Curves.easeIn,
           switchOutCurve: Curves.easeOut,
-          transitionBuilder: (child, animation) => FadeTransition(
-            opacity: animation,
-            child: child,
-          ),
+          transitionBuilder: (child, animation) =>
+              FadeTransition(opacity: animation, child: child),
           child: child,
         );
       },

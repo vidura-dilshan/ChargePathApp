@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -48,41 +49,84 @@ class _ProfilePageState extends State<ProfilePage> {
 
   // ── LOGOUT ─────────────────────────────────────────────────────────────────
   Future<void> _logout() async {
-    final confirmed = await showDialog<bool>(
+    final bool? confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text(
-          'Sign Out',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        content: const Text(
-          'Are you sure you want to sign out of your account?',
-          style: TextStyle(fontSize: 14, height: 1.5),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text('Cancel',
-                style: TextStyle(color: Colors.grey.shade600)),
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
           ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red.shade400,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
-              elevation: 0,
+          title: const Text(
+            'Sign Out',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          content: const Text(
+            'Are you sure you want to sign out of your account?',
+            style: TextStyle(
+              fontSize: 14,
+              height: 1.5,
             ),
-            child: const Text('Sign Out'),
           ),
-        ],
-      ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dialogContext, false);
+              },
+              child: Text(
+                'Cancel',
+                style: TextStyle(
+                  color: Colors.grey.shade600,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(dialogContext, true);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red.shade400,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              child: const Text('Sign Out'),
+            ),
+          ],
+        );
+      },
     );
 
-    if (confirmed == true) {
+    if (confirmed != true) {
+      return;
+    }
+
+    try {
+      final GoogleSignIn googleSignIn = GoogleSignIn();
+
+      // Disconnect the previously selected Google account.
+      // This makes Google request account selection during the next sign-in.
+      try {
+        await googleSignIn.disconnect();
+      } catch (error) {
+        // This may occur when the user signed in using email and password.
+        debugPrint('Google account disconnect skipped: $error');
+      }
+
       await FirebaseAuth.instance.signOut();
+    } catch (error) {
+      debugPrint('Sign-out failed: $error');
+
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not sign out. Please try again.'),
+        ),
+      );
     }
   }
 

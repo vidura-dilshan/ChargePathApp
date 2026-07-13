@@ -17,15 +17,29 @@ class CustomNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+
+    final double deviceBottomPadding = MediaQuery.of(context).padding.bottom;
+
+
+    // systemGestureInsets.bottom is large (40–60dp) on gesture nav,
+    // and 0 on 3-button nav — far more reliable than a hardcoded threshold.
+    final bool isGestureNavigation =
+        mediaQuery.systemGestureInsets.bottom > 20;
+
+    final double bottomSafePadding = isGestureNavigation ? 0 : deviceBottomPadding;
+
     return Container(
-      height: 70,
+      height: 70 + bottomSafePadding,
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           colors: [_primaryColor, _secondaryBlue],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(24),
+        ),
         boxShadow: [
           BoxShadow(
             color: Color(0x330253A4),
@@ -35,53 +49,59 @@ class CustomNavBar extends StatelessWidget {
           ),
         ],
       ),
-      child: Stack(
-        clipBehavior: Clip.none,
-        alignment: Alignment.center,
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildNavItem(0, Icons.home_rounded, 'Home'),
-                _buildNavItem(1, Icons.ev_station_rounded, 'Stations'),
-                const SizedBox(width: 64),
-                _buildNavItem(2, Icons.location_on_rounded, 'Planner'),
-                _buildNavItem(3, Icons.person_rounded, 'Profile'),
-              ],
-            ),
-          ),
+      child: Padding(
+        padding: EdgeInsets.only(bottom: bottomSafePadding),
+        child: Stack(
+          clipBehavior: Clip.none,
+          alignment: Alignment.center,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _buildNavItem(0, Icons.home_rounded, 'Home'),
+                  _buildNavItem(1, Icons.ev_station_rounded, 'Stations'),
 
-          // Center booking button — subtle, not oversized
-          Positioned(
-            top: -18,
-            child: GestureDetector(
-              onTap: onCenterTap,
-              child: Container(
-                height: 52,
-                width: 52,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0x280253A4),
-                      blurRadius: 10,
-                      spreadRadius: 1,
-                      offset: Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.bookmark_added_rounded,
-                  color: _primaryColor,
-                  size: 24,
+                  // Space for the center floating button.
+                  const SizedBox(width: 64),
+
+                  _buildNavItem(2, Icons.location_on_rounded, 'Planner'),
+                  _buildNavItem(3, Icons.person_rounded, 'Profile'),
+                ],
+              ),
+            ),
+
+            // Center booking button.
+            Positioned(
+              top: -18,
+              child: GestureDetector(
+                onTap: onCenterTap,
+                child: Container(
+                  height: 52,
+                  width: 52,
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Color(0x280253A4),
+                        blurRadius: 10,
+                        spreadRadius: 1,
+                        offset: Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.bookmark_added_rounded,
+                    color: _primaryColor,
+                    size: 24,
+                  ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -95,7 +115,10 @@ class CustomNavBar extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 250),
         curve: Curves.easeInOut,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        padding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 8,
+        ),
         decoration: BoxDecoration(
           color: isSelected
               ? Colors.white.withOpacity(0.15)
@@ -111,11 +134,15 @@ class CustomNavBar extends StatelessWidget {
               child: Icon(
                 icon,
                 key: ValueKey(isSelected),
-                color: isSelected ? Colors.white : Colors.white.withOpacity(0.45),
+                color: isSelected
+                    ? Colors.white
+                    : Colors.white.withOpacity(0.45),
                 size: isSelected ? 26 : 24,
               ),
             ),
+
             const SizedBox(height: 4),
+
             AnimatedDefaultTextStyle(
               duration: const Duration(milliseconds: 200),
               style: TextStyle(
@@ -123,13 +150,14 @@ class CustomNavBar extends StatelessWidget {
                     ? Colors.white
                     : Colors.white.withOpacity(0.45),
                 fontSize: 10,
-                fontWeight:
-                    isSelected ? FontWeight.w700 : FontWeight.w400,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400,
                 letterSpacing: 0.3,
               ),
               child: Text(label),
             ),
+
             const SizedBox(height: 2),
+
             AnimatedContainer(
               duration: const Duration(milliseconds: 250),
               height: 3,
