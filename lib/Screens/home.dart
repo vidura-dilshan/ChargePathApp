@@ -373,7 +373,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // ── EMPTY STATE ──────────────────────────────────────────────────────────
   Widget _buildEmptyFavourites() {
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -423,58 +422,28 @@ class _HomePageState extends State<HomePage> {
                           ),
                         ),
 
-                        const SizedBox(height: 18),
-
-                        const Text(
-                          'No Favourites Yet',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black87,
-                          ),
-                        ),
-
-                        const SizedBox(height: 8),
-
-                        Text(
-                          'Save your frequently used charging stations here for faster access.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: Colors.grey.shade500,
-                            fontSize: 14,
-                            height: 1.5,
-                          ),
-                        ),
-
-                        const SizedBox(height: 22),
-
-                        SizedBox(
-                          width: double.infinity,
-                          height: 48,
-                          child: ElevatedButton.icon(
-                            onPressed: widget.onNavigateToStations,
-                            icon: const Icon(
-                              Icons.ev_station_rounded,
-                              size: 20,
-                            ),
-                            label: const Text(
-                              'Find Charging Stations',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 15,
-                              ),
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: _primaryColor,
-                              foregroundColor: Colors.white,
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
+            GestureDetector(
+              onTap: widget.onNavigateToStations, // ← triggers tab switch
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 20, vertical: 12),
+                decoration: BoxDecoration(
+                  color: _lightFillColor,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.ev_station_rounded,
+                        color: _primaryColor, size: 20),
+                    SizedBox(width: 8),
+                    Text(
+                      'Go to Find Stations',
+                      style: TextStyle(
+                        color: _primaryColor,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
                     ),
                   ),
                 ],
