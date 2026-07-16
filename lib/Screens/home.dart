@@ -185,76 +185,36 @@ class _HomePageState extends State<HomePage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ── TOP BAR ────────────────────────────────────────────────
+                // ── TOP BAR (WITH DIRECT USER GREETING) ────────────────────
                 Padding(
                   padding: const EdgeInsets.fromLTRB(24, 10, 24, 12),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      const Text(
-                        'Charge Path',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 26,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.4,
-                        ),
-                      ),
-                      _buildGlassIconBtn(Icons.notifications_outlined),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 24),
-
-                // ── GREETING CARD (GLASS) ───────────────────────────────────
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(24),
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 22,
-                          vertical: 18,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.18),
-                          borderRadius: BorderRadius.circular(24),
-                          border: Border.all(
-                            color: Colors.white.withOpacity(0.3),
-                            width: 1.2,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.08),
-                              blurRadius: 20,
-                              offset: const Offset(0, 8),
-                            ),
-                          ],
-                        ),
+                      // Direct Welcome Greeting instead of App Name
+                      Expanded(
                         child: Column(
-                          mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
                               'Welcome back,',
                               style: TextStyle(
-                                fontSize: 14,
+                                fontSize: 15,
                                 color: Colors.white.withOpacity(0.85),
                                 fontWeight: FontWeight.w500,
+                                letterSpacing: 0.2,
                               ),
                             ),
-                            const SizedBox(height: 6),
+                            const SizedBox(height: 4),
                             Text(
                               _displayName,
                               style: const TextStyle(
-                                fontSize: 26,
+                                fontSize: 30,
                                 fontWeight: FontWeight.bold,
                                 color: Colors.white,
-                                letterSpacing: 0.3,
+                                letterSpacing: 0.4,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -262,12 +222,14 @@ class _HomePageState extends State<HomePage> {
                           ],
                         ),
                       ),
-                    ),
+                      const SizedBox(width: 16),
+                      _buildGlassIconBtn(Icons.notifications_outlined),
+                    ],
                   ),
                 ),
 
-                // Space for the wave to stay visible
-                SizedBox(height: size.height * 0.09),
+                // Pushes the white container section back down to its exact original location below the wave
+                SizedBox(height: (size.height * 0.09) + 110),
 
                 // ── FAVOURITE STATIONS SECTION ─────────────────────────────
                 Expanded(
