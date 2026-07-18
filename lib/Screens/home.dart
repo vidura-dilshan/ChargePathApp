@@ -383,29 +383,54 @@ class _HomePageState extends State<HomePage> {
                             color: Colors.amber.shade500,
                           ),
                         ),
-
-            GestureDetector(
-              onTap: widget.onNavigateToStations, // ← triggers tab switch
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 20, vertical: 12),
-                decoration: BoxDecoration(
-                  color: _lightFillColor,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.ev_station_rounded,
-                        color: _primaryColor, size: 20),
-                    SizedBox(width: 8),
-                    Text(
-                      'Go to Find Stations',
-                      style: TextStyle(
-                        color: _primaryColor,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14,
-                      ),
+                        const SizedBox(height: 20),
+                        const Text(
+                          'No Favourites Yet',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Tap the ⭐ star on any charging station in "Find Stations" to save it here.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.grey.shade500,
+                            fontSize: 13,
+                            height: 1.5,
+                          ),
+                        ),
+                        const SizedBox(height: 22),
+                        GestureDetector(
+                          onTap: widget.onNavigateToStations, // ← triggers tab switch
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 20, vertical: 12),
+                            decoration: BoxDecoration(
+                              color: _lightFillColor,
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.ev_station_rounded,
+                                    color: _primaryColor, size: 20),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Go to Find Stations',
+                                  style: TextStyle(
+                                    color: _primaryColor,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
