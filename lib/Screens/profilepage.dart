@@ -26,7 +26,7 @@ class _ProfilePageState extends State<ProfilePage> {
       return prefix
           .split(RegExp(r'[._\-]'))
           .map((w) =>
-              w.isNotEmpty ? '${w[0].toUpperCase()}${w.substring(1)}' : '')
+      w.isNotEmpty ? '${w[0].toUpperCase()}${w.substring(1)}' : '')
           .join(' ')
           .trim();
     }
@@ -191,7 +191,14 @@ class _ProfilePageState extends State<ProfilePage> {
                 Expanded(
                   child: SingleChildScrollView(
                     physics: const BouncingScrollPhysics(),
-                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 100),
+                    // CHANGED: was const EdgeInsets.fromLTRB(24, 0, 24, 100)
+                    // Dynamic bottom padding accounts for nav bar + system nav bar height
+                    padding: EdgeInsets.fromLTRB(
+                      24,
+                      0,
+                      24,
+                      MediaQuery.of(context).padding.bottom + 100,
+                    ),
                     child: Column(
                       children: [
                         // ── AVATAR + NAME CARD ────────────────────────────────
@@ -231,7 +238,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                       boxShadow: [
                                         BoxShadow(
                                           color:
-                                              _primaryColor.withOpacity(0.3),
+                                          _primaryColor.withOpacity(0.3),
                                           blurRadius: 16,
                                           offset: const Offset(0, 6),
                                         ),
@@ -261,7 +268,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                       boxShadow: [
                                         BoxShadow(
                                           color:
-                                              Colors.black.withOpacity(0.08),
+                                          Colors.black.withOpacity(0.08),
                                           blurRadius: 6,
                                         ),
                                       ],
@@ -325,7 +332,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                     horizontal: 12, vertical: 5),
                                 decoration: BoxDecoration(
                                   color:
-                                      const Color(0xFF00C853).withOpacity(0.1),
+                                  const Color(0xFF00C853).withOpacity(0.1),
                                   borderRadius: BorderRadius.circular(20),
                                 ),
                                 child: Row(
@@ -590,7 +597,7 @@ class _BottomWaveClipper extends CustomClipper<Path> {
       firstEndPoint.dy,
     );
     var secondControlPoint =
-        Offset(size.width - (size.width / 3.25), size.height - 80);
+    Offset(size.width - (size.width / 3.25), size.height - 80);
     var secondEndPoint = Offset(size.width, size.height - 40);
     path.quadraticBezierTo(
       secondControlPoint.dx,
