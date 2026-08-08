@@ -39,7 +39,7 @@ class _RoutePlanningPageState extends State<RoutePlanningPage> {
   final TextEditingController _startController = TextEditingController();
   final TextEditingController _endController = TextEditingController();
   final TextEditingController _rangeController =
-      TextEditingController(text: "100");
+  TextEditingController(text: "100");
 
   List<dynamic> _routeStops = [];
   Set<Marker> _markers = {};
@@ -134,10 +134,10 @@ class _RoutePlanningPageState extends State<RoutePlanningPage> {
         infoWindow: InfoWindow(
           title: name,
           snippet:
-              "Charge needed: ${stop['NeedChargePercentage']} — Tap to navigate",
+          "Charge needed: ${stop['NeedChargePercentage']} — Tap to navigate",
         ),
         icon:
-            BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+        BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
         onTap: () {
           Navigator.push(
             context,
@@ -180,26 +180,18 @@ class _RoutePlanningPageState extends State<RoutePlanningPage> {
 
   @override
   Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final bool useWideLayout = constraints.maxWidth >= 950;
+        return useWideLayout ? _buildWideLayout() : _buildMobileLayout();
+      },
+    );
+  }
+
+  Widget _buildMobileLayout() {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        automaticallyImplyLeading: false,
-        title: const Text(
-          "Route Planning",
-          style: TextStyle(
-            color: Colors.black87,
-            fontWeight: FontWeight.bold,
-            fontSize: 20,
-          ),
-        ),
-        centerTitle: true,
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(1),
-          child: Container(color: Colors.grey.shade100, height: 1),
-        ),
-      ),
+      appBar: _buildAppBar(),
       body: SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
         child: Padding(
@@ -207,174 +199,17 @@ class _RoutePlanningPageState extends State<RoutePlanningPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ── ROUTE LOCATIONS CARD ──────────────────────────────────────
-              _buildCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildSectionTitle(
-                        "Plan Your Route", Icons.alt_route_rounded),
-                    const SizedBox(height: 20),
-                    _buildLocationHeader(),
-                  ],
-                ),
-              ),
-
+              _buildRouteLocationsCard(),
               const SizedBox(height: 16),
-
-              // ── VEHICLE SETTINGS CARD ─────────────────────────────────────
-              _buildCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildSectionTitle(
-                        "Vehicle Settings", Icons.electric_car_rounded),
-                    const SizedBox(height: 20),
-                    _buildBatterySlider(),
-                    const SizedBox(height: 20),
-                    _buildLabeledField(
-                      label: "Max Range",
-                      sublabel: "km",
-                      child: _buildBlueTextBox(
-                          "e.g. 100", _rangeController,
-                          isNumber: true),
-                    ),
-                    const SizedBox(height: 16),
-                    _buildConnectorSelector(),
-                  ],
-                ),
-              ),
-
+              _buildVehicleSettingsCard(),
               const SizedBox(height: 20),
-
-              // ── PLAN ROUTE BUTTON ─────────────────────────────────────────
-              SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: ElevatedButton.icon(
-                  onPressed: _isLoading ? null : _fetchRoute,
-                  icon: _isLoading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                              color: Colors.white, strokeWidth: 2.5),
-                        )
-                      : const Icon(Icons.navigation_rounded,
-                          color: Colors.white, size: 20),
-                  label: Text(
-                    _isLoading ? "Planning..." : "Plan Route",
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _primaryColor,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16)),
-                  ),
-                ),
-              ),
-
+              _buildPlanRouteButton(),
               const SizedBox(height: 24),
-
-              // ── MAP PREVIEW CARD ──────────────────────────────────────────
-              _buildCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildSectionTitle(
-                        "Route Preview", Icons.map_rounded),
-                    const SizedBox(height: 16),
-                    _buildMapPreview(),
-                  ],
-                ),
-              ),
-
+              _buildMapCard(mapHeight: 200),
               const SizedBox(height: 16),
-
-              // ── CHARGING STOPS CARD ───────────────────────────────────────
-              _buildCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        _buildSectionTitle(
-                            "Charging Stops", Icons.ev_station_rounded),
-                        if (_routeStops.isNotEmpty)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: _accentGreen.withOpacity(0.12),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              "${_routeStops.length} stops",
-                              style: TextStyle(
-                                color: _accentGreen,
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    _routeStops.isEmpty
-                        ? Center(
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                  vertical: 24),
-                              child: Column(
-                                children: [
-                                  Icon(Icons.ev_station_outlined,
-                                      size: 48,
-                                      color: Colors.grey.shade300),
-                                  const SizedBox(height: 12),
-                                  Text(
-                                    "Route not calculated yet",
-                                    style: TextStyle(
-                                      color: Colors.grey.shade400,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          )
-                        : ListView.builder(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            itemCount: _routeStops.length,
-                            itemBuilder: (ctx, index) =>
-                                _buildStopItem(
-                                    index + 1, _routeStops[index]),
-                          ),
-                  ],
-                ),
-              ),
-
+              _buildChargingStopsCard(),
               const SizedBox(height: 16),
-
-              // ── TRIP SUMMARY CARD ─────────────────────────────────────────
-              _buildCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildSectionTitle(
-                        "Trip Summary", Icons.summarize_rounded),
-                    const SizedBox(height: 16),
-                    _buildTripSummaryGrid(),
-                  ],
-                ),
-              ),
+              _buildTripSummaryCard(),
             ],
           ),
         ),
@@ -382,23 +217,223 @@ class _RoutePlanningPageState extends State<RoutePlanningPage> {
     );
   }
 
+  Widget _buildWideLayout() {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF5F7FA),
+      body: SafeArea(
+        child: Row(
+          children: [
+            Container(
+              width: 370,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border(right: BorderSide(color: Colors.grey.shade200)),
+              ),
+              child: Column(
+                children: [
+                  _buildWideHeader(),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      physics: const BouncingScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildRouteLocationsCard(showShadow: false),
+                          const SizedBox(height: 16),
+                          _buildVehicleSettingsCard(showShadow: false),
+                          const SizedBox(height: 20),
+                          _buildPlanRouteButton(),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(22),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final bool useSideDetails = constraints.maxWidth >= 760;
+                    if (useSideDetails) {
+                      return Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(flex: 3, child: _buildWideMapPanel()),
+                          const SizedBox(width: 18),
+                          Expanded(
+                            flex: 2,
+                            child: SingleChildScrollView(
+                              physics: const BouncingScrollPhysics(),
+                              child: Column(
+                                children: [
+                                  _buildChargingStopsCard(),
+                                  const SizedBox(height: 16),
+                                  _buildTripSummaryCard(summaryColumns: 1),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    }
+                    return Column(
+                      children: [
+                        Expanded(flex: 3, child: _buildWideMapPanel()),
+                        const SizedBox(height: 16),
+                        Expanded(
+                          flex: 2,
+                          child: SingleChildScrollView(
+                            physics: const BouncingScrollPhysics(),
+                            child: Column(
+                              children: [
+                                _buildChargingStopsCard(),
+                                const SizedBox(height: 16),
+                                _buildTripSummaryCard(),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  PreferredSizeWidget _buildAppBar() {
+    return AppBar(
+      backgroundColor: Colors.white,
+      elevation: 0,
+      automaticallyImplyLeading: false,
+      title: const Text('Route Planning', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold, fontSize: 20)),
+      centerTitle: true,
+      bottom: PreferredSize(preferredSize: const Size.fromHeight(1), child: Container(color: const Color(0xFFF1F1F1), height: 1)),
+    );
+  }
+
+  Widget _buildWideHeader() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(22, 24, 22, 20),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(colors: [Color(0xFF0253A4), Color(0xFF034485)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(children: [Icon(Icons.alt_route_rounded, color: Colors.white, size: 30), SizedBox(width: 12), Expanded(child: Text('Route Planning', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)))]),
+          const SizedBox(height: 8),
+          Text('Plan an EV-friendly journey using your battery, range, and connector requirements.', style: TextStyle(color: Colors.white.withOpacity(0.82), fontSize: 13, height: 1.45)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRouteLocationsCard({bool showShadow = true}) {
+    return _buildCard(
+      showShadow: showShadow,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_buildSectionTitle('Plan Your Route', Icons.alt_route_rounded), const SizedBox(height: 20), _buildLocationHeader()]),
+    );
+  }
+
+  Widget _buildVehicleSettingsCard({bool showShadow = true}) {
+    return _buildCard(
+      showShadow: showShadow,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSectionTitle('Vehicle Settings', Icons.electric_car_rounded),
+          const SizedBox(height: 20),
+          _buildBatterySlider(),
+          const SizedBox(height: 20),
+          _buildLabeledField(label: 'Max Range', sublabel: 'km', child: _buildBlueTextBox('e.g. 100', _rangeController, isNumber: true)),
+          const SizedBox(height: 16),
+          _buildConnectorSelector(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPlanRouteButton() {
+    return SizedBox(
+      width: double.infinity,
+      height: 56,
+      child: ElevatedButton.icon(
+        onPressed: _isLoading ? null : _fetchRoute,
+        icon: _isLoading ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5)) : const Icon(Icons.navigation_rounded, color: Colors.white, size: 20),
+        label: Text(_isLoading ? 'Planning...' : 'Plan Route', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+        style: ElevatedButton.styleFrom(backgroundColor: _primaryColor, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
+      ),
+    );
+  }
+
+  Widget _buildMapCard({required double mapHeight}) {
+    return _buildCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_buildSectionTitle('Route Preview', Icons.map_rounded), const SizedBox(height: 16), _buildMapPreview(height: mapHeight)]));
+  }
+
+  Widget _buildWideMapPanel() {
+    return _buildCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [Expanded(child: _buildSectionTitle('Route Preview', Icons.map_rounded)), if (_routeStops.isNotEmpty) Container(padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6), decoration: BoxDecoration(color: _primaryColor.withOpacity(0.09), borderRadius: BorderRadius.circular(20)), child: Text('${_totalDistance.toStringAsFixed(1)} km', style: TextStyle(color: _primaryColor, fontSize: 12, fontWeight: FontWeight.bold)))]),
+          const SizedBox(height: 16),
+          Expanded(child: _buildMapPreview(expand: true)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildChargingStopsCard() {
+    return _buildCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [Expanded(child: _buildSectionTitle('Charging Stops', Icons.ev_station_rounded)), if (_routeStops.isNotEmpty) Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: _accentGreen.withOpacity(0.12), borderRadius: BorderRadius.circular(20)), child: Text('${_routeStops.length} stops', style: TextStyle(color: _accentGreen, fontSize: 12, fontWeight: FontWeight.bold)))]),
+          const SizedBox(height: 16),
+          if (_routeStops.isEmpty)
+            Center(child: Padding(padding: const EdgeInsets.symmetric(vertical: 24), child: Column(children: [Icon(Icons.ev_station_outlined, size: 48, color: Colors.grey.shade300), const SizedBox(height: 12), Text('Route not calculated yet', style: TextStyle(color: Colors.grey.shade400, fontSize: 14))])))
+          else
+            ListView.builder(shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), itemCount: _routeStops.length, itemBuilder: (context, index) => _buildStopItem(index + 1, _routeStops[index])),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTripSummaryCard({int summaryColumns = 2}) {
+    return _buildCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_buildSectionTitle('Trip Summary', Icons.summarize_rounded), const SizedBox(height: 16), _buildTripSummaryGrid(crossAxisCount: summaryColumns)]));
+  }
+
   // ── WIDGET BUILDERS ───────────────────────────────────────────────────────
 
   /// Generic white card container
-  Widget _buildCard({required Widget child}) {
+  Widget _buildCard({
+    required Widget child,
+    bool showShadow = true,
+  }) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [
+        boxShadow: showShadow
+            ? [
           BoxShadow(
             color: const Color(0xFF0253A4).withOpacity(0.06),
             blurRadius: 20,
             offset: const Offset(0, 6),
           ),
-        ],
+        ]
+            : [],
       ),
       child: child,
     );
@@ -456,7 +491,7 @@ class _RoutePlanningPageState extends State<RoutePlanningPage> {
               ),
               ...List.generate(
                 6,
-                (_) => Container(
+                    (_) => Container(
                   width: 2,
                   height: 8,
                   margin: const EdgeInsets.symmetric(vertical: 2),
@@ -579,7 +614,7 @@ class _RoutePlanningPageState extends State<RoutePlanningPage> {
       child: TextField(
         controller: controller,
         keyboardType:
-            isNumber ? TextInputType.number : TextInputType.text,
+        isNumber ? TextInputType.number : TextInputType.text,
         decoration: InputDecoration(
           hintText: hint,
           hintStyle: TextStyle(
@@ -589,12 +624,12 @@ class _RoutePlanningPageState extends State<RoutePlanningPage> {
           ),
           border: InputBorder.none,
           contentPadding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           suffixIcon: isNumber
               ? Icon(Icons.speed_rounded,
-                  size: 18, color: _primaryColor.withOpacity(0.5))
+              size: 18, color: _primaryColor.withOpacity(0.5))
               : Icon(Icons.search_rounded,
-                  size: 18, color: _primaryColor.withOpacity(0.5)),
+              size: 18, color: _primaryColor.withOpacity(0.5)),
         ),
         style: const TextStyle(
             fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black87),
@@ -647,8 +682,8 @@ class _RoutePlanningPageState extends State<RoutePlanningPage> {
     final Color batteryColor = _currentBattery < 20
         ? Colors.red.shade500
         : _currentBattery < 50
-            ? Colors.orange.shade600
-            : _accentGreen;
+        ? Colors.orange.shade600
+        : _accentGreen;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -666,7 +701,7 @@ class _RoutePlanningPageState extends State<RoutePlanningPage> {
             ),
             Container(
               padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
               decoration: BoxDecoration(
                 color: batteryColor.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(20),
@@ -677,8 +712,8 @@ class _RoutePlanningPageState extends State<RoutePlanningPage> {
                     _currentBattery > 70
                         ? Icons.battery_full_rounded
                         : _currentBattery > 30
-                            ? Icons.battery_4_bar_rounded
-                            : Icons.battery_1_bar_rounded,
+                        ? Icons.battery_4_bar_rounded
+                        : Icons.battery_1_bar_rounded,
                     color: batteryColor,
                     size: 16,
                   ),
@@ -705,7 +740,7 @@ class _RoutePlanningPageState extends State<RoutePlanningPage> {
             thumbColor: batteryColor,
             overlayColor: batteryColor.withOpacity(0.15),
             thumbShape:
-                const RoundSliderThumbShape(enabledThumbRadius: 10),
+            const RoundSliderThumbShape(enabledThumbRadius: 10),
           ),
           child: Slider(
             value: _currentBattery,
@@ -719,24 +754,25 @@ class _RoutePlanningPageState extends State<RoutePlanningPage> {
     );
   }
 
-  Widget _buildMapPreview() {
-    return ClipRRect(
+  Widget _buildMapPreview({double? height, bool expand = false}) {
+    final Widget map = ClipRRect(
       borderRadius: BorderRadius.circular(14),
-      child: SizedBox(
-        height: 200,
-        width: double.infinity,
-        child: GoogleMap(
-          mapType: MapType.normal,
-          initialCameraPosition: _kInitialLocation,
-          zoomControlsEnabled: false,
-          markers: _markers,
-          onMapCreated: (GoogleMapController controller) {
-            if (!_controller.isCompleted)
-              _controller.complete(controller);
-          },
-        ),
+      child: GoogleMap(
+        mapType: MapType.normal,
+        initialCameraPosition: _kInitialLocation,
+        zoomControlsEnabled: false,
+        markers: _markers,
+        onMapCreated: (GoogleMapController controller) {
+          if (!_controller.isCompleted) {
+            _controller.complete(controller);
+          }
+        },
       ),
     );
+    if (expand) {
+      return SizedBox.expand(child: map);
+    }
+    return SizedBox(height: height ?? 200, width: double.infinity, child: map);
   }
 
   Widget _buildStopItem(int index, dynamic stop) {
@@ -844,7 +880,7 @@ class _RoutePlanningPageState extends State<RoutePlanningPage> {
             // Charge needed badge
             Container(
               padding:
-                  const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
                 color: _accentGreen.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(10),
@@ -870,14 +906,14 @@ class _RoutePlanningPageState extends State<RoutePlanningPage> {
     );
   }
 
-  Widget _buildTripSummaryGrid() {
+  Widget _buildTripSummaryGrid({int crossAxisCount = 2}) {
     return GridView.count(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      crossAxisCount: 2,
+      crossAxisCount: crossAxisCount,
       crossAxisSpacing: 12,
       mainAxisSpacing: 12,
-      childAspectRatio: 2.4,
+      childAspectRatio: crossAxisCount == 1 ? 3.6 : 2.4,
       children: [
         _summaryCard(Icons.straighten_rounded,
             "${_totalDistance.toStringAsFixed(1)} km", "Total Distance",

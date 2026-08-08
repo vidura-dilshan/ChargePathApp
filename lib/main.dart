@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+
+import 'firebase_options.dart';
 import 'Screens/email_verification.dart';
 import 'Screens/login.dart';
 import 'Screens/mainscreen.dart';
 import 'Widgets/loadingscreen.dart';
 
-void main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(const MyApp());
 }
@@ -19,10 +21,10 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'ChargePath',
       debugShowCheckedModeBanner: false,
-      // scaffoldBackgroundColor matches LoadingScreen so any
-      // un-painted frame shows brand color, never white.
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF0253A4)),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF0253A4),
+        ),
         scaffoldBackgroundColor: const Color(0xFFF0F6FF),
         useMaterial3: true,
       ),
@@ -31,8 +33,10 @@ class MyApp extends StatelessWidget {
   }
 }
 
-// ── STARTUP ──────────────────────────────────────────────────────────────────
-// Shown as the very first widget so LoadingScreen appears on frame 1.
+// ── APPLICATION STARTUP ───────────────────────────────────────────────────────
+//
+// Firebase is initialized here instead of directly inside main().
+// This allows the loading screen to appear while Firebase is starting.
 
 class _AppStartup extends StatefulWidget {
   const _AppStartup();
@@ -42,48 +46,54 @@ class _AppStartup extends StatefulWidget {
 }
 
 class _AppStartupState extends State<_AppStartup> {
-  late final Future<void> _init;
+  late final Future<void> _firebaseInitialization;
 
   @override
   void initState() {
     super.initState();
-    _init = Firebase.initializeApp();
+
+    _firebaseInitialization = Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<void>(
-      future: _init,
+      future: _firebaseInitialization,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
           return const LoadingScreen();
         }
+
         if (snapshot.hasError) {
           return Scaffold(
             body: Center(
               child: Padding(
                 padding: const EdgeInsets.all(24),
                 child: Text(
-                  "Startup error:\n${snapshot.error}",
+                  'Startup error:\n${snapshot.error}',
                   textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.red),
+                  style: const TextStyle(
+                    color: Colors.red,
+                    fontSize: 16,
+                  ),
                 ),
               ),
             ),
           );
         }
+
         return const AuthWrapper();
       },
     );
   }
 }
 
-// ── AUTH WRAPPER ──────────────────────────────────────────────────────────────
-// AnimatedSwitcher with a FadeTransition eliminates the white frame that
-// appears when StreamBuilder rebuilds between LoadingScreen and MainScreen.
-// Without this, Flutter needs one unpainted frame to lay out the new widget —
-// AnimatedSwitcher keeps the old widget (LoadingScreen) visible until the
-// new one (MainScreen / LogIn) is fully ready to paint.
+// ── AUTHENTICATION WRAPPER ───────────────────────────────────────────────────
+//
+// This listens for Firebase authentication changes and decides which screen
+// should be displayed.
 
 class AuthWrapper extends StatefulWidget {
   const AuthWrapper({super.key});
@@ -94,13 +104,24 @@ class AuthWrapper extends StatefulWidget {
 
 class _AuthWrapperState extends State<AuthWrapper> {
   bool _requiresEmailVerification(User user) {
-    final usesPasswordProvider = user.providerData.any(
-      (info) => info.providerId == 'password',
+    final bool usesPasswordProvider = user.providerData.any(
+          (providerInfo) => providerInfo.providerId == 'password',
     );
+
     return usesPasswordProvider && !user.emailVerified;
   }
 
-  void _handleEmailVerified() {
+  Future<void> _handleEmailVerified() async {
+    final User? currentUser = FirebaseAuth.instance.currentUser;
+
+    if (currentUser != null) {
+      await currentUser.reload();
+    }
+
+    if (!mounted) {
+      return;
+    }
+
     setState(() {});
   }
 
@@ -109,39 +130,63 @@ class _AuthWrapperState extends State<AuthWrapper> {
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
-        // Determine which child to show
-        final Widget child;
+        final Widget currentScreen;
+
         if (snapshot.connectionState == ConnectionState.waiting) {
-          child = const LoadingScreen(key: ValueKey('loading'));
+          currentScreen = const LoadingScreen(
+            key: ValueKey('loading'),
+          );
         } else if (snapshot.hasError) {
-          child = const Scaffold(
-            key: ValueKey('error'),
-            body: Center(child: Text("Auth Error")),
+          currentScreen = Scaffold(
+            key: const ValueKey('authentication-error'),
+            body: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text(
+                  'Authentication error:\n${snapshot.error}',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.red,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+            ),
           );
         } else if (snapshot.hasData) {
-          final user = snapshot.data!;
+          final User user = snapshot.data!;
+
           if (_requiresEmailVerification(user)) {
-            child = EmailVerificationScreen(
-              key: const ValueKey('verify-email'),
+            currentScreen = EmailVerificationScreen(
+              key: const ValueKey('email-verification'),
               user: user,
               onVerified: _handleEmailVerified,
             );
           } else {
-            child = const MainScreen(key: ValueKey('main'));
+            currentScreen = const MainScreen(
+              key: ValueKey('main-screen'),
+            );
           }
         } else {
-          child = const LogIn(key: ValueKey('login'));
+          currentScreen = const LogIn(
+            key: ValueKey('login-screen'),
+          );
         }
 
-        // AnimatedSwitcher fades between widgets instead of cutting,
-        // which hides the one-frame white gap on every state transition.
         return AnimatedSwitcher(
           duration: const Duration(milliseconds: 300),
           switchInCurve: Curves.easeIn,
           switchOutCurve: Curves.easeOut,
-          transitionBuilder: (child, animation) =>
-              FadeTransition(opacity: animation, child: child),
-          child: child,
+          transitionBuilder: (
+              Widget child,
+              Animation<double> animation,
+              ) {
+            return FadeTransition(
+              opacity: animation,
+              child: child,
+            );
+          },
+          child: currentScreen,
         );
       },
     );

@@ -117,9 +117,9 @@ class _ChargingRouteState extends State<ChargingRoute> {
     );
 
     final ui.Image img =
-        await recorder.endRecording().toImage(size, size);
+    await recorder.endRecording().toImage(size, size);
     final ByteData? byteData =
-        await img.toByteData(format: ui.ImageByteFormat.png);
+    await img.toByteData(format: ui.ImageByteFormat.png);
     return BitmapDescriptor.fromBytes(byteData!.buffer.asUint8List());
   }
 
@@ -179,9 +179,9 @@ class _ChargingRouteState extends State<ChargingRoute> {
     tp.paint(canvas, Offset(cx - tp.width / 2, cyTop - tp.height / 2));
 
     final ui.Image img =
-        await recorder.endRecording().toImage(size, size);
+    await recorder.endRecording().toImage(size, size);
     final ByteData? byteData =
-        await img.toByteData(format: ui.ImageByteFormat.png);
+    await img.toByteData(format: ui.ImageByteFormat.png);
     return BitmapDescriptor.fromBytes(byteData!.buffer.asUint8List());
   }
 
@@ -214,7 +214,7 @@ class _ChargingRouteState extends State<ChargingRoute> {
     String fetchedName = "My Location";
     try {
       final List<Placemark> placemarks =
-          await placemarkFromCoordinates(position.latitude, position.longitude);
+      await placemarkFromCoordinates(position.latitude, position.longitude);
       if (placemarks.isNotEmpty) {
         fetchedName = placemarks.first.locality ??
             placemarks.first.subAdministrativeArea ??
@@ -248,10 +248,10 @@ class _ChargingRouteState extends State<ChargingRoute> {
     try {
       final Uri url = Uri.parse(
         'https://maps.googleapis.com/maps/api/directions/json'
-        '?origin=${_currentPosition!.latitude},${_currentPosition!.longitude}'
-        '&destination=${_destination.latitude},${_destination.longitude}'
-        '&mode=driving'
-        '&key=$_kGoogleApiKey',
+            '?origin=${_currentPosition!.latitude},${_currentPosition!.longitude}'
+            '&destination=${_destination.latitude},${_destination.longitude}'
+            '&mode=driving'
+            '&key=$_kGoogleApiKey',
       );
 
       final response = await http.get(url);
@@ -267,12 +267,12 @@ class _ChargingRouteState extends State<ChargingRoute> {
           final String dur = leg['duration']['text'];
 
           final String encodedPolyline =
-              route['overview_polyline']['points'];
+          route['overview_polyline']['points'];
           final PolylinePoints polylinePoints = PolylinePoints();
           final List<PointLatLng> decoded =
-              polylinePoints.decodePolyline(encodedPolyline);
+          polylinePoints.decodePolyline(encodedPolyline);
           final List<LatLng> polylineCoords =
-              decoded.map((p) => LatLng(p.latitude, p.longitude)).toList();
+          decoded.map((p) => LatLng(p.latitude, p.longitude)).toList();
 
           if (!mounted) return;
           setState(() {
@@ -328,7 +328,7 @@ class _ChargingRouteState extends State<ChargingRoute> {
     try {
       final PolylinePoints polylinePoints = PolylinePoints();
       final PolylineResult result =
-          await polylinePoints.getRouteBetweenCoordinates(
+      await polylinePoints.getRouteBetweenCoordinates(
         googleApiKey: _kGoogleApiKey,
         request: PolylineRequest(
           origin: PointLatLng(
@@ -422,9 +422,9 @@ class _ChargingRouteState extends State<ChargingRoute> {
 
     final Uri googleMapsUrl = Uri.parse(
       'https://www.google.com/maps/dir/?api=1'
-      '&origin=${_currentPosition!.latitude},${_currentPosition!.longitude}'
-      '&destination=${_destination.latitude},${_destination.longitude}'
-      '&travelmode=driving',
+          '&origin=${_currentPosition!.latitude},${_currentPosition!.longitude}'
+          '&destination=${_destination.latitude},${_destination.longitude}'
+          '&travelmode=driving',
     );
 
     try {
@@ -555,9 +555,24 @@ class _ChargingRouteState extends State<ChargingRoute> {
     );
   }
 
+
   // ── 5. BUILD ──────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final bool useWideLayout = constraints.maxWidth >= 900;
+
+        if (useWideLayout) {
+          return _buildWideLayout();
+        }
+
+        return _buildMobileLayout();
+      },
+    );
+  }
+
+  Widget _buildMobileLayout() {
     final double screenHeight = MediaQuery.of(context).size.height;
     final double mapHeight = screenHeight * 0.45;
 
@@ -565,369 +580,583 @@ class _ChargingRouteState extends State<ChargingRoute> {
       backgroundColor: _backgroundColor,
       body: Stack(
         children: [
-          // ── MAP ────────────────────────────────────────────────────────────
           Positioned(
             top: 0,
             left: 0,
             right: 0,
             height: mapHeight,
-            child: _currentPosition == null
-                ? Container(
-                    color: _backgroundColor,
-                    child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          CircularProgressIndicator(
-                            color: _primaryColor,
-                            strokeWidth: 3,
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            "Getting your location...",
-                            style: TextStyle(
-                              color: Colors.grey.shade600,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  )
-                : GoogleMap(
-                    mapType: MapType.normal,
-                    initialCameraPosition: CameraPosition(
-                      target: _currentPosition!,
-                      zoom: 14,
-                    ),
-                    zoomControlsEnabled: false,
-                    myLocationEnabled: false,
-                    myLocationButtonEnabled: false,
-                    compassEnabled: false,
-                    polylines: _polylines,
-                    markers: _markers,
-                    onMapCreated: (GoogleMapController controller) {
-                      _mapController = controller;
-                    },
-                  ),
+            child: _buildMap(),
           ),
-
-          // ── BACK BUTTON ───────────────────────────────────────────────────
           Positioned(
             top: 48,
             left: 16,
             child: SafeArea(
-              child: GestureDetector(
-                onTap: () => Navigator.pop(context),
-                child: Container(
-                  width: 46,
-                  height: 46,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(14),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.arrow_back_ios_new_rounded,
-                    size: 18,
-                    color: Colors.black87,
-                  ),
-                ),
-              ),
+              child: _buildBackButton(),
             ),
           ),
-
-          // ── VIEW COST BUTTON ────────────────────────────────────────────────
           Positioned(
             top: 60,
             right: 16,
             child: SafeArea(
-              child: GestureDetector(
-                onTap: _showCostPopup,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 11),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(30),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.12),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(5),
-                        decoration: BoxDecoration(
-                          color: _primaryColor.withOpacity(0.1),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          Icons.monetization_on_rounded,
-                          color: _primaryColor,
-                          size: 18,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        "View Cost",
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                          color: Colors.grey.shade800,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+              child: _buildViewCostButton(),
             ),
           ),
-
-          // ── MAP CONTROLS ──────────────────────────────────────────────────
           Positioned(
-            top: screenHeight * 0.45 - 140,
+            top: mapHeight - 140,
             right: 16,
-            child: Column(
-              children: [
-                _buildMapButton(
-                  Icons.my_location_rounded,
-                  onTap: () {
-                    if (_currentPosition != null) {
-                      _mapController?.animateCamera(
-                        CameraUpdate.newCameraPosition(
-                          CameraPosition(
-                              target: _currentPosition!, zoom: 16),
-                        ),
-                      );
-                    }
-                  },
-                ),
-                const SizedBox(height: 10),
-                _buildMapButton(
-                  Icons.add_rounded,
-                  onTap: () =>
-                      _mapController?.animateCamera(CameraUpdate.zoomIn()),
-                ),
-                const SizedBox(height: 10),
-                _buildMapButton(
-                  Icons.remove_rounded,
-                  onTap: () =>
-                      _mapController?.animateCamera(CameraUpdate.zoomOut()),
-                ),
-              ],
-            ),
+            child: _buildMapControls(),
           ),
-
-          // ── BOTTOM ROUTE SHEET ──────────────────────────────────────────────
           Positioned(
-            top: screenHeight * 0.45 - 30,
+            top: mapHeight - 30,
             left: 0,
             right: 0,
             bottom: 0,
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(30),
-                  topRight: Radius.circular(30),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.06),
-                    blurRadius: 24,
-                    offset: const Offset(0, -6),
+            child: _buildMobileRouteSheet(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWideLayout() {
+    return Scaffold(
+      backgroundColor: _backgroundColor,
+      body: SafeArea(
+        child: Row(
+          children: [
+            Expanded(
+              flex: 7,
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: _buildMap(),
+                  ),
+                  Positioned(
+                    top: 18,
+                    left: 18,
+                    child: _buildBackButton(),
+                  ),
+                  Positioned(
+                    top: 18,
+                    right: 18,
+                    child: _buildViewCostButton(),
+                  ),
+                  Positioned(
+                    right: 18,
+                    bottom: 18,
+                    child: _buildMapControls(),
                   ),
                 ],
               ),
-              child: Column(
-                children: [
-                  Center(
-                    child: Container(
-                      margin:
-                          const EdgeInsets.only(top: 12, bottom: 8),
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade300,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
+            ),
+            Container(
+              width: 390,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border(
+                  left: BorderSide(
+                    color: Colors.grey.shade200,
                   ),
-                  Expanded(
-                    child: ListView(
-                      padding:
-                          const EdgeInsets.fromLTRB(24, 10, 24, 24),
-                      physics: const BouncingScrollPhysics(),
-                      children: [
-                        // ── Route header ─────────────────────────────────
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: _primaryColor,
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              child: const Icon(
-                                Icons.alt_route_rounded,
-                                color: Colors.white,
-                                size: 22,
-                              ),
-                            ),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment:
-                                    CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    '$_startAddress → $_destinationName',
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.black87,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  const SizedBox(height: 3),
-                                  Text(
-                                    'Optimal charging route',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      color: Colors.grey.shade500,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-
-                        const SizedBox(height: 24),
-
-                        // ── Stats row ─────────────────────────────────────
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              vertical: 16, horizontal: 8),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF8FAFC),
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Row(
-                            mainAxisAlignment:
-                                MainAxisAlignment.spaceAround,
-                            children: [
-                              _buildStatItem(
-                                _totalDistance,
-                                'Distance',
-                                Icons.straighten_rounded,
-                                Colors.black87,
-                              ),
-                              _buildDivider(),
-                              _buildStatItem(
-                                _totalDuration,
-                                'Duration',
-                                Icons.access_time_rounded,
-                                Colors.black87,
-                              ),
-                              _buildDivider(),
-                              _buildStatItem(
-                                'Rs.24.50',
-                                'Cost',
-                                Icons.electric_bolt_rounded,
-                                _primaryColor,
-                              ),
-                            ],
-                          ),
-                        ),
-
-                        const SizedBox(height: 24),
-
-                        // ── Timeline ──────────────────────────────────────
-                        _buildTimelineItem(
-                          index: 1,
-                          name: _startAddress,
-                          details: 'Start Point • Current Location',
-                          tag: 'Start',
-                          isLast: false,
-                        ),
-                        _buildTimelineItem(
-                          index: 2,
-                          name: _destinationName,
-                          details:
-                              'Charging Station • $_totalDistance total',
-                          tag: 'End',
-                          isLast: true,
-                        ),
-
-                        const SizedBox(height: 20),
-
-                        // ── Action buttons ────────────────────────────────
-                        Row(
-                          children: [
-                            Expanded(
-                              child: SizedBox(
-                                height: 56,
-                                child: ElevatedButton.icon(
-                                  onPressed: _isLoading
-                                      ? null
-                                      // CHANGED: was _startNavigation
-                                      : _launchGoogleMapsNavigation,
-                                  icon: const Icon(
-                                    Icons.navigation_rounded,
-                                    color: Colors.white,
-                                    size: 20,
-                                  ),
-                                  label: Text(
-                                    _isLoading
-                                        ? 'Loading...'
-                                        : 'Start Navigation',
-                                    style: const TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: _isLoading
-                                        ? Colors.grey.shade400
-                                        : _primaryColor,
-                                    elevation: 0,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius:
-                                          BorderRadius.circular(16),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            _buildIconButton(Icons.bookmark_border_rounded),
-                            const SizedBox(width: 10),
-                            _buildIconButton(Icons.share_outlined),
-                          ],
-                        ),
-                      ],
-                    ),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 18,
+                    offset: const Offset(-4, 0),
                   ),
                 ],
+              ),
+              child: _buildWideRoutePanel(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMap() {
+    if (_currentPosition == null) {
+      return Container(
+        color: _backgroundColor,
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(
+                color: _primaryColor,
+                strokeWidth: 3,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Getting your location...',
+                style: TextStyle(
+                  color: Colors.grey.shade600,
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return GoogleMap(
+      mapType: MapType.normal,
+      initialCameraPosition: CameraPosition(
+        target: _currentPosition!,
+        zoom: 14,
+      ),
+      zoomControlsEnabled: false,
+      myLocationEnabled: false,
+      myLocationButtonEnabled: false,
+      compassEnabled: false,
+      polylines: _polylines,
+      markers: _markers,
+      onMapCreated: (GoogleMapController controller) {
+        _mapController = controller;
+      },
+    );
+  }
+
+  Widget _buildBackButton() {
+    return GestureDetector(
+      onTap: () {
+        Navigator.pop(context);
+      },
+      child: Container(
+        width: 46,
+        height: 46,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: const Icon(
+          Icons.arrow_back_ios_new_rounded,
+          size: 18,
+          color: Colors.black87,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildViewCostButton() {
+    return GestureDetector(
+      onTap: _showCostPopup,
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 11,
+        ),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(30),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.12),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(5),
+              decoration: BoxDecoration(
+                color: _primaryColor.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.monetization_on_rounded,
+                color: _primaryColor,
+                size: 18,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'View Cost',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+                color: Colors.grey.shade800,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMapControls() {
+    return Column(
+      children: [
+        _buildMapButton(
+          Icons.my_location_rounded,
+          onTap: () {
+            if (_currentPosition != null) {
+              _mapController?.animateCamera(
+                CameraUpdate.newCameraPosition(
+                  CameraPosition(
+                    target: _currentPosition!,
+                    zoom: 16,
+                  ),
+                ),
+              );
+            }
+          },
+        ),
+        const SizedBox(height: 10),
+        _buildMapButton(
+          Icons.add_rounded,
+          onTap: () {
+            _mapController?.animateCamera(
+              CameraUpdate.zoomIn(),
+            );
+          },
+        ),
+        const SizedBox(height: 10),
+        _buildMapButton(
+          Icons.remove_rounded,
+          onTap: () {
+            _mapController?.animateCamera(
+              CameraUpdate.zoomOut(),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMobileRouteSheet() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(30),
+          topRight: Radius.circular(30),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 24,
+            offset: const Offset(0, -6),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Center(
+            child: Container(
+              margin: const EdgeInsets.only(
+                top: 12,
+                bottom: 8,
+              ),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(
+                24,
+                10,
+                24,
+                24,
+              ),
+              physics: const BouncingScrollPhysics(),
+              children: [
+                _buildRouteHeader(),
+                const SizedBox(height: 24),
+                _buildStatsPanel(),
+                const SizedBox(height: 24),
+                _buildTimeline(),
+                const SizedBox(height: 20),
+                _buildRouteActions(),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWideRoutePanel() {
+    return Column(
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(
+            24,
+            26,
+            24,
+            22,
+          ),
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                Color(0xFF0253A4),
+                Color(0xFF034485),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+          child: const Row(
+            children: [
+              Icon(
+                Icons.navigation_rounded,
+                color: Colors.white,
+                size: 28,
+              ),
+              SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Charging Route',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 23,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: ListView(
+            physics: const BouncingScrollPhysics(),
+            padding: const EdgeInsets.all(24),
+            children: [
+              _buildRouteHeader(),
+              const SizedBox(height: 22),
+              _buildStatsPanel(),
+              const SizedBox(height: 24),
+              _buildTimeline(),
+              const SizedBox(height: 22),
+              _buildRouteStatusCard(),
+              const SizedBox(height: 24),
+              _buildRouteActions(
+                useCompactIcons: true,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRouteHeader() {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: _primaryColor,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: const Icon(
+            Icons.alt_route_rounded,
+            color: Colors.white,
+            size: 22,
+          ),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '$_startAddress → $_destinationName',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 3),
+              Text(
+                'Optimal charging route',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.grey.shade500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatsPanel() {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        vertical: 16,
+        horizontal: 8,
+      ),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _buildStatItem(
+            _totalDistance,
+            'Distance',
+            Icons.straighten_rounded,
+            Colors.black87,
+          ),
+          _buildDivider(),
+          _buildStatItem(
+            _totalDuration,
+            'Duration',
+            Icons.access_time_rounded,
+            Colors.black87,
+          ),
+          _buildDivider(),
+          _buildStatItem(
+            'Rs.24.50',
+            'Cost',
+            Icons.electric_bolt_rounded,
+            _primaryColor,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTimeline() {
+    return Column(
+      children: [
+        _buildTimelineItem(
+          index: 1,
+          name: _startAddress,
+          details: 'Start Point • Current Location',
+          tag: 'Start',
+          isLast: false,
+        ),
+        _buildTimelineItem(
+          index: 2,
+          name: _destinationName,
+          details: 'Charging Station • $_totalDistance total',
+          tag: 'End',
+          isLast: true,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRouteStatusCard() {
+    final bool routeReady =
+        !_isLoading && _routeCoords.isNotEmpty;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: routeReady
+            ? const Color(0xFFEAF8EF)
+            : const Color(0xFFFFF5E6),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: routeReady
+              ? const Color(0xFF00A843).withOpacity(0.20)
+              : Colors.orange.withOpacity(0.20),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            routeReady
+                ? Icons.check_circle_rounded
+                : Icons.hourglass_top_rounded,
+            color: routeReady
+                ? const Color(0xFF00A843)
+                : Colors.orange.shade700,
+            size: 22,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              routeReady
+                  ? 'Route is ready. Open Google Maps to begin navigation.'
+                  : 'Preparing your route and location details.',
+              style: TextStyle(
+                color: Colors.grey.shade700,
+                fontSize: 13,
+                height: 1.4,
               ),
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildRouteActions({
+    bool useCompactIcons = false,
+  }) {
+    return Row(
+      children: [
+        Expanded(
+          child: SizedBox(
+            height: 56,
+            child: ElevatedButton.icon(
+              onPressed: _isLoading
+                  ? null
+                  : _launchGoogleMapsNavigation,
+              icon: const Icon(
+                Icons.navigation_rounded,
+                color: Colors.white,
+                size: 20,
+              ),
+              label: Text(
+                _isLoading
+                    ? 'Loading...'
+                    : 'Start Navigation',
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _isLoading
+                    ? Colors.grey.shade400
+                    : _primaryColor,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        _buildIconButton(
+          Icons.bookmark_border_rounded,
+          size: useCompactIcons ? 52 : 56,
+        ),
+        const SizedBox(width: 10),
+        _buildIconButton(
+          Icons.share_outlined,
+          size: useCompactIcons ? 52 : 56,
+        ),
+      ],
     );
   }
 
@@ -956,11 +1185,11 @@ class _ChargingRouteState extends State<ChargingRoute> {
   }
 
   Widget _buildStatItem(
-    String value,
-    String label,
-    IconData icon,
-    Color valueColor,
-  ) {
+      String value,
+      String label,
+      IconData icon,
+      Color valueColor,
+      ) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -1100,10 +1329,13 @@ class _ChargingRouteState extends State<ChargingRoute> {
     );
   }
 
-  Widget _buildIconButton(IconData icon) {
+  Widget _buildIconButton(
+      IconData icon, {
+        double size = 56,
+      }) {
     return Container(
-      width: 56,
-      height: 56,
+      width: size,
+      height: size,
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
