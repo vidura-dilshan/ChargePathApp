@@ -315,8 +315,7 @@ class _ProfilePageState extends State<ProfilePage> {
                           const SizedBox(height: 24),
                           _buildSecurityNoticeCard(),
                           const SizedBox(height: 24),
-                          Align(
-                            alignment: Alignment.centerRight,
+                          Center(
                             child: ConstrainedBox(
                               constraints: const BoxConstraints(
                                 maxWidth: 280,

@@ -1,1 +1,1 @@
-{"flutter":{"platforms":{"dart":{"lib/firebase_options.dart":{"projectId":"chargepath-3214e","configurations":{"web":"1:367357238311:web:6733100cf7590952db4202"}}}}}}
+{"flutter":{"platforms":{"dart":{"lib/firebase_options.dart":{"projectId":"chargepath-3214e","configurations":{"android":"1:367357238311:android:f95c400fdd4b813fdb4202"}}},"android":{"default":{"projectId":"chargepath-3214e","appId":"1:367357238311:android:f95c400fdd4b813fdb4202","fileOutput":"android/app/google-services.json"}}}}}

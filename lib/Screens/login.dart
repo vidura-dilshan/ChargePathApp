@@ -58,7 +58,9 @@ class _LogInState extends State<LogIn> {
   Future<void> _authenticate() async {
     if (!_validateInputs()) return;
 
-    // Trigger the Loading Screen
+    // Close the keyboard before showing the loading screen.
+    FocusManager.instance.primaryFocus?.unfocus();
+
     setState(() => _isLoading = true);
 
     try {
@@ -126,6 +128,7 @@ class _LogInState extends State<LogIn> {
     }
 
     setState(() {
+      FocusManager.instance.primaryFocus?.unfocus();
       _isLoading = true;
     });
 
@@ -203,6 +206,9 @@ class _LogInState extends State<LogIn> {
   }
 
   Future<void> _signInWithGoogle() async {
+    // Close keyboard before opening Google authentication.
+    FocusManager.instance.primaryFocus?.unfocus();
+
     if (mounted) {
       setState(() {
         _isLoading = true;
@@ -493,122 +499,145 @@ class _LogInState extends State<LogIn> {
   }
 
   Widget _buildBrandPanel() {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        Image.asset(
-          'lib/Assets/loginimage.jpeg',
-          fit: BoxFit.cover,
-          errorBuilder: (
-              BuildContext context,
-              Object error,
-              StackTrace? stackTrace,
-              ) {
-            return Container(
-              color: _primaryColor,
-            );
-          },
-        ),
-        Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                const Color(0xFF012B55).withOpacity(0.93),
-                const Color(0xFF0253A4).withOpacity(0.70),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final bool isShortHeight = constraints.maxHeight < 560;
+
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            Image.asset(
+              'lib/Assets/loginimage.jpeg',
+              fit: BoxFit.cover,
+              errorBuilder: (
+                  BuildContext context,
+                  Object error,
+                  StackTrace? stackTrace,
+                  ) {
+                return Container(
+                  color: _primaryColor,
+                );
+              },
             ),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.all(48),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (Navigator.canPop(context))
-                Material(
-                  color: Colors.white.withOpacity(0.15),
-                  shape: const CircleBorder(),
-                  child: InkWell(
-                    onTap: () {
-                      Navigator.pop(context);
-                    },
-                    customBorder: const CircleBorder(),
-                    child: const Padding(
-                      padding: EdgeInsets.all(10),
-                      child: Icon(
-                        Icons.arrow_back_rounded,
-                        color: Colors.white,
-                        size: 22,
+
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    const Color(0xFF012B55).withOpacity(0.93),
+                    const Color(0xFF0253A4).withOpacity(0.70),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+            ),
+
+            SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              padding: EdgeInsets.all(
+                isShortHeight ? 28 : 48,
+              ),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight:
+                  constraints.maxHeight -
+                      (isShortHeight ? 56 : 96),
+                ),
+                child: IntrinsicHeight(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: isShortHeight ? 50 : 66,
+                        height: isShortHeight ? 50 : 66,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.16),
+                          borderRadius: BorderRadius.circular(
+                            isShortHeight ? 16 : 20,
+                          ),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.28),
+                          ),
+                        ),
+                        child: Icon(
+                          Icons.ev_station_rounded,
+                          color: Colors.white,
+                          size: isShortHeight ? 26 : 34,
+                        ),
                       ),
-                    ),
+
+                      SizedBox(
+                        height: isShortHeight ? 28 : 80,
+                      ),
+
+                      Text(
+                        'ChargePath',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: isShortHeight ? 30 : 40,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+
+                      SizedBox(
+                        height: isShortHeight ? 8 : 12,
+                      ),
+
+                      Text(
+                        'Plan routes, find charging stations, and reserve '
+                            'charging slots from one place.',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.82),
+                          fontSize: isShortHeight ? 14 : 17,
+                          height: 1.5,
+                        ),
+                      ),
+
+                      if (!isShortHeight) ...[
+                        const SizedBox(height: 28),
+
+                        _buildBrandFeature(
+                          Icons.route_rounded,
+                          'EV-aware route planning',
+                        ),
+
+                        const SizedBox(height: 14),
+
+                        _buildBrandFeature(
+                          Icons.ev_station_rounded,
+                          'Nearby charging stations',
+                        ),
+
+                        const SizedBox(height: 14),
+
+                        _buildBrandFeature(
+                          Icons.calendar_month_rounded,
+                          'Simple station reservations',
+                        ),
+                      ],
+
+                      const Spacer(),
+
+                      Padding(
+                        padding: const EdgeInsets.only(top: 20),
+                        child: Text(
+                          'Drive smarter. Charge easier.',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.65),
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              const Spacer(),
-              Container(
-                width: 66,
-                height: 66,
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.16),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: Colors.white.withOpacity(0.28),
-                  ),
-                ),
-                child: const Icon(
-                  Icons.ev_station_rounded,
-                  color: Colors.white,
-                  size: 34,
-                ),
               ),
-              const SizedBox(height: 24),
-              const Text(
-                'ChargePath',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 40,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 0.5,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Plan routes, find charging stations, and reserve '
-                    'charging slots from one place.',
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.82),
-                  fontSize: 17,
-                  height: 1.55,
-                ),
-              ),
-              const SizedBox(height: 28),
-              _buildBrandFeature(
-                Icons.route_rounded,
-                'EV-aware route planning',
-              ),
-              const SizedBox(height: 14),
-              _buildBrandFeature(
-                Icons.ev_station_rounded,
-                'Nearby charging stations',
-              ),
-              const SizedBox(height: 14),
-              _buildBrandFeature(
-                Icons.calendar_month_rounded,
-                'Simple station reservations',
-              ),
-              const Spacer(),
-              Text(
-                'Drive smarter. Charge easier.',
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.65),
-                  fontSize: 13,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
+            ),
+          ],
+        );
+      },
     );
   }
 
