@@ -1,12 +1,18 @@
 import 'dart:convert';
-import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
+
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
-import 'chargingroute.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:http/http.dart' as http;
+
+import 'package:chargepath/Theme/app_colors.dart';
+import 'package:chargepath/Theme/app_spacing.dart';
+import 'package:chargepath/Widgets/app_card.dart';
+
 import 'bookstation.dart';
+import 'chargingroute.dart';
 import 'favorites_db.dart';
 
 class FindStations extends StatefulWidget {
@@ -17,39 +23,54 @@ class FindStations extends StatefulWidget {
 }
 
 class _FindStationsState extends State<FindStations> {
-  // --- THEME COLORS ---
-  final Color _primaryColor = const Color(0xFF0253A4);
-  final Color _lightFillColor = const Color(0xFFE6EFF8);
-  final Color _backgroundColor = const Color(0xFFF5F7FA);
-  final Color _greyText = Colors.grey.shade600;
+  // Google Maps API key
+  static const String _googleApiKey =
+      'AIzaSyALER_NJqGFdwseum4UGUk_wTTYZbGK-es';
 
-  // 🔑 Replace with your Google Maps API key (Geocoding API must be enabled).
-  static const String _googleApiKey = 'AIzaSyALER_NJqGFdwseum4UGUk_wTTYZbGK-es';
-
-  // Stations with charging_power >= this (kW) are treated as "Fast". Adjust if needed.
+  // Stations with charging_power >= this are treated as Fast.
   static const double _fastChargingThreshold = 50.0;
 
-  // --- STATE ---
+  // ---------------------------------------------------------------------------
+  // STATE
+  // ---------------------------------------------------------------------------
+
   bool _isNearbySelected = true;
+
   double _distanceValue = 5.0;
+
   String _selectedConnectorType = 'All';
   String _selectedChargingType = 'All';
+
   LatLng? _currentUserPosition;
+
   bool _isLoadingLocation = false;
 
-  // --- SEARCH STATE ---
+  // ---------------------------------------------------------------------------
+  // SEARCH
+  // ---------------------------------------------------------------------------
+
   final TextEditingController _searchController = TextEditingController();
+
   final FocusNode _searchFocusNode = FocusNode();
+
   LatLng? _searchedTownPosition;
   String? _searchedTownName;
+
   bool _isSearchActive = false;
   bool _isSearching = false;
 
-  /// Favourite station IDs persisted in SQLite
-  final Set<String> _favoriteIds = {};
-  late final Stream<QuerySnapshot> _stationsStream; // ADD THI
+  // ---------------------------------------------------------------------------
+  // FAVOURITES
+  // ---------------------------------------------------------------------------
 
-  // --- FILTER OPTIONS ---
+  final Set<String> _favoriteIds = {};
+
+  late final Stream<QuerySnapshot> _stationsStream;
+
+  // ---------------------------------------------------------------------------
+  // FILTER OPTIONS
+  // ---------------------------------------------------------------------------
+
   static const List<String> _connectorTypes = [
     'All',
     'Type 1',
@@ -59,65 +80,127 @@ class _FindStationsState extends State<FindStations> {
     'CHAdeMO',
     'GBT',
   ];
-  static const List<String> _chargingTypes = ['All', 'Fast', 'Normal'];
 
-  /// The Distance Radius slider is shown when the Nearby tab is selected,
-  /// OR when the search bar is focused, OR when a town has been searched.
+  static const List<String> _chargingTypes = [
+    'All',
+    'Fast',
+    'Normal',
+  ];
+
   bool get _showDistanceSlider =>
-      _isNearbySelected || _isSearchActive || _searchedTownPosition != null;
+      _isNearbySelected ||
+          _isSearchActive ||
+          _searchedTownPosition != null;
+
+  /// Number displayed on the mobile filter icon.
+  int get _activeFilterCount {
+    int count = 0;
+
+    if (_selectedConnectorType != 'All') {
+      count++;
+    }
+
+    if (_selectedChargingType != 'All') {
+      count++;
+    }
+
+    // Distance is only counted as an active filter if it differs
+    // from the default 5 km value.
+    if (_showDistanceSlider && _distanceValue != 5.0) {
+      count++;
+    }
+
+    return count;
+  }
+
+  // ---------------------------------------------------------------------------
+  // LIFECYCLE
+  // ---------------------------------------------------------------------------
 
   @override
   void initState() {
     super.initState();
+
     _getUserLocation();
     _loadFavorites();
-    FavoritesDb.favoritesChanged.addListener(_onFavoritesChanged); // ADD THIS
-    _stationsStream = FirebaseFirestore.instance.collection('users').snapshots(); // ADD THIS
+
+    FavoritesDb.favoritesChanged.addListener(
+      _onFavoritesChanged,
+    );
+
+    _stationsStream =
+        FirebaseFirestore.instance.collection('users').snapshots();
+
     _searchFocusNode.addListener(() {
-      if (mounted) setState(() => _isSearchActive = _searchFocusNode.hasFocus);
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _isSearchActive = _searchFocusNode.hasFocus;
+      });
     });
   }
 
-
   @override
   void dispose() {
-    FavoritesDb.favoritesChanged.removeListener(_onFavoritesChanged); // ADD THIS
+    FavoritesDb.favoritesChanged.removeListener(
+      _onFavoritesChanged,
+    );
+
     _searchController.dispose();
     _searchFocusNode.dispose();
+
     super.dispose();
   }
 
-  // ── LOAD FAVOURITES FROM SQLITE ───────────────────────────────────────────
+  // ---------------------------------------------------------------------------
+  // FAVOURITES
+  // ---------------------------------------------------------------------------
+
   Future<void> _loadFavorites() async {
     try {
-      // SQLite is not available in the current Flutter Web setup.
-      // Keep favourites in memory while testing the adaptive layout in Chrome.
+      // SQLite is not currently used on Flutter Web.
       if (kIsWeb) {
-        if (!mounted) return;
+        if (!mounted) {
+          return;
+        }
 
         setState(() {
           _favoriteIds.clear();
         });
+
         return;
       }
 
       final List<Map<String, dynamic>> rows =
       await FavoritesDb.instance.getAllFavorites();
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
         _favoriteIds
           ..clear()
           ..addAll(
-            rows.map((row) => row['station_id'].toString()),
+            rows.map(
+                  (row) => row['station_id'].toString(),
+            ),
           );
       });
     } catch (error, stackTrace) {
-      debugPrint('Failed to load favourites: $error');
-      debugPrintStack(stackTrace: stackTrace);
+      debugPrint(
+        'Failed to load favourites: $error',
+      );
 
-      if (!mounted) return;
+      debugPrintStack(
+        stackTrace: stackTrace,
+      );
+
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
         _favoriteIds.clear();
@@ -125,10 +208,10 @@ class _FindStationsState extends State<FindStations> {
     }
   }
 
-  // ADD THIS — keeps _favoriteIds in sync whenever a favourite changes elsewhere (e.g. Home page)
-  void _onFavoritesChanged() => _loadFavorites();
+  void _onFavoritesChanged() {
+    _loadFavorites();
+  }
 
-  // ── TOGGLE FAVOURITE ──────────────────────────────────────────────────────
   Future<void> _toggleFavorite(
       String stationId,
       Map<String, dynamic> data,
@@ -138,13 +221,20 @@ class _FindStationsState extends State<FindStations> {
     try {
       if (!kIsWeb) {
         if (isFavourite) {
-          await FavoritesDb.instance.removeFavorite(stationId);
+          await FavoritesDb.instance.removeFavorite(
+            stationId,
+          );
         } else {
-          await FavoritesDb.instance.addFavorite(stationId, data);
+          await FavoritesDb.instance.addFavorite(
+            stationId,
+            data,
+          );
         }
       }
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
         if (isFavourite) {
@@ -157,34 +247,48 @@ class _FindStationsState extends State<FindStations> {
       _showTopSnack(
         isFavourite
             ? 'Removed from favourites'
-            : 'Added to favourites ⭐',
+            : 'Added to favourites',
       );
     } catch (error, stackTrace) {
-      debugPrint('Failed to update favourite: $error');
-      debugPrintStack(stackTrace: stackTrace);
-      _showInfoSnack('Unable to update favourites.');
+      debugPrint(
+        'Failed to update favourite: $error',
+      );
+
+      debugPrintStack(
+        stackTrace: stackTrace,
+      );
+
+      _showInfoSnack(
+        'Unable to update favourites.',
+      );
     }
   }
 
-  // ── SNACK AT THE TOP OF THE SCREEN ───────────────────────────────────────
-  void _showTopSnack(String msg) {
-    final messenger = ScaffoldMessenger.of(context);
+  // ---------------------------------------------------------------------------
+  // SNACKBARS
+  // ---------------------------------------------------------------------------
+
+  void _showTopSnack(String message) {
+    final ScaffoldMessengerState messenger =
+    ScaffoldMessenger.of(context);
+
     messenger.clearSnackBars();
+
     messenger.showSnackBar(
       SnackBar(
         content: Row(
           children: [
             Icon(
-              msg.contains('Added')
+              message.contains('Added')
                   ? Icons.star_rounded
                   : Icons.star_outline_rounded,
               color: Colors.white,
               size: 18,
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: AppSpacing.sm),
             Expanded(
               child: Text(
-                msg,
+                message,
                 style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
@@ -195,125 +299,246 @@ class _FindStationsState extends State<FindStations> {
         ),
         duration: const Duration(seconds: 2),
         behavior: SnackBarBehavior.floating,
-        backgroundColor: _primaryColor,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        backgroundColor: AppColors.primary,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+        ),
         margin: EdgeInsets.only(
           bottom: MediaQuery.of(context).size.height - 130,
-          left: 16,
-          right: 16,
+          left: AppSpacing.lg,
+          right: AppSpacing.lg,
         ),
       ),
     );
   }
 
-  // ── GENERIC INFO SNACK (used for search feedback) ────────────────────────
-  void _showInfoSnack(String msg) {
-    final messenger = ScaffoldMessenger.of(context);
+  void _showInfoSnack(String message) {
+    final ScaffoldMessengerState messenger =
+    ScaffoldMessenger.of(context);
+
     messenger.clearSnackBars();
+
     messenger.showSnackBar(
       SnackBar(
         content: Text(
-          msg,
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+          message,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
         ),
         duration: const Duration(seconds: 2),
         behavior: SnackBarBehavior.floating,
-        backgroundColor: _primaryColor,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        backgroundColor: AppColors.primary,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+        ),
         margin: EdgeInsets.only(
           bottom: MediaQuery.of(context).size.height - 130,
-          left: 16,
-          right: 16,
+          left: AppSpacing.lg,
+          right: AppSpacing.lg,
         ),
       ),
     );
   }
 
-  // ── GET USER LOCATION ─────────────────────────────────────────────────────
+  // ---------------------------------------------------------------------------
+  // LOCATION
+  // ---------------------------------------------------------------------------
+
   Future<void> _getUserLocation() async {
-    setState(() => _isLoadingLocation = true);
+    setState(() {
+      _isLoadingLocation = true;
+    });
+
     try {
-      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      final bool serviceEnabled =
+      await Geolocator.isLocationServiceEnabled();
+
       if (!serviceEnabled) {
-        if (mounted) setState(() => _isLoadingLocation = false);
+        if (mounted) {
+          setState(() {
+            _isLoadingLocation = false;
+          });
+        }
+
         return;
       }
-      LocationPermission permission = await Geolocator.checkPermission();
+
+      LocationPermission permission =
+      await Geolocator.checkPermission();
+
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
+
         if (permission == LocationPermission.denied) {
-          if (mounted) setState(() => _isLoadingLocation = false);
+          if (mounted) {
+            setState(() {
+              _isLoadingLocation = false;
+            });
+          }
+
           return;
         }
       }
+
       if (permission == LocationPermission.deniedForever) {
-        if (mounted) setState(() => _isLoadingLocation = false);
+        if (mounted) {
+          setState(() {
+            _isLoadingLocation = false;
+          });
+        }
+
         return;
       }
-      final Position position = await Geolocator.getCurrentPosition(
+
+      final Position position =
+      await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _currentUserPosition = LatLng(
+          position.latitude,
+          position.longitude,
+        );
+
+        _isLoadingLocation = false;
+      });
+    } catch (error) {
+      debugPrint(
+        'Location error: $error',
+      );
+
       if (mounted) {
         setState(() {
-          _currentUserPosition = LatLng(position.latitude, position.longitude);
           _isLoadingLocation = false;
         });
       }
-    } catch (e) {
-      debugPrint('Location error: $e');
-      if (mounted) setState(() => _isLoadingLocation = false);
     }
   }
 
-  // ── SEARCH A TOWN VIA GOOGLE GEOCODING API ───────────────────────────────
-  Future<void> _searchTown(String query) async {
-    final q = query.trim();
-    if (q.isEmpty) {
+  Future<void> _useCurrentLocation() async {
+    FocusManager.instance.primaryFocus?.unfocus();
+
+    _searchController.clear();
+
+    if (mounted) {
+      setState(() {
+        _searchedTownPosition = null;
+        _searchedTownName = null;
+
+        // Current location filtering requires Nearby mode.
+        _isNearbySelected = true;
+      });
+    }
+
+    await _getUserLocation();
+  }
+
+  // ---------------------------------------------------------------------------
+  // SEARCH
+  // ---------------------------------------------------------------------------
+
+  Future<void> _searchTown(
+      String query,
+      ) async {
+    final String cleanQuery = query.trim();
+
+    if (cleanQuery.isEmpty) {
       _clearSearch();
       return;
     }
+
     FocusScope.of(context).unfocus();
-    setState(() => _isSearching = true);
+
+    setState(() {
+      _isSearching = true;
+    });
+
     try {
-      final url = Uri.parse(
+      final Uri url = Uri.parse(
         'https://maps.googleapis.com/maps/api/geocode/json'
-            '?address=${Uri.encodeComponent(q)}&key=$_googleApiKey',
+            '?address=${Uri.encodeComponent(cleanQuery)}'
+            '&key=$_googleApiKey',
       );
-      final response = await http.get(url);
-      final body = json.decode(response.body) as Map<String, dynamic>;
-      final results = (body['results'] as List?) ?? [];
+
+      final http.Response response =
+      await http.get(url);
+
+      final Map<String, dynamic> body =
+      json.decode(response.body) as Map<String, dynamic>;
+
+      final List results =
+          (body['results'] as List?) ?? [];
 
       if (body['status'] == 'OK' && results.isNotEmpty) {
-        final loc = results[0]['geometry']['location'];
-        final lat = (loc['lat'] as num).toDouble();
-        final lng = (loc['lng'] as num).toDouble();
-        final name = results[0]['formatted_address']?.toString() ?? q;
-        if (mounted) {
-          setState(() {
-            _searchedTownPosition = LatLng(lat, lng);
-            _searchedTownName = name;
-            _isSearching = false;
-          });
+        final dynamic location =
+        results[0]['geometry']['location'];
+
+        final double latitude =
+        (location['lat'] as num).toDouble();
+
+        final double longitude =
+        (location['lng'] as num).toDouble();
+
+        final String name =
+            results[0]['formatted_address']?.toString() ??
+                cleanQuery;
+
+        if (!mounted) {
+          return;
         }
+
+        setState(() {
+          _searchedTownPosition = LatLng(
+            latitude,
+            longitude,
+          );
+
+          _searchedTownName = name;
+          _isSearching = false;
+        });
       } else {
-        if (mounted) {
-          setState(() => _isSearching = false);
-          _showInfoSnack('No location found for "$q"');
+        if (!mounted) {
+          return;
         }
+
+        setState(() {
+          _isSearching = false;
+        });
+
+        _showInfoSnack(
+          'No location found for "$cleanQuery"',
+        );
       }
-    } catch (e) {
-      debugPrint('Geocoding error: $e');
-      if (mounted) {
-        setState(() => _isSearching = false);
-        _showInfoSnack('Search failed. Check your connection.');
+    } catch (error) {
+      debugPrint(
+        'Geocoding error: $error',
+      );
+
+      if (!mounted) {
+        return;
       }
+
+      setState(() {
+        _isSearching = false;
+      });
+
+      _showInfoSnack(
+        'Search failed. Check your connection.',
+      );
     }
   }
 
-  // ── CLEAR THE TOWN SEARCH ─────────────────────────────────────────────────
   void _clearSearch() {
     _searchController.clear();
     _searchFocusNode.unfocus();
+
     setState(() {
       _searchedTownPosition = null;
       _searchedTownName = null;
@@ -321,75 +546,140 @@ class _FindStationsState extends State<FindStations> {
     });
   }
 
-  // ── PARSE CHARGING POWER ROBUSTLY (handles "60", "60 kW", etc.) ───────────
+  // ---------------------------------------------------------------------------
+  // HELPERS
+  // ---------------------------------------------------------------------------
+
   double _parsePower(dynamic raw) {
-    final match = RegExp(r'[\d.]+').firstMatch(raw?.toString() ?? '');
-    return match != null ? (double.tryParse(match.group(0)!) ?? 0) : 0;
+    final RegExpMatch? match = RegExp(
+      r'[\d.]+',
+    ).firstMatch(
+      raw?.toString() ?? '',
+    );
+
+    if (match == null) {
+      return 0;
+    }
+
+    return double.tryParse(
+      match.group(0)!,
+    ) ??
+        0;
   }
 
-  // ── DISTANCE CALCULATION ──────────────────────────────────────────────────
   double _calculateDistanceKm(
       double lat1,
       double lng1,
       double lat2,
       double lng2,
       ) {
-    return Geolocator.distanceBetween(lat1, lng1, lat2, lng2) / 1000.0;
+    return Geolocator.distanceBetween(
+      lat1,
+      lng1,
+      lat2,
+      lng2,
+    ) /
+        1000;
   }
 
-  // ── FILTER STATIONS ───────────────────────────────────────────────────────
   List<QueryDocumentSnapshot> _filterStations(
       List<QueryDocumentSnapshot> docs,
       ) {
-    // Center used for the radius filter.
-    // Priority: searched town > current location (only when Nearby tab is active).
     final LatLng? filterCenter =
         _searchedTownPosition ??
-            (_isNearbySelected ? _currentUserPosition : null);
+            (_isNearbySelected
+                ? _currentUserPosition
+                : null);
 
     return docs.where((doc) {
-      final data = doc.data() as Map<String, dynamic>;
+      final Map<String, dynamic> data =
+      doc.data() as Map<String, dynamic>;
 
-      // ── Charging type filter (Fast / Normal) ──
       if (_selectedChargingType != 'All') {
-        final double power = _parsePower(data['charging_power']);
-        final bool isFast = power >= _fastChargingThreshold;
-        if (_selectedChargingType == 'Fast' && !isFast) return false;
-        if (_selectedChargingType == 'Normal' && isFast) return false;
-      }
-
-      // ── Connector type filter ──
-      if (_selectedConnectorType != 'All') {
-        String rawConnectors =
-            data['supported_connector_types']?.toString() ?? '';
-        List<String> parts = rawConnectors
-            .split(',')
-            .map((e) => e.trim())
-            .toList();
-        bool hasConnector = parts.any(
-              (part) => part.toLowerCase() == _selectedConnectorType.toLowerCase(),
+        final double power =
+        _parsePower(
+          data['charging_power'],
         );
-        if (!hasConnector) return false;
+
+        final bool isFast =
+            power >= _fastChargingThreshold;
+
+        if (_selectedChargingType == 'Fast' &&
+            !isFast) {
+          return false;
+        }
+
+        if (_selectedChargingType == 'Normal' &&
+            isFast) {
+          return false;
+        }
       }
 
-      // ── Distance / radius filter ──
+      if (_selectedConnectorType != 'All') {
+        final String rawConnectors =
+            data['supported_connector_types']
+                ?.toString() ??
+                '';
+
+        final List<String> parts =
+        rawConnectors
+            .split(',')
+            .map(
+              (connector) =>
+              connector.trim(),
+        )
+            .toList();
+
+        final bool hasConnector =
+        parts.any(
+              (part) =>
+          part.toLowerCase() ==
+              _selectedConnectorType.toLowerCase(),
+        );
+
+        if (!hasConnector) {
+          return false;
+        }
+      }
+
       if (filterCenter != null) {
-        double? lat = double.tryParse(data['latitude']?.toString() ?? '');
-        double? lng = double.tryParse(data['longitude']?.toString() ?? '');
-        if (lat == null || lng == null) return false;
-        double distKm = _calculateDistanceKm(
+        final double? latitude =
+        double.tryParse(
+          data['latitude']?.toString() ?? '',
+        );
+
+        final double? longitude =
+        double.tryParse(
+          data['longitude']?.toString() ?? '',
+        );
+
+        if (latitude == null ||
+            longitude == null) {
+          return false;
+        }
+
+        final double distanceKm =
+        _calculateDistanceKm(
           filterCenter.latitude,
           filterCenter.longitude,
-          lat,
-          lng,
+          latitude,
+          longitude,
         );
-        if (distKm > _distanceValue) return false;
+
+        if (distanceKm > _distanceValue) {
+          return false;
+        }
       }
+
       return true;
     }).toList();
   }
 
-  // ── FILTER BOTTOM SHEET ───────────────────────────────────────────────────
+  // ---------------------------------------------------------------------------
+  // STANDARD FILTER SHEET
+  // Used by tablet / wide layout
+  // ---------------------------------------------------------------------------
+
   void _showFilterSheet(
       String title,
       List<String> options,
@@ -398,100 +688,609 @@ class _FindStationsState extends State<FindStations> {
       ) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.white,
+      isScrollControlled: true,
+      backgroundColor: AppColors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(24),
+        ),
       ),
-      builder: (_) {
-        return StatefulBuilder(
-          builder: (ctx, setSheetState) {
-            return SafeArea(
-              top: false,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    margin: const EdgeInsets.only(top: 12, bottom: 4),
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade300,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
+      builder: (sheetContext) {
+        final double screenHeight =
+            MediaQuery.of(sheetContext).size.height;
+
+        final double sheetHeight =
+        screenHeight < 500
+            ? screenHeight * 0.72
+            : screenHeight * 0.55;
+
+        return SizedBox(
+          height: sheetHeight,
+          child: SafeArea(
+            top: false,
+            child: Column(
+              children: [
+                Container(
+                  margin: const EdgeInsets.only(
+                    top: 10,
+                    bottom: 4,
                   ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 12,
-                    ),
-                    child: Row(
-                      children: [
-                        Text(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius:
+                    BorderRadius.circular(2),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    20,
+                    10,
+                    12,
+                    10,
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
                           title,
                           style: const TextStyle(
                             fontSize: 17,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black87,
+                            fontWeight:
+                            FontWeight.bold,
+                            color:
+                            AppColors.textPrimary,
                           ),
                         ),
-                        const Spacer(),
-                        if (selected != 'All')
-                          TextButton(
-                            onPressed: () {
-                              onSelected('All');
-                              Navigator.pop(ctx);
-                            },
-                            child: Text(
-                              'Clear',
-                              style: TextStyle(color: _primaryColor),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  const Divider(height: 1),
-                  ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxHeight:
-                      MediaQuery.of(context).size.height * 0.45 -
-                          MediaQuery.of(context).viewPadding.bottom -
-                          21,
-                    ),
-                    child: ListView.builder(
-                      shrinkWrap: true,
-                      physics: const BouncingScrollPhysics(),
-                      itemCount: options.length,
-                      itemBuilder: (_, i) {
-                        final opt = options[i];
-                        final bool isSelected = selected == opt;
-                        return ListTile(
-                          title: Text(
-                            opt,
-                            style: TextStyle(
-                              color: isSelected
-                                  ? _primaryColor
-                                  : Colors.black87,
-                              fontWeight: isSelected
-                                  ? FontWeight.w700
-                                  : FontWeight.normal,
-                            ),
-                          ),
-                          trailing: isSelected
-                              ? Icon(Icons.check_circle, color: _primaryColor)
-                              : const Icon(
-                            Icons.radio_button_unchecked,
-                            color: Colors.grey,
-                          ),
-                          onTap: () {
-                            onSelected(opt);
-                            Navigator.pop(ctx);
+                      ),
+                      if (selected != 'All')
+                        TextButton(
+                          onPressed: () {
+                            onSelected('All');
+
+                            Navigator.pop(
+                              sheetContext,
+                            );
                           },
-                        );
-                      },
-                    ),
+                          child: const Text(
+                            'Clear',
+                            style: TextStyle(
+                              color:
+                              AppColors.primary,
+                              fontWeight:
+                              FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
-                  const SizedBox(height: 20),
-                ],
+                ),
+                const Divider(height: 1),
+                Expanded(
+                  child: ListView.separated(
+                    padding:
+                    const EdgeInsets.symmetric(
+                      vertical: 4,
+                    ),
+                    physics:
+                    const BouncingScrollPhysics(),
+                    itemCount: options.length,
+                    separatorBuilder: (_, __) {
+                      return const Divider(
+                        height: 1,
+                        indent: 20,
+                        endIndent: 20,
+                      );
+                    },
+                    itemBuilder: (
+                        context,
+                        index,
+                        ) {
+                      final String option =
+                      options[index];
+
+                      final bool isSelected =
+                          selected == option;
+
+                      return ListTile(
+                        dense: screenHeight < 500,
+                        contentPadding:
+                        const EdgeInsets.symmetric(
+                          horizontal: 20,
+                        ),
+                        title: Text(
+                          option,
+                          style: TextStyle(
+                            color: isSelected
+                                ? AppColors.primary
+                                : AppColors
+                                .textPrimary,
+                            fontSize: 14,
+                            fontWeight: isSelected
+                                ? FontWeight.w700
+                                : FontWeight.w500,
+                          ),
+                        ),
+                        trailing: Icon(
+                          isSelected
+                              ? Icons
+                              .check_circle_rounded
+                              : Icons
+                              .radio_button_unchecked_rounded,
+                          color: isSelected
+                              ? AppColors.primary
+                              : AppColors
+                              .textSecondary,
+                          size: 21,
+                        ),
+                        onTap: () {
+                          onSelected(option);
+
+                          Navigator.pop(
+                            sheetContext,
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 6),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // MOBILE FILTER SHEET
+  // ---------------------------------------------------------------------------
+
+  void _showMobileFiltersSheet() {
+    // Temporary values allow the user to change filters without
+    // immediately changing the station list.
+    double temporaryDistance =
+        _distanceValue;
+
+    String temporaryConnector =
+        _selectedConnectorType;
+
+    String temporaryCharging =
+        _selectedChargingType;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (
+              context,
+              setSheetState,
+              ) {
+            return SafeArea(
+              top: false,
+              child: Container(
+                constraints: BoxConstraints(
+                  maxHeight:
+                  MediaQuery.of(context).size.height *
+                      0.82,
+                ),
+                decoration: const BoxDecoration(
+                  color: AppColors.white,
+                  borderRadius:
+                  BorderRadius.vertical(
+                    top: Radius.circular(26),
+                  ),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Drag handle
+                    Container(
+                      width: 42,
+                      height: 4,
+                      margin:
+                      const EdgeInsets.only(
+                        top: 10,
+                        bottom: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color:
+                        Colors.grey.shade300,
+                        borderRadius:
+                        BorderRadius.circular(2),
+                      ),
+                    ),
+
+                    // Header
+                    Padding(
+                      padding:
+                      const EdgeInsets.fromLTRB(
+                        20,
+                        8,
+                        12,
+                        8,
+                      ),
+                      child: Row(
+                        children: [
+                          const Expanded(
+                            child: Text(
+                              'Filters',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight:
+                                FontWeight.bold,
+                                color: AppColors
+                                    .textPrimary,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () {
+                              Navigator.pop(
+                                sheetContext,
+                              );
+                            },
+                            icon: const Icon(
+                              Icons.close_rounded,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const Divider(height: 1),
+
+                    Flexible(
+                      child: SingleChildScrollView(
+                        padding:
+                        const EdgeInsets.fromLTRB(
+                          20,
+                          18,
+                          20,
+                          20,
+                        ),
+                        child: Column(
+                          crossAxisAlignment:
+                          CrossAxisAlignment
+                              .start,
+                          children: [
+                            // -------------------------------------------------
+                            // DISTANCE RADIUS
+                            // -------------------------------------------------
+
+                            if (_showDistanceSlider) ...[
+                              Row(
+                                children: [
+                                  const Expanded(
+                                    child: Text(
+                                      'Distance Radius',
+                                      style: TextStyle(
+                                        fontSize: 15,
+                                        fontWeight:
+                                        FontWeight
+                                            .w700,
+                                        color: AppColors
+                                            .textPrimary,
+                                      ),
+                                    ),
+                                  ),
+                                  Container(
+                                    padding:
+                                    const EdgeInsets
+                                        .symmetric(
+                                      horizontal: 10,
+                                      vertical: 5,
+                                    ),
+                                    decoration:
+                                    BoxDecoration(
+                                      color: AppColors
+                                          .lightFill,
+                                      borderRadius:
+                                      BorderRadius
+                                          .circular(
+                                        8,
+                                      ),
+                                    ),
+                                    child: Text(
+                                      '${temporaryDistance.toInt()} km',
+                                      style:
+                                      const TextStyle(
+                                        color: AppColors
+                                            .primary,
+                                        fontSize: 13,
+                                        fontWeight:
+                                        FontWeight
+                                            .bold,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              SliderTheme(
+                                data:
+                                SliderTheme.of(
+                                  context,
+                                ).copyWith(
+                                  activeTrackColor:
+                                  AppColors.primary,
+                                  inactiveTrackColor:
+                                  const Color(
+                                    0xFFD1D5DB,
+                                  ),
+                                  thumbColor:
+                                  AppColors.primary,
+                                  overlayColor:
+                                  AppColors.primary
+                                      .withOpacity(
+                                    0.10,
+                                  ),
+                                  trackHeight: 5,
+                                  thumbShape:
+                                  const RoundSliderThumbShape(
+                                    enabledThumbRadius:
+                                    9,
+                                  ),
+                                  overlayShape:
+                                  const RoundSliderOverlayShape(
+                                    overlayRadius: 16,
+                                  ),
+                                  trackShape:
+                                  const RoundedRectSliderTrackShape(),
+                                ),
+                                child: Slider(
+                                  value:
+                                  temporaryDistance,
+                                  min: 1,
+                                  max: 50,
+                                  divisions: 49,
+                                  onChanged: (value) {
+                                    setSheetState(() {
+                                      temporaryDistance =
+                                          value;
+                                    });
+                                  },
+                                ),
+                              ),
+                              const SizedBox(
+                                height: 20,
+                              ),
+                              const Divider(height: 1),
+                              const SizedBox(
+                                height: 20,
+                              ),
+                            ],
+
+                            // -------------------------------------------------
+                            // CONNECTOR TYPE
+                            // -------------------------------------------------
+
+                            const Text(
+                              'Connector Type',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight:
+                                FontWeight.w700,
+                                color: AppColors
+                                    .textPrimary,
+                              ),
+                            ),
+
+                            const SizedBox(height: 12),
+
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children:
+                              _connectorTypes.map(
+                                    (connector) {
+                                  final bool
+                                  isSelected =
+                                      temporaryConnector ==
+                                          connector;
+
+                                  return _buildFilterChoice(
+                                    label: connector,
+                                    isSelected:
+                                    isSelected,
+                                    onTap: () {
+                                      setSheetState(() {
+                                        temporaryConnector =
+                                            connector;
+                                      });
+                                    },
+                                  );
+                                },
+                              ).toList(),
+                            ),
+
+                            const SizedBox(
+                              height: 20,
+                            ),
+
+                            const Divider(height: 1),
+
+                            const SizedBox(
+                              height: 20,
+                            ),
+
+                            // -------------------------------------------------
+                            // CHARGING TYPE
+                            // -------------------------------------------------
+
+                            const Text(
+                              'Charging Type',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight:
+                                FontWeight.w700,
+                                color: AppColors
+                                    .textPrimary,
+                              ),
+                            ),
+
+                            const SizedBox(height: 12),
+
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children:
+                              _chargingTypes.map(
+                                    (chargingType) {
+                                  final bool
+                                  isSelected =
+                                      temporaryCharging ==
+                                          chargingType;
+
+                                  return _buildFilterChoice(
+                                    label:
+                                    chargingType ==
+                                        'All'
+                                        ? 'All'
+                                        : '$chargingType Charging',
+                                    isSelected:
+                                    isSelected,
+                                    onTap: () {
+                                      setSheetState(() {
+                                        temporaryCharging =
+                                            chargingType;
+                                      });
+                                    },
+                                  );
+                                },
+                              ).toList(),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    // ---------------------------------------------------------
+                    // CLEAR / APPLY BUTTONS
+                    // ---------------------------------------------------------
+
+                    Container(
+                      padding:
+                      const EdgeInsets.fromLTRB(
+                        20,
+                        12,
+                        20,
+                        16,
+                      ),
+                      decoration: const BoxDecoration(
+                        color: AppColors.white,
+                        border: Border(
+                          top: BorderSide(
+                            color: Color(
+                              0xFFE5E7EB,
+                            ),
+                          ),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: SizedBox(
+                              height: 48,
+                              child: OutlinedButton(
+                                onPressed: () {
+                                  setSheetState(() {
+                                    temporaryDistance =
+                                    5.0;
+
+                                    temporaryConnector =
+                                    'All';
+
+                                    temporaryCharging =
+                                    'All';
+                                  });
+                                },
+                                style:
+                                OutlinedButton
+                                    .styleFrom(
+                                  foregroundColor:
+                                  AppColors.primary,
+                                  side:
+                                  const BorderSide(
+                                    color:
+                                    AppColors.primary,
+                                  ),
+                                  shape:
+                                  RoundedRectangleBorder(
+                                    borderRadius:
+                                    BorderRadius
+                                        .circular(
+                                      12,
+                                    ),
+                                  ),
+                                ),
+                                child: const Text(
+                                  'Clear',
+                                  style: TextStyle(
+                                    fontWeight:
+                                    FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: SizedBox(
+                              height: 48,
+                              child: ElevatedButton(
+                                onPressed: () {
+                                  setState(() {
+                                    _distanceValue =
+                                        temporaryDistance;
+
+                                    _selectedConnectorType =
+                                        temporaryConnector;
+
+                                    _selectedChargingType =
+                                        temporaryCharging;
+                                  });
+
+                                  Navigator.pop(
+                                    sheetContext,
+                                  );
+                                },
+                                style:
+                                ElevatedButton
+                                    .styleFrom(
+                                  elevation: 0,
+                                  backgroundColor:
+                                  AppColors.primary,
+                                  foregroundColor:
+                                  Colors.white,
+                                  shape:
+                                  RoundedRectangleBorder(
+                                    borderRadius:
+                                    BorderRadius
+                                        .circular(
+                                      12,
+                                    ),
+                                  ),
+                                ),
+                                child: const Text(
+                                  'Apply',
+                                  style: TextStyle(
+                                    fontWeight:
+                                    FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             );
           },
@@ -500,11 +1299,65 @@ class _FindStationsState extends State<FindStations> {
     );
   }
 
+  Widget _buildFilterChoice({
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: AnimatedContainer(
+        duration:
+        const Duration(milliseconds: 150),
+        padding:
+        const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 9,
+        ),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? AppColors.primary
+              : AppColors.background,
+          borderRadius:
+          BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected
+                ? AppColors.primary
+                : const Color(
+              0xFFE5E7EB,
+            ),
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isSelected
+                ? Colors.white
+                : AppColors.textPrimary,
+            fontSize: 13,
+            fontWeight: isSelected
+                ? FontWeight.w700
+                : FontWeight.w500,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // RESPONSIVE BUILD
+  // ---------------------------------------------------------------------------
+
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
-      builder: (context, constraints) {
-        final bool useWideLayout = constraints.maxWidth >= 700;
+      builder: (
+          context,
+          constraints,
+          ) {
+        final bool useWideLayout =
+            constraints.maxWidth >= 700;
 
         if (useWideLayout) {
           return _buildWideLayout();
@@ -515,23 +1368,48 @@ class _FindStationsState extends State<FindStations> {
     );
   }
 
+  // ---------------------------------------------------------------------------
+  // MOBILE
+  // ---------------------------------------------------------------------------
+
   Widget _buildMobileLayout() {
     return Scaffold(
-      backgroundColor: _backgroundColor,
+      backgroundColor: AppColors.background,
       body: SafeArea(
         bottom: false,
         child: Column(
           children: [
             _buildMobileHeader(),
-            _buildControlsPanel(
-              horizontalPadding: 20,
-              isWideLayout: false,
-            ),
+
             Expanded(
-              child: _buildStationResults(
-                useGrid: false,
-                horizontalPadding: 20,
-                bottomPadding: 100,
+              child: Column(
+                children: [
+                  // Compact mobile controls.
+                  Padding(
+                    padding:
+                    const EdgeInsets.fromLTRB(
+                      AppSpacing.lg,
+                      AppSpacing.md,
+                      AppSpacing.lg,
+                      0,
+                    ),
+                    child:
+                    _buildMobileControls(),
+                  ),
+
+                  const SizedBox(
+                    height: AppSpacing.xs,
+                  ),
+
+                  Expanded(
+                    child: _buildStationResults(
+                      useGrid: false,
+                      horizontalPadding:
+                      AppSpacing.lg,
+                      bottomPadding: 100,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -540,30 +1418,182 @@ class _FindStationsState extends State<FindStations> {
     );
   }
 
+  // ---------------------------------------------------------------------------
+  // MOBILE CONTROLS
+  // ---------------------------------------------------------------------------
+
+  Widget _buildMobileControls() {
+    return Column(
+      crossAxisAlignment:
+      CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            // Nearby / All Stations stays visible on mobile.
+            Expanded(
+              child: Container(
+                padding:
+                const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: AppColors.white,
+                  borderRadius:
+                  BorderRadius.circular(12),
+                  border: Border.all(
+                    color:
+                    const Color(0xFFE5E7EB),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _buildToggleButton(
+                        'Nearby',
+                        _isNearbySelected,
+                      ),
+                    ),
+                    Expanded(
+                      child: _buildToggleButton(
+                        'All Stations',
+                        !_isNearbySelected,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(width: 10),
+
+            // Mobile filter button.
+            _buildMobileFilterButton(),
+          ],
+        ),
+
+        // Keep location information below the toggle,
+        // but without the large filters that previously consumed space.
+        _buildLocationStatus(),
+      ],
+    );
+  }
+
+  Widget _buildMobileFilterButton() {
+    final bool hasActiveFilters =
+        _activeFilterCount > 0;
+
+    return Material(
+      color: hasActiveFilters
+          ? AppColors.primary
+          : AppColors.white,
+      borderRadius:
+      BorderRadius.circular(12),
+      child: InkWell(
+        onTap: _showMobileFiltersSheet,
+        borderRadius:
+        BorderRadius.circular(12),
+        child: Container(
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            borderRadius:
+            BorderRadius.circular(12),
+            border: Border.all(
+              color: hasActiveFilters
+                  ? AppColors.primary
+                  : const Color(
+                0xFFE5E7EB,
+              ),
+            ),
+          ),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Center(
+                child: Icon(
+                  Icons.tune_rounded,
+                  color: hasActiveFilters
+                      ? Colors.white
+                      : AppColors.primary,
+                  size: 22,
+                ),
+              ),
+
+              if (hasActiveFilters)
+                Positioned(
+                  top: -5,
+                  right: -5,
+                  child: Container(
+                    width: 20,
+                    height: 20,
+                    decoration: BoxDecoration(
+                      color: AppColors.white,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color:
+                        AppColors.primary,
+                        width: 1.5,
+                      ),
+                    ),
+                    alignment:
+                    Alignment.center,
+                    child: Text(
+                      '$_activeFilterCount',
+                      style:
+                      const TextStyle(
+                        color:
+                        AppColors.primary,
+                        fontSize: 10,
+                        fontWeight:
+                        FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // TABLET / CAR
+  // ---------------------------------------------------------------------------
+
   Widget _buildWideLayout() {
     return Scaffold(
-      backgroundColor: _backgroundColor,
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: Row(
           children: [
             Container(
               width: 340,
-              decoration: BoxDecoration(
-                color: Colors.white,
+              decoration:
+              const BoxDecoration(
+                color: AppColors.white,
                 border: Border(
                   right: BorderSide(
-                    color: Colors.grey.shade200,
+                    color: Color(
+                      0xFFE5E7EB,
+                    ),
                   ),
                 ),
               ),
               child: Column(
                 children: [
                   _buildWideHeader(),
+
                   Expanded(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.only(bottom: 24),
-                      child: _buildControlsPanel(
-                        horizontalPadding: 22,
+                    child:
+                    SingleChildScrollView(
+                      padding:
+                      const EdgeInsets.only(
+                        bottom:
+                        AppSpacing.xxl,
+                      ),
+                      child:
+                      _buildControlsPanel(
+                        horizontalPadding:
+                        AppSpacing.xxl,
                         isWideLayout: true,
                       ),
                     ),
@@ -571,15 +1601,20 @@ class _FindStationsState extends State<FindStations> {
                 ],
               ),
             ),
+
             Expanded(
               child: Column(
                 children: [
                   _buildWideResultsHeader(),
+
                   Expanded(
-                    child: _buildStationResults(
+                    child:
+                    _buildStationResults(
                       useGrid: true,
-                      horizontalPadding: 24,
-                      bottomPadding: 24,
+                      horizontalPadding:
+                      AppSpacing.xxl,
+                      bottomPadding:
+                      AppSpacing.xxl,
                     ),
                   ),
                 ],
@@ -591,23 +1626,115 @@ class _FindStationsState extends State<FindStations> {
     );
   }
 
+  // ---------------------------------------------------------------------------
+  // HEADERS
+  // ---------------------------------------------------------------------------
+
   Widget _buildMobileHeader() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 6, 20, 10),
+    return Container(
+      width: double.infinity,
+      padding:
+      const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.lg,
+        AppSpacing.lg,
+        AppSpacing.lg,
+      ),
+      decoration: const BoxDecoration(
+        gradient:
+        AppColors.primaryGradient,
+      ),
       child: Column(
+        crossAxisAlignment:
+        CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Find Charging Stations',
-            textAlign: TextAlign.center,
+          Row(
+            children: [
+              const Icon(
+                Icons.ev_station_rounded,
+                color: Colors.white,
+                size: 28,
+              ),
+
+              const SizedBox(
+                width: AppSpacing.sm,
+              ),
+
+              const Expanded(
+                child: Text(
+                  'Find Stations',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight:
+                    FontWeight.bold,
+                  ),
+                ),
+              ),
+
+              Material(
+                color: Colors.white
+                    .withOpacity(0.16),
+                borderRadius:
+                BorderRadius.circular(12),
+                child: InkWell(
+                  onTap: _isLoadingLocation
+                      ? null
+                      : _useCurrentLocation,
+                  borderRadius:
+                  BorderRadius.circular(12),
+                  child: SizedBox(
+                    width: 40,
+                    height: 40,
+                    child: Center(
+                      child: _isLoadingLocation
+                          ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child:
+                        CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color:
+                          Colors.white,
+                        ),
+                      )
+                          : const Icon(
+                        Icons
+                            .my_location_rounded,
+                        color:
+                        Colors.white,
+                        size: 20,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(
+            height: AppSpacing.xs,
+          ),
+
+          Text(
+            'Search and filter available charging stations.',
             style: TextStyle(
-              fontSize: 19,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
-              letterSpacing: 0.2,
+              color: Colors.white
+                  .withOpacity(0.78),
+              fontSize: 12,
+              height: 1.3,
             ),
           ),
-          const SizedBox(height: 10),
-          _buildSearchBar(),
+
+          const SizedBox(
+            height: AppSpacing.md,
+          ),
+
+          // Compact search bar used only on mobile.
+          _buildSearchBar(
+            useDarkBackground: true,
+            compact: true,
+          ),
         ],
       ),
     );
@@ -616,19 +1743,20 @@ class _FindStationsState extends State<FindStations> {
   Widget _buildWideHeader() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(22, 24, 22, 18),
+      padding:
+      const EdgeInsets.fromLTRB(
+        AppSpacing.xxl,
+        AppSpacing.xxl,
+        AppSpacing.xxl,
+        AppSpacing.xl,
+      ),
       decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            Color(0xFF0253A4),
-            Color(0xFF034485),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        gradient:
+        AppColors.primaryGradient,
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment:
+        CrossAxisAlignment.start,
         children: [
           const Row(
             children: [
@@ -637,55 +1765,153 @@ class _FindStationsState extends State<FindStations> {
                 color: Colors.white,
                 size: 30,
               ),
-              SizedBox(width: 10),
+
+              SizedBox(
+                width: AppSpacing.sm,
+              ),
+
               Expanded(
                 child: Text(
                   'Find Stations',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 23,
-                    fontWeight: FontWeight.bold,
+                    fontWeight:
+                    FontWeight.bold,
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+
+          const SizedBox(
+            height: AppSpacing.sm,
+          ),
+
           Text(
             'Search and filter available charging stations.',
             style: TextStyle(
-              color: Colors.white.withOpacity(0.78),
+              color: Colors.white
+                  .withOpacity(0.78),
               fontSize: 13,
               height: 1.4,
             ),
           ),
-          const SizedBox(height: 18),
-          _buildSearchBar(useDarkBackground: true),
+
+          const SizedBox(
+            height: AppSpacing.lg,
+          ),
+
+          _buildSearchBar(
+            useDarkBackground: true,
+          ),
         ],
       ),
     );
   }
 
+  Widget _buildWideResultsHeader() {
+    return Padding(
+      padding:
+      const EdgeInsets.fromLTRB(
+        AppSpacing.xxl,
+        AppSpacing.xxl,
+        AppSpacing.xxl,
+        AppSpacing.sm,
+      ),
+      child: Row(
+        children: [
+          const Expanded(
+            child: Column(
+              crossAxisAlignment:
+              CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Available Stations',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight:
+                    FontWeight.bold,
+                    color:
+                    AppColors.textPrimary,
+                  ),
+                ),
+
+                SizedBox(height: 4),
+
+                Text(
+                  'Select a station to book or begin route navigation.',
+                  style: TextStyle(
+                    color: AppColors
+                        .textSecondary,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          IconButton(
+            tooltip:
+            'Use current location',
+            onPressed: _isLoadingLocation
+                ? null
+                : _useCurrentLocation,
+            icon: const Icon(
+              Icons.my_location_rounded,
+              color: AppColors.primary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // SEARCH BAR
+  // ---------------------------------------------------------------------------
+
   Widget _buildSearchBar({
     bool useDarkBackground = false,
+    bool compact = false,
   }) {
+    final double searchHeight =
+    compact
+        ? 40
+        : useDarkBackground
+        ? 48
+        : 44;
+
     return Container(
-      height: useDarkBackground ? 48 : 44,
-      padding: const EdgeInsets.symmetric(horizontal: 14),
+      height: searchHeight,
+      padding:
+      EdgeInsets.symmetric(
+        horizontal: compact ? 12 : 14,
+      ),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        color: AppColors.white,
+        borderRadius:
+        BorderRadius.circular(
+          compact ? 12 : 14,
+        ),
         border: Border.all(
           color: _isSearchActive
-              ? _primaryColor.withOpacity(0.5)
-              : Colors.grey.shade200,
+              ? AppColors.primary
+              .withOpacity(0.50)
+              : const Color(
+            0xFFE5E7EB,
+          ),
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(
-              useDarkBackground ? 0.12 : 0.04,
+            color: Colors.black
+                .withOpacity(
+              useDarkBackground
+                  ? 0.12
+                  : 0.04,
             ),
-            blurRadius: 10,
+            blurRadius:
+            compact ? 6 : 10,
             offset: const Offset(0, 4),
           ),
         ],
@@ -694,54 +1920,86 @@ class _FindStationsState extends State<FindStations> {
         children: [
           Icon(
             Icons.search,
-            color: _isSearchActive ? _primaryColor : _greyText,
-            size: 20,
+            color: _isSearchActive
+                ? AppColors.primary
+                : AppColors
+                .textSecondary,
+            size: compact ? 18 : 20,
           ),
-          const SizedBox(width: 8),
+
+          const SizedBox(
+            width: AppSpacing.sm,
+          ),
+
           Expanded(
             child: TextField(
-              controller: _searchController,
-              focusNode: _searchFocusNode,
-              textInputAction: TextInputAction.search,
+              controller:
+              _searchController,
+              focusNode:
+              _searchFocusNode,
+              textInputAction:
+              TextInputAction.search,
               onSubmitted: _searchTown,
               onChanged: (_) {
                 setState(() {});
               },
-              style: const TextStyle(fontSize: 14),
-              decoration: const InputDecoration(
-                hintText: 'Search a town or city...',
-                border: InputBorder.none,
+              style: TextStyle(
+                fontSize:
+                compact ? 13 : 14,
+                color:
+                AppColors.textPrimary,
+              ),
+              decoration:
+              const InputDecoration(
+                hintText:
+                'Search a town or city...',
+                border:
+                InputBorder.none,
                 isCollapsed: true,
+                filled: false,
+                contentPadding:
+                EdgeInsets.zero,
               ),
             ),
           ),
+
           if (_isSearching)
             SizedBox(
-              width: 18,
-              height: 18,
-              child: CircularProgressIndicator(
+              width: compact ? 16 : 18,
+              height: compact ? 16 : 18,
+              child:
+              const CircularProgressIndicator(
                 strokeWidth: 2,
-                color: _primaryColor,
+                color:
+                AppColors.primary,
               ),
             )
-          else if (_searchController.text.isNotEmpty) ...[
+          else if (_searchController
+              .text.isNotEmpty) ...[
             GestureDetector(
               onTap: _clearSearch,
               child: Icon(
                 Icons.close,
-                color: _greyText,
-                size: 20,
+                color: AppColors
+                    .textSecondary,
+                size: compact ? 18 : 20,
               ),
             ),
-            const SizedBox(width: 10),
+
+            const SizedBox(width: 8),
+
             GestureDetector(
               onTap: () {
-                _searchTown(_searchController.text);
+                _searchTown(
+                  _searchController.text,
+                );
               },
               child: Icon(
-                Icons.arrow_circle_right_rounded,
-                color: _primaryColor,
-                size: 26,
+                Icons
+                    .arrow_circle_right_rounded,
+                color:
+                AppColors.primary,
+                size: compact ? 23 : 26,
               ),
             ),
           ],
@@ -749,6 +2007,10 @@ class _FindStationsState extends State<FindStations> {
       ),
     );
   }
+
+  // ---------------------------------------------------------------------------
+  // WIDE CONTROLS
+  // ---------------------------------------------------------------------------
 
   Widget _buildControlsPanel({
     required double horizontalPadding,
@@ -757,49 +2019,57 @@ class _FindStationsState extends State<FindStations> {
     return Padding(
       padding: EdgeInsets.fromLTRB(
         horizontalPadding,
-        isWideLayout ? 20 : 0,
+        isWideLayout
+            ? AppSpacing.xl
+            : 0,
         horizontalPadding,
         0,
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment:
+        CrossAxisAlignment.start,
         children: [
-          if (!isWideLayout) ...[
-            const Divider(
-              height: 1,
-              thickness: 1,
-              color: Colors.black12,
-            ),
-            const SizedBox(height: 14),
-          ],
           if (isWideLayout) ...[
             const Text(
               'Station visibility',
               style: TextStyle(
                 fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87,
+                fontWeight:
+                FontWeight.bold,
+                color:
+                AppColors.textPrimary,
               ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(
+              height: AppSpacing.sm,
+            ),
           ],
+
           Container(
-            padding: const EdgeInsets.all(4),
+            padding:
+            const EdgeInsets.all(4),
             decoration: BoxDecoration(
-              color: isWideLayout ? _backgroundColor : Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.shade200),
+              color:
+              AppColors.background,
+              borderRadius:
+              BorderRadius.circular(12),
+              border: Border.all(
+                color:
+                const Color(0xFFE5E7EB),
+              ),
             ),
             child: Row(
               children: [
                 Expanded(
-                  child: _buildToggleButton(
+                  child:
+                  _buildToggleButton(
                     'Nearby',
                     _isNearbySelected,
                   ),
                 ),
                 Expanded(
-                  child: _buildToggleButton(
+                  child:
+                  _buildToggleButton(
                     'All Stations',
                     !_isNearbySelected,
                   ),
@@ -807,211 +2077,245 @@ class _FindStationsState extends State<FindStations> {
               ],
             ),
           ),
+
           _buildLocationStatus(),
-          const SizedBox(height: 14),
+
+          const SizedBox(
+            height: AppSpacing.lg,
+          ),
+
           if (isWideLayout) ...[
             const Text(
               'Filters',
               style: TextStyle(
                 fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87,
+                fontWeight:
+                FontWeight.bold,
+                color:
+                AppColors.textPrimary,
               ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(
+              height: AppSpacing.sm,
+            ),
           ],
-          if (isWideLayout) ...[
-            _buildFilterDropdown(
-              label: _selectedConnectorType == 'All'
-                  ? 'Connector Type'
-                  : _selectedConnectorType,
-              isActive: _selectedConnectorType != 'All',
-              onTap: () {
-                _showFilterSheet(
-                  'Connector Type',
-                  _connectorTypes,
-                  _selectedConnectorType,
-                      (value) {
-                    setState(() {
-                      _selectedConnectorType = value;
-                    });
-                  },
-                );
-              },
+
+          _buildFilterDropdown(
+            label:
+            _selectedConnectorType ==
+                'All'
+                ? 'Connector Type'
+                : _selectedConnectorType,
+            isActive:
+            _selectedConnectorType !=
+                'All',
+            onTap: () {
+              _showFilterSheet(
+                'Connector Type',
+                _connectorTypes,
+                _selectedConnectorType,
+                    (value) {
+                  setState(() {
+                    _selectedConnectorType =
+                        value;
+                  });
+                },
+              );
+            },
+          ),
+
+          const SizedBox(
+            height: AppSpacing.md,
+          ),
+
+          _buildFilterDropdown(
+            label:
+            _selectedChargingType ==
+                'All'
+                ? 'Charging Type'
+                : '$_selectedChargingType Charging',
+            isActive:
+            _selectedChargingType !=
+                'All',
+            onTap: () {
+              _showFilterSheet(
+                'Charging Type',
+                _chargingTypes,
+                _selectedChargingType,
+                    (value) {
+                  setState(() {
+                    _selectedChargingType =
+                        value;
+                  });
+                },
+              );
+            },
+          ),
+
+          if (_selectedConnectorType !=
+              'All' ||
+              _selectedChargingType !=
+                  'All') ...[
+            const SizedBox(
+              height: AppSpacing.sm,
             ),
-            const SizedBox(height: 12),
-            _buildFilterDropdown(
-              label: _selectedChargingType == 'All'
-                  ? 'Charging Type'
-                  : '$_selectedChargingType Charging',
-              isActive: _selectedChargingType != 'All',
-              onTap: () {
-                _showFilterSheet(
-                  'Charging Type',
-                  _chargingTypes,
-                  _selectedChargingType,
-                      (value) {
-                    setState(() {
-                      _selectedChargingType = value;
-                    });
-                  },
-                );
-              },
-            ),
-          ] else
-            Row(
-              children: [
-                Expanded(
-                  child: _buildFilterDropdown(
-                    label: _selectedConnectorType == 'All'
-                        ? 'Connector Type'
-                        : _selectedConnectorType,
-                    isActive: _selectedConnectorType != 'All',
-                    onTap: () {
-                      _showFilterSheet(
-                        'Connector Type',
-                        _connectorTypes,
-                        _selectedConnectorType,
-                            (value) {
-                          setState(() {
-                            _selectedConnectorType = value;
-                          });
-                        },
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildFilterDropdown(
-                    label: _selectedChargingType == 'All'
-                        ? 'Charging Type'
-                        : '$_selectedChargingType Charging',
-                    isActive: _selectedChargingType != 'All',
-                    onTap: () {
-                      _showFilterSheet(
-                        'Charging Type',
-                        _chargingTypes,
-                        _selectedChargingType,
-                            (value) {
-                          setState(() {
-                            _selectedChargingType = value;
-                          });
-                        },
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-          if (_selectedConnectorType != 'All' ||
-              _selectedChargingType != 'All') ...[
-            const SizedBox(height: 10),
+
             Wrap(
-              spacing: 8,
-              runSpacing: 8,
+              spacing: AppSpacing.sm,
+              runSpacing: AppSpacing.sm,
               children: [
-                if (_selectedConnectorType != 'All')
+                if (_selectedConnectorType !=
+                    'All')
                   _buildActiveFilterChip(
                     _selectedConnectorType,
                         () {
                       setState(() {
-                        _selectedConnectorType = 'All';
+                        _selectedConnectorType =
+                        'All';
                       });
                     },
                   ),
-                if (_selectedChargingType != 'All')
+
+                if (_selectedChargingType !=
+                    'All')
                   _buildActiveFilterChip(
                     '$_selectedChargingType Charging',
                         () {
                       setState(() {
-                        _selectedChargingType = 'All';
+                        _selectedChargingType =
+                        'All';
                       });
                     },
                   ),
               ],
             ),
           ],
+
           if (_showDistanceSlider) ...[
-            const SizedBox(height: 18),
+            const SizedBox(
+              height: AppSpacing.lg,
+            ),
+
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              mainAxisAlignment:
+              MainAxisAlignment
+                  .spaceBetween,
               children: [
                 const Text(
                   'Distance Radius',
                   style: TextStyle(
                     fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.black87,
+                    fontWeight:
+                    FontWeight.w700,
+                    color:
+                    AppColors.textPrimary,
                   ),
                 ),
+
                 Container(
-                  padding: const EdgeInsets.symmetric(
+                  padding:
+                  const EdgeInsets
+                      .symmetric(
                     horizontal: 12,
                     vertical: 4,
                   ),
-                  decoration: BoxDecoration(
-                    color: _lightFillColor,
-                    borderRadius: BorderRadius.circular(8),
+                  decoration:
+                  BoxDecoration(
+                    color:
+                    AppColors.lightFill,
+                    borderRadius:
+                    BorderRadius.circular(
+                      8,
+                    ),
                   ),
                   child: Text(
                     '${_distanceValue.toInt()} km',
-                    style: TextStyle(
+                    style:
+                    const TextStyle(
                       fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                      color: _primaryColor,
+                      fontWeight:
+                      FontWeight.bold,
+                      color:
+                      AppColors.primary,
                     ),
                   ),
                 ),
               ],
             ),
+
             const SizedBox(height: 4),
+
             SizedBox(
               height: 36,
               child: SliderTheme(
-                data: SliderTheme.of(context).copyWith(
-                  activeTrackColor: _primaryColor,
-                  inactiveTrackColor: Colors.grey.shade300,
-                  thumbColor: _primaryColor,
-                  overlayColor: _primaryColor.withOpacity(0.1),
+                data:
+                SliderTheme.of(context)
+                    .copyWith(
+                  activeTrackColor:
+                  AppColors.primary,
+                  inactiveTrackColor:
+                  const Color(
+                    0xFFD1D5DB,
+                  ),
+                  thumbColor:
+                  AppColors.primary,
+                  overlayColor:
+                  AppColors.primary
+                      .withOpacity(0.10),
                   trackHeight: 5,
-                  thumbShape: const RoundSliderThumbShape(
+                  thumbShape:
+                  const RoundSliderThumbShape(
                     enabledThumbRadius: 9,
                   ),
-                  overlayShape: const RoundSliderOverlayShape(
+                  overlayShape:
+                  const RoundSliderOverlayShape(
                     overlayRadius: 16,
                   ),
-                  trackShape: const RoundedRectSliderTrackShape(),
+                  trackShape:
+                  const RoundedRectSliderTrackShape(),
                 ),
                 child: Slider(
-                  value: _distanceValue,
+                  value:
+                  _distanceValue,
                   min: 1,
                   max: 50,
                   divisions: 49,
                   onChanged: (value) {
                     setState(() {
-                      _distanceValue = value;
+                      _distanceValue =
+                          value;
                     });
                   },
                 ),
               ),
             ),
           ],
-          const SizedBox(height: 10),
+
+          const SizedBox(
+            height: AppSpacing.sm,
+          ),
         ],
       ),
     );
   }
 
+  // ---------------------------------------------------------------------------
+  // LOCATION STATUS
+  // ---------------------------------------------------------------------------
+
   Widget _buildLocationStatus() {
     if (_searchedTownPosition != null) {
       return Padding(
-        padding: const EdgeInsets.only(top: 10),
+        padding:
+        const EdgeInsets.only(
+          top: AppSpacing.sm,
+        ),
         child: Row(
           children: [
-            Icon(
+            const Icon(
               Icons.place,
-              color: _primaryColor,
+              color:
+              AppColors.primary,
               size: 16,
             ),
             const SizedBox(width: 6),
@@ -1020,11 +2324,15 @@ class _FindStationsState extends State<FindStations> {
                 'Within ${_distanceValue.toInt()} km of '
                     '${_searchedTownName ?? 'searched area'}',
                 maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: _primaryColor,
+                overflow:
+                TextOverflow.ellipsis,
+                style:
+                const TextStyle(
+                  color:
+                  AppColors.primary,
                   fontSize: 12,
-                  fontWeight: FontWeight.w600,
+                  fontWeight:
+                  FontWeight.w600,
                 ),
               ),
             ),
@@ -1038,23 +2346,28 @@ class _FindStationsState extends State<FindStations> {
     }
 
     if (_isLoadingLocation) {
-      return Padding(
-        padding: const EdgeInsets.only(top: 10),
+      return const Padding(
+        padding: EdgeInsets.only(
+          top: AppSpacing.sm,
+        ),
         child: Row(
           children: [
             SizedBox(
               width: 14,
               height: 14,
-              child: CircularProgressIndicator(
+              child:
+              CircularProgressIndicator(
                 strokeWidth: 2,
-                color: _primaryColor,
+                color:
+                AppColors.primary,
               ),
             ),
-            const SizedBox(width: 8),
+            SizedBox(width: 8),
             Text(
               'Getting your location...',
               style: TextStyle(
-                color: _greyText,
+                color: AppColors
+                    .textSecondary,
                 fontSize: 12,
               ),
             ),
@@ -1065,32 +2378,40 @@ class _FindStationsState extends State<FindStations> {
 
     if (_currentUserPosition == null) {
       return Padding(
-        padding: const EdgeInsets.only(top: 10),
+        padding:
+        const EdgeInsets.only(
+          top: AppSpacing.sm,
+        ),
         child: Row(
           children: [
             const Icon(
               Icons.location_off,
-              color: Colors.orange,
+              color:
+              AppColors.warning,
               size: 16,
             ),
             const SizedBox(width: 6),
-            Expanded(
+            const Expanded(
               child: Text(
                 'Location unavailable — showing all stations.',
                 style: TextStyle(
-                  color: Colors.orange.shade700,
+                  color:
+                  AppColors.warning,
                   fontSize: 12,
                 ),
               ),
             ),
             TextButton(
-              onPressed: _getUserLocation,
-              child: Text(
+              onPressed:
+              _getUserLocation,
+              child: const Text(
                 'Retry',
                 style: TextStyle(
-                  color: _primaryColor,
+                  color:
+                  AppColors.primary,
                   fontSize: 12,
-                  fontWeight: FontWeight.bold,
+                  fontWeight:
+                  FontWeight.bold,
                 ),
               ),
             ),
@@ -1100,22 +2421,29 @@ class _FindStationsState extends State<FindStations> {
     }
 
     return Padding(
-      padding: const EdgeInsets.only(top: 10),
+      padding:
+      const EdgeInsets.only(
+        top: AppSpacing.sm,
+      ),
       child: Row(
         children: [
-          Icon(
+          const Icon(
             Icons.location_on,
-            color: Colors.green.shade600,
+            color:
+            AppColors.success,
             size: 16,
           ),
           const SizedBox(width: 6),
           Expanded(
             child: Text(
               'Showing stations within ${_distanceValue.toInt()} km',
-              style: TextStyle(
-                color: Colors.green.shade700,
+              style:
+              const TextStyle(
+                color:
+                AppColors.success,
                 fontSize: 12,
-                fontWeight: FontWeight.w500,
+                fontWeight:
+                FontWeight.w500,
               ),
             ),
           ),
@@ -1124,46 +2452,9 @@ class _FindStationsState extends State<FindStations> {
     );
   }
 
-  Widget _buildWideResultsHeader() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
-      child: Row(
-        children: [
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Available Stations',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
-                ),
-                SizedBox(height: 4),
-                Text(
-                  'Select a station to book or begin route navigation.',
-                  style: TextStyle(
-                    color: Colors.black54,
-                    fontSize: 13,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          IconButton(
-            tooltip: 'Refresh location',
-            onPressed: _getUserLocation,
-            icon: Icon(
-              Icons.my_location_rounded,
-              color: _primaryColor,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  // ---------------------------------------------------------------------------
+  // RESULTS
+  // ---------------------------------------------------------------------------
 
   Widget _buildStationResults({
     required bool useGrid,
@@ -1172,11 +2463,17 @@ class _FindStationsState extends State<FindStations> {
   }) {
     return StreamBuilder<QuerySnapshot>(
       stream: _stationsStream,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return Center(
-            child: CircularProgressIndicator(
-              color: _primaryColor,
+      builder: (
+          context,
+          snapshot,
+          ) {
+        if (snapshot.connectionState ==
+            ConnectionState.waiting) {
+          return const Center(
+            child:
+            CircularProgressIndicator(
+              color:
+              AppColors.primary,
             ),
           );
         }
@@ -1184,23 +2481,33 @@ class _FindStationsState extends State<FindStations> {
         if (snapshot.hasError) {
           return Center(
             child: Padding(
-              padding: const EdgeInsets.all(24),
+              padding:
+              const EdgeInsets.all(
+                AppSpacing.xxl,
+              ),
               child: Text(
                 'Unable to load stations.\n${snapshot.error}',
-                textAlign: TextAlign.center,
+                textAlign:
+                TextAlign.center,
               ),
             ),
           );
         }
 
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+        if (!snapshot.hasData ||
+            snapshot.data!.docs.isEmpty) {
           return const Center(
-            child: Text('No stations found.'),
+            child: Text(
+              'No stations found.',
+            ),
           );
         }
 
-        final List<QueryDocumentSnapshot> filtered =
-        _filterStations(snapshot.data!.docs);
+        final List<QueryDocumentSnapshot>
+        filtered =
+        _filterStations(
+          snapshot.data!.docs,
+        );
 
         if (filtered.isEmpty) {
           return _buildNoStationsState();
@@ -1208,57 +2515,86 @@ class _FindStationsState extends State<FindStations> {
 
         if (!useGrid) {
           return ListView.builder(
-            padding: EdgeInsets.fromLTRB(
+            padding:
+            EdgeInsets.fromLTRB(
               horizontalPadding,
-              12,
+              AppSpacing.sm,
               horizontalPadding,
               bottomPadding,
             ),
-            physics: const BouncingScrollPhysics(),
-            itemCount: filtered.length + 1,
-            itemBuilder: (context, index) {
+            physics:
+            const BouncingScrollPhysics(),
+            itemCount:
+            filtered.length + 1,
+            itemBuilder: (
+                context,
+                index,
+                ) {
               if (index == 0) {
                 return Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
+                  padding:
+                  const EdgeInsets.only(
+                    bottom:
+                    AppSpacing.sm,
+                  ),
                   child: Text(
                     '${filtered.length} station'
                         '${filtered.length == 1 ? '' : 's'} found',
-                    style: TextStyle(
-                      color: _greyText,
+                    style:
+                    const TextStyle(
+                      color: AppColors
+                          .textSecondary,
                       fontSize: 13,
-                      fontWeight: FontWeight.w600,
+                      fontWeight:
+                      FontWeight.w600,
                     ),
                   ),
                 );
               }
 
-              return _buildStationFromDocument(filtered[index - 1]);
+              return _buildStationFromDocument(
+                filtered[index - 1],
+              );
             },
           );
         }
 
         return LayoutBuilder(
-          builder: (context, constraints) {
+          builder: (
+              context,
+              constraints,
+              ) {
             final int columnCount =
-            constraints.maxWidth >= 800 ? 2 : 1;
+            constraints.maxWidth >= 800
+                ? 2
+                : 1;
 
             return GridView.builder(
-              padding: EdgeInsets.fromLTRB(
+              padding:
+              EdgeInsets.fromLTRB(
                 horizontalPadding,
-                12,
+                AppSpacing.md,
                 horizontalPadding,
                 bottomPadding,
               ),
-              physics: const AlwaysScrollableScrollPhysics(),
+              physics:
+              const AlwaysScrollableScrollPhysics(),
               itemCount: filtered.length,
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: columnCount,
+              gridDelegate:
+              SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount:
+                columnCount,
                 crossAxisSpacing: 18,
                 mainAxisSpacing: 18,
-                mainAxisExtent: 390,
+                mainAxisExtent: 410,
               ),
-              itemBuilder: (context, index) {
-                return _buildStationFromDocument(filtered[index]);
+              itemBuilder: (
+                  context,
+                  index,
+                  ) {
+                return _buildStationFromDocument(
+                  filtered[index],
+                );
               },
             );
           },
@@ -1271,45 +2607,71 @@ class _FindStationsState extends State<FindStations> {
       QueryDocumentSnapshot document,
       ) {
     final Map<String, dynamic> data =
-    document.data() as Map<String, dynamic>;
+    document.data()
+    as Map<String, dynamic>;
 
     final int availablePlugs =
-        int.tryParse(data['available_plugs']?.toString() ?? '0') ?? 0;
+        int.tryParse(
+          data['available_plugs']
+              ?.toString() ??
+              '0',
+        ) ??
+            0;
 
     final int totalSlots =
-        int.tryParse(data['connector_slots']?.toString() ?? '0') ?? 0;
+        int.tryParse(
+          data['connector_slots']
+              ?.toString() ??
+              '0',
+        ) ??
+            0;
 
-    final bool isAvailable = availablePlugs > 0;
+    final bool isAvailable =
+        availablePlugs > 0;
 
     final String rawConnectors =
-        data['supported_connector_types']?.toString() ?? 'Unknown';
+        data['supported_connector_types']
+            ?.toString() ??
+            'Unknown';
 
-    final List<String> connectorList = rawConnectors
+    final List<String> connectorList =
+    rawConnectors
         .split(',')
-        .map((connector) => connector.trim())
-        .where((connector) => connector.isNotEmpty)
+        .map(
+          (connector) =>
+          connector.trim(),
+    )
+        .where(
+          (connector) =>
+      connector.isNotEmpty,
+    )
         .toList();
 
-    final double? latitude = double.tryParse(
+    final double? latitude =
+    double.tryParse(
       data['latitude']?.toString() ?? '',
     );
 
-    final double? longitude = double.tryParse(
+    final double? longitude =
+    double.tryParse(
       data['longitude']?.toString() ?? '',
     );
 
     final String stationName =
-        data['station_name']?.toString() ?? 'Unknown Station';
+        data['station_name']?.toString() ??
+            'Unknown Station';
 
     final LatLng? distanceCenter =
-        _searchedTownPosition ?? _currentUserPosition;
+        _searchedTownPosition ??
+            _currentUserPosition;
 
     String distanceText = 'N/A';
 
     if (distanceCenter != null &&
         latitude != null &&
         longitude != null) {
-      final double distanceKm = _calculateDistanceKm(
+      final double distanceKm =
+      _calculateDistanceKm(
         distanceCenter.latitude,
         distanceCenter.longitude,
         latitude,
@@ -1324,122 +2686,214 @@ class _FindStationsState extends State<FindStations> {
     return _buildStationCard(
       doc: document,
       name: stationName,
-      address: data['address']?.toString() ??
-          ((latitude != null && longitude != null)
+      address:
+      data['address']?.toString() ??
+          ((latitude != null &&
+              longitude != null)
               ? 'Lat: ${latitude.toStringAsFixed(4)}, '
               'Lng: ${longitude.toStringAsFixed(4)}'
               : 'Location unavailable'),
       distance: distanceText,
-      availabilityText: '$availablePlugs/$totalSlots Available',
-      power: '${data['charging_power']?.toString() ?? '0'} kW',
+      availabilityText:
+      '$availablePlugs/$totalSlots Available',
+      power:
+      '${data['charging_power']?.toString() ?? '0'} kW',
       connectors: connectorList,
-      statusColor: isAvailable ? Colors.green : Colors.red,
+      statusColor: isAvailable
+          ? AppColors.success
+          : AppColors.danger,
       isAvailable: isAvailable,
-      stationLatLng: latitude != null && longitude != null
-          ? LatLng(latitude, longitude)
+      stationLatLng:
+      latitude != null &&
+          longitude != null
+          ? LatLng(
+        latitude,
+        longitude,
+      )
           : null,
       stationName: stationName,
     );
   }
 
-  Widget _buildNoStationsState() {
-    final bool radiusActive = _searchedTownPosition != null ||
-        (_isNearbySelected && _currentUserPosition != null);
+  // ---------------------------------------------------------------------------
+  // NO RESULTS
+  // ---------------------------------------------------------------------------
 
-    String message;
+  Widget _buildNoStationsState() {
+    final bool radiusActive =
+        _searchedTownPosition != null ||
+            (_isNearbySelected &&
+                _currentUserPosition != null);
+
+    late final String message;
 
     if (_searchedTownPosition != null) {
       message =
       'No stations within ${_distanceValue.toInt()} km of '
           '${_searchedTownName ?? 'that location'}';
-    } else if (_isNearbySelected && _currentUserPosition != null) {
+    } else if (_isNearbySelected &&
+        _currentUserPosition != null) {
       message =
       'No stations within ${_distanceValue.toInt()} km '
           'of your location';
     } else {
-      message = 'No stations match the selected filters';
+      message =
+      'No stations match the selected filters';
     }
 
     return Center(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(30),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.ev_station_outlined,
-              size: 64,
-              color: Colors.grey.shade400,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: _greyText,
-                fontSize: 14,
-                height: 1.5,
-              ),
-            ),
-            if (radiusActive) ...[
-              const SizedBox(height: 16),
-              TextButton.icon(
-                onPressed: () {
-                  setState(() {
-                    _distanceValue =
-                        (_distanceValue + 10).clamp(1, 50);
-                  });
-                },
-                icon: Icon(
-                  Icons.add,
-                  color: _primaryColor,
+        padding:
+        const EdgeInsets.all(
+          AppSpacing.xxxl,
+        ),
+        child: AppCard(
+          padding:
+          const EdgeInsets.all(
+            AppSpacing.xxl,
+          ),
+          child: Column(
+            mainAxisSize:
+            MainAxisSize.min,
+            children: [
+              Container(
+                width: 72,
+                height: 72,
+                decoration:
+                const BoxDecoration(
+                  color:
+                  AppColors.lightFill,
+                  shape:
+                  BoxShape.circle,
                 ),
-                label: Text(
-                  'Increase radius',
-                  style: TextStyle(
-                    color: _primaryColor,
+                child: const Icon(
+                  Icons
+                      .ev_station_outlined,
+                  size: 38,
+                  color:
+                  AppColors.primary,
+                ),
+              ),
+
+              const SizedBox(
+                height: AppSpacing.lg,
+              ),
+
+              Text(
+                message,
+                textAlign:
+                TextAlign.center,
+                style:
+                const TextStyle(
+                  color: AppColors
+                      .textSecondary,
+                  fontSize: 14,
+                  height: 1.5,
+                ),
+              ),
+
+              if (radiusActive) ...[
+                const SizedBox(
+                  height:
+                  AppSpacing.lg,
+                ),
+
+                TextButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      _distanceValue =
+                          (_distanceValue +
+                              10)
+                              .clamp(
+                            1,
+                            50,
+                          );
+                    });
+                  },
+                  icon: const Icon(
+                    Icons.add,
+                    color:
+                    AppColors.primary,
+                  ),
+                  label: const Text(
+                    'Increase radius',
+                    style: TextStyle(
+                      color:
+                      AppColors.primary,
+                    ),
                   ),
                 ),
-              ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
   }
 
-  // ── WIDGET HELPERS ─────────────────────────────────────────────────────────
+  // ---------------------------------------------------------------------------
+  // CONTROL HELPERS
+  // ---------------------------------------------------------------------------
 
-  Widget _buildToggleButton(String text, bool isSelected) {
+  Widget _buildToggleButton(
+      String text,
+      bool isSelected,
+      ) {
     return GestureDetector(
       onTap: () {
-        setState(() => _isNearbySelected = (text == 'Nearby'));
-        if (text == 'Nearby' && _currentUserPosition == null) {
+        setState(() {
+          _isNearbySelected =
+              text == 'Nearby';
+        });
+
+        if (text == 'Nearby' &&
+            _currentUserPosition == null) {
           _getUserLocation();
         }
       },
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(vertical: 10),
+        duration:
+        const Duration(
+          milliseconds: 180,
+        ),
+        padding:
+        const EdgeInsets.symmetric(
+          vertical: 10,
+        ),
         decoration: BoxDecoration(
-          color: isSelected ? _primaryColor : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
+          color: isSelected
+              ? AppColors.primary
+              : Colors.transparent,
+          borderRadius:
+          BorderRadius.circular(10),
           boxShadow: isSelected
               ? [
             BoxShadow(
-              color: _primaryColor.withOpacity(0.3),
+              color: AppColors.primary
+                  .withOpacity(
+                0.20,
+              ),
               blurRadius: 8,
-              offset: const Offset(0, 4),
+              offset:
+              const Offset(
+                0,
+                4,
+              ),
             ),
           ]
               : [],
         ),
         child: Text(
           text,
-          textAlign: TextAlign.center,
+          textAlign:
+          TextAlign.center,
           style: TextStyle(
-            color: isSelected ? Colors.white : _greyText,
-            fontWeight: FontWeight.w600,
+            color: isSelected
+                ? Colors.white
+                : AppColors
+                .textSecondary,
+            fontWeight:
+            FontWeight.w600,
             fontSize: 14,
           ),
         ),
@@ -1455,40 +2909,56 @@ class _FindStationsState extends State<FindStations> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        padding:
+        const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 12,
+        ),
         decoration: BoxDecoration(
-          color: isActive ? _lightFillColor : Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          color: isActive
+              ? AppColors.lightFill
+              : AppColors.background,
+          borderRadius:
+          BorderRadius.circular(12),
           border: Border.all(
             color: isActive
-                ? _primaryColor.withOpacity(0.5)
-                : Colors.transparent,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.grey.withOpacity(0.08),
-              blurRadius: 8,
-              offset: const Offset(0, 3),
+                ? AppColors.primary
+                .withOpacity(0.50)
+                : const Color(
+              0xFFE5E7EB,
             ),
-          ],
+          ),
         ),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          mainAxisAlignment:
+          MainAxisAlignment
+              .spaceBetween,
           children: [
             Expanded(
               child: Text(
                 label,
                 style: TextStyle(
-                  color: isActive ? _primaryColor : Colors.black87,
+                  color: isActive
+                      ? AppColors.primary
+                      : AppColors
+                      .textPrimary,
                   fontSize: 13,
-                  fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                  fontWeight: isActive
+                      ? FontWeight.w700
+                      : FontWeight.w500,
                 ),
-                overflow: TextOverflow.ellipsis,
+                overflow:
+                TextOverflow.ellipsis,
               ),
             ),
+
             Icon(
-              Icons.keyboard_arrow_down,
-              color: isActive ? _primaryColor : _greyText,
+              Icons
+                  .keyboard_arrow_down,
+              color: isActive
+                  ? AppColors.primary
+                  : AppColors
+                  .textSecondary,
               size: 20,
             ),
           ],
@@ -1497,33 +2967,52 @@ class _FindStationsState extends State<FindStations> {
     );
   }
 
-  Widget _buildActiveFilterChip(String label, VoidCallback onRemove) {
+  Widget _buildActiveFilterChip(
+      String label,
+      VoidCallback onRemove,
+      ) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding:
+      const EdgeInsets.symmetric(
+        horizontal: 12,
+        vertical: 6,
+      ),
       decoration: BoxDecoration(
-        color: _primaryColor,
-        borderRadius: BorderRadius.circular(20),
+        color: AppColors.primary,
+        borderRadius:
+        BorderRadius.circular(20),
       ),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
+        mainAxisSize:
+        MainAxisSize.min,
         children: [
           Text(
             label,
-            style: const TextStyle(
+            style:
+            const TextStyle(
               color: Colors.white,
               fontSize: 12,
-              fontWeight: FontWeight.w600,
+              fontWeight:
+              FontWeight.w600,
             ),
           ),
           const SizedBox(width: 6),
           GestureDetector(
             onTap: onRemove,
-            child: const Icon(Icons.close, color: Colors.white, size: 14),
+            child: const Icon(
+              Icons.close,
+              color: Colors.white,
+              size: 14,
+            ),
           ),
         ],
       ),
     );
   }
+
+  // ---------------------------------------------------------------------------
+  // STATION CARD
+  // ---------------------------------------------------------------------------
 
   Widget _buildStationCard({
     required QueryDocumentSnapshot doc,
@@ -1538,266 +3027,603 @@ class _FindStationsState extends State<FindStations> {
     required LatLng? stationLatLng,
     required String stationName,
   }) {
-    final data = doc.data() as Map<String, dynamic>;
-    final bool isFav = _favoriteIds.contains(doc.id);
+    final Map<String, dynamic> data =
+    doc.data()
+    as Map<String, dynamic>;
 
+    final bool isFavourite =
+    _favoriteIds.contains(
+      doc.id,
+    );
+
+    return Padding(
+      padding:
+      const EdgeInsets.only(
+        bottom: AppSpacing.lg,
+      ),
+      child: AppCard(
+        padding:
+        const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment:
+          CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment:
+              CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 50,
+                  height: 50,
+                  decoration:
+                  BoxDecoration(
+                    color:
+                    AppColors.lightFill,
+                    borderRadius:
+                    BorderRadius.circular(
+                      14,
+                    ),
+                  ),
+                  child: const Icon(
+                    Icons
+                        .ev_station_rounded,
+                    color:
+                    AppColors.primary,
+                    size: 27,
+                  ),
+                ),
+
+                const SizedBox(
+                  width: AppSpacing.md,
+                ),
+
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment:
+                    CrossAxisAlignment
+                        .start,
+                    children: [
+                      Text(
+                        name,
+                        style:
+                        const TextStyle(
+                          fontSize: 16,
+                          fontWeight:
+                          FontWeight.bold,
+                          color: AppColors
+                              .textPrimary,
+                          height: 1.2,
+                        ),
+                        maxLines: 1,
+                        overflow:
+                        TextOverflow
+                            .ellipsis,
+                      ),
+
+                      const SizedBox(
+                        height: 5,
+                      ),
+
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons
+                                .location_on_outlined,
+                            size: 14,
+                            color: AppColors
+                                .textSecondary,
+                          ),
+
+                          const SizedBox(
+                            width: 4,
+                          ),
+
+                          Expanded(
+                            child: Text(
+                              address,
+                              style:
+                              const TextStyle(
+                                color: AppColors
+                                    .textSecondary,
+                                fontSize: 12,
+                              ),
+                              maxLines: 2,
+                              overflow:
+                              TextOverflow
+                                  .ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(
+                  width: AppSpacing.sm,
+                ),
+
+                GestureDetector(
+                  onTap: () {
+                    _toggleFavorite(
+                      doc.id,
+                      data,
+                    );
+                  },
+                  child:
+                  AnimatedContainer(
+                    duration:
+                    const Duration(
+                      milliseconds: 200,
+                    ),
+                    padding:
+                    const EdgeInsets.all(
+                      8,
+                    ),
+                    decoration:
+                    BoxDecoration(
+                      color: isFavourite
+                          ? Colors
+                          .amber.shade50
+                          : AppColors
+                          .background,
+                      shape:
+                      BoxShape.circle,
+                      border:
+                      Border.all(
+                        color: isFavourite
+                            ? Colors.amber
+                            .shade300
+                            : const Color(
+                          0xFFE5E7EB,
+                        ),
+                      ),
+                    ),
+                    child: Icon(
+                      isFavourite
+                          ? Icons
+                          .star_rounded
+                          : Icons
+                          .star_outline_rounded,
+                      color: isFavourite
+                          ? Colors.amber
+                          .shade600
+                          : AppColors
+                          .textSecondary,
+                      size: 22,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(
+              height: AppSpacing.lg,
+            ),
+
+            Row(
+              children: [
+                _buildStatusBadge(
+                  statusColor,
+                  availabilityText,
+                ),
+
+                const Spacer(),
+
+                _buildSmallInfo(
+                  icon:
+                  Icons.near_me_rounded,
+                  text: distance,
+                  iconColor:
+                  AppColors.primary,
+                ),
+              ],
+            ),
+
+            const SizedBox(
+              height: AppSpacing.lg,
+            ),
+
+            const Divider(
+              height: 1,
+              color:
+              Color(0xFFF0F1F3),
+            ),
+
+            const SizedBox(
+              height: AppSpacing.lg,
+            ),
+
+            Row(
+              children: [
+                Expanded(
+                  child:
+                  _buildInfoBox(
+                    icon: Icons
+                        .flash_on_rounded,
+                    value: power,
+                    label:
+                    'Charging Power',
+                    color:
+                    AppColors.warning,
+                  ),
+                ),
+
+                const SizedBox(
+                  width: AppSpacing.md,
+                ),
+
+                Expanded(
+                  child:
+                  _buildInfoBox(
+                    icon:
+                    Icons.power_rounded,
+                    value:
+                    availabilityText,
+                    label:
+                    'Availability',
+                    color:
+                    statusColor,
+                  ),
+                ),
+              ],
+            ),
+
+            if (connectors.isNotEmpty) ...[
+              const SizedBox(
+                height: AppSpacing.lg,
+              ),
+
+              Wrap(
+                spacing: AppSpacing.sm,
+                runSpacing:
+                AppSpacing.sm,
+                children:
+                connectors
+                    .map(
+                      (connector) =>
+                      Container(
+                        padding:
+                        const EdgeInsets
+                            .symmetric(
+                          horizontal:
+                          10,
+                          vertical: 6,
+                        ),
+                        decoration:
+                        BoxDecoration(
+                          color: AppColors
+                              .lightFill,
+                          borderRadius:
+                          BorderRadius
+                              .circular(
+                            10,
+                          ),
+                        ),
+                        child: Text(
+                          connector,
+                          style:
+                          const TextStyle(
+                            color: AppColors
+                                .primary,
+                            fontSize: 11,
+                            fontWeight:
+                            FontWeight
+                                .w700,
+                          ),
+                        ),
+                      ),
+                )
+                    .toList(),
+              ),
+            ],
+
+            const SizedBox(
+              height: AppSpacing.xl,
+            ),
+
+            Row(
+              children: [
+                Expanded(
+                  child: SizedBox(
+                    height: 48,
+                    child:
+                    ElevatedButton.icon(
+                      onPressed: isAvailable
+                          ? () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder:
+                                (_) =>
+                                BookStation(
+                                  preSelectedStationId:
+                                  doc.id,
+                                  preSelectedStationName:
+                                  stationName,
+                                  stationData:
+                                  data,
+                                ),
+                          ),
+                        );
+                      }
+                          : null,
+                      icon: const Icon(
+                        Icons
+                            .bookmark_add_rounded,
+                        size: 18,
+                      ),
+                      label: Text(
+                        isAvailable
+                            ? 'Book'
+                            : 'Full',
+                        style:
+                        const TextStyle(
+                          fontWeight:
+                          FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                      style:
+                      ElevatedButton
+                          .styleFrom(
+                        backgroundColor:
+                        isAvailable
+                            ? AppColors
+                            .primary
+                            : const Color(
+                          0xFFD1D5DB,
+                        ),
+                        foregroundColor:
+                        Colors.white,
+                        disabledBackgroundColor:
+                        const Color(
+                          0xFFD1D5DB,
+                        ),
+                        disabledForegroundColor:
+                        Colors.white,
+                        elevation: 0,
+                        shape:
+                        RoundedRectangleBorder(
+                          borderRadius:
+                          BorderRadius
+                              .circular(
+                            14,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(
+                  width: AppSpacing.md,
+                ),
+
+                Expanded(
+                  child: SizedBox(
+                    height: 48,
+                    child:
+                    OutlinedButton.icon(
+                      onPressed:
+                      stationLatLng ==
+                          null
+                          ? null
+                          : () {
+                        Navigator
+                            .push(
+                          context,
+                          MaterialPageRoute(
+                            builder:
+                                (_) =>
+                                ChargingRoute(
+                                  destination:
+                                  stationLatLng,
+                                  destinationName:
+                                  stationName,
+                                ),
+                          ),
+                        );
+                      },
+                      icon: const Icon(
+                        Icons
+                            .directions_rounded,
+                        size: 18,
+                      ),
+                      label:
+                      const Text(
+                        'Route',
+                        style: TextStyle(
+                          fontWeight:
+                          FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                      style:
+                      OutlinedButton
+                          .styleFrom(
+                        foregroundColor:
+                        AppColors.primary,
+                        disabledForegroundColor:
+                        AppColors
+                            .textSecondary,
+                        side:
+                        const BorderSide(
+                          color:
+                          AppColors.primary,
+                          width: 1.4,
+                        ),
+                        shape:
+                        RoundedRectangleBorder(
+                          borderRadius:
+                          BorderRadius
+                              .circular(
+                            14,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatusBadge(
+      Color color,
+      String text,
+      ) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(18),
+      padding:
+      const EdgeInsets.symmetric(
+        horizontal: 10,
+        vertical: 6,
+      ),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF0253A4).withOpacity(0.06),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
+        color: color.withOpacity(0.10),
+        borderRadius:
+        BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize:
+        MainAxisSize.min,
+        children: [
+          Container(
+            width: 7,
+            height: 7,
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+            ),
+          ),
+
+          const SizedBox(width: 5),
+
+          Text(
+            text,
+            style: TextStyle(
+              color: color,
+              fontSize: 11,
+              fontWeight:
+              FontWeight.w700,
+            ),
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    );
+  }
+
+  Widget _buildSmallInfo({
+    required IconData icon,
+    required String text,
+    required Color iconColor,
+  }) {
+    return Row(
+      mainAxisSize:
+      MainAxisSize.min,
+      children: [
+        Icon(
+          icon,
+          size: 15,
+          color: iconColor,
+        ),
+
+        const SizedBox(width: 5),
+
+        Text(
+          text,
+          style:
+          const TextStyle(
+            color:
+            AppColors.textSecondary,
+            fontSize: 12,
+            fontWeight:
+            FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildInfoBox({
+    required IconData icon,
+    required String value,
+    required String label,
+    required Color color,
+  }) {
+    return Container(
+      padding:
+      const EdgeInsets.all(
+        AppSpacing.md,
+      ),
+      decoration: BoxDecoration(
+        color:
+        color.withOpacity(0.07),
+        borderRadius:
+        BorderRadius.circular(14),
+      ),
+      child: Row(
         children: [
-          // Header row
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      name,
-                      style: const TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                        height: 1.2,
-                      ),
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      address,
-                      style: TextStyle(
-                        color: Colors.grey.shade500,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-
-              // ── ⭐ FAVOURITE STAR BUTTON ──────────────────────────────────
-              GestureDetector(
-                onTap: () => _toggleFavorite(doc.id, data),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: isFav ? Colors.amber.shade50 : Colors.grey.shade50,
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: isFav
-                          ? Colors.amber.shade300
-                          : Colors.grey.shade200,
-                    ),
-                  ),
-                  child: Icon(
-                    isFav ? Icons.star_rounded : Icons.star_outline_rounded,
-                    color: isFav ? Colors.amber.shade600 : Colors.grey.shade400,
-                    size: 22,
-                  ),
-                ),
-              ),
-
-              const SizedBox(width: 8),
-
-              // Availability badge
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: statusColor,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      availabilityText,
-                      style: TextStyle(
-                        color: statusColor,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+          Container(
+            width: 34,
+            height: 34,
+            decoration:
+            BoxDecoration(
+              color:
+              color.withOpacity(0.12),
+              borderRadius:
+              BorderRadius.circular(10),
+            ),
+            child: Icon(
+              icon,
+              size: 18,
+              color: color,
+            ),
           ),
 
-          const SizedBox(height: 14),
-          const Divider(height: 1, color: Color(0xFFF0F0F0)),
-          const SizedBox(height: 14),
-
-          // Stats row
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Icon(Icons.near_me, size: 18, color: _primaryColor),
-                  const SizedBox(width: 6),
-                  Text(
-                    distance,
-                    style: TextStyle(
-                      color: _greyText,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-              Row(
-                children: [
-                  const Icon(Icons.flash_on, size: 18, color: Colors.orange),
-                  const SizedBox(width: 6),
-                  Text(
-                    power,
-                    style: TextStyle(
-                      color: _greyText,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ],
+          const SizedBox(
+            width: AppSpacing.sm,
           ),
 
-          const SizedBox(height: 14),
-
-          // Connector chips
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: connectors
-                .map(
-                  (c) => Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: _lightFillColor,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  c,
-                  style: TextStyle(
-                    color: _primaryColor,
+          Expanded(
+            child: Column(
+              crossAxisAlignment:
+              CrossAxisAlignment.start,
+              children: [
+                Text(
+                  value,
+                  style:
+                  const TextStyle(
+                    color: AppColors
+                        .textPrimary,
                     fontSize: 12,
-                    fontWeight: FontWeight.w700,
+                    fontWeight:
+                    FontWeight.w700,
                   ),
+                  maxLines: 1,
+                  overflow:
+                  TextOverflow.ellipsis,
                 ),
-              ),
-            )
-                .toList(),
-          ),
 
-          const SizedBox(height: 16),
+                const SizedBox(
+                  height: 2,
+                ),
 
-          // Action buttons
-          Row(
-            children: [
-              Expanded(
-                child: SizedBox(
-                  height: 48,
-                  child: ElevatedButton(
-                    onPressed: isAvailable
-                        ? () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => BookStation(
-                          preSelectedStationId: doc.id,
-                          preSelectedStationName: stationName,
-                          stationData: data,
-                        ),
-                      ),
-                    )
-                        : null,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: isAvailable
-                          ? _primaryColor
-                          : Colors.grey.shade300,
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    child: Text(
-                      isAvailable ? 'Book' : 'Full',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15,
-                      ),
-                    ),
+                Text(
+                  label,
+                  style:
+                  const TextStyle(
+                    color: AppColors
+                        .textSecondary,
+                    fontSize: 10,
                   ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: SizedBox(
-                  height: 48,
-                  child: OutlinedButton.icon(
-                    onPressed: stationLatLng == null
-                        ? null
-                        : () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => ChargingRoute(
-                          destination: stationLatLng,
-                          destinationName: stationName,
-                        ),
-                      ),
-                    ),
-                    icon: Icon(
-                      Icons.directions,
-                      size: 20,
-                      color: _primaryColor,
-                    ),
-                    label: Text(
-                      'Route',
-                      style: TextStyle(
-                        color: _primaryColor,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15,
-                      ),
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      side: BorderSide(color: _primaryColor, width: 1.5),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),

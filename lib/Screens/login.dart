@@ -1,6 +1,8 @@
 import 'package:chargepath/Widgets/loadingscreen.dart'; // Import the loader
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:chargepath/Theme/app_colors.dart';
+import 'package:chargepath/Theme/app_spacing.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
@@ -20,10 +22,6 @@ class _LogInState extends State<LogIn> {
   bool _isLoading = false; // This controls the full screen loader
   bool _rememberMe = false;
   bool _isPasswordVisible = false;
-
-  final Color _primaryColor = const Color(0xFF0253A4);
-  final Color _lightFillColor = const Color(0xFFE6EFF8);
-
 
 
   @override
@@ -365,17 +363,25 @@ class _LogInState extends State<LogIn> {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final bool useWideLayout = constraints.maxWidth >= 850;
+        final bool useWideLayout =
+            constraints.maxWidth >= 850;
+
+        final bool isShortHeight =
+            constraints.maxHeight < 650;
 
         return Stack(
           children: [
             if (useWideLayout)
-              _buildWideLayout()
+              _buildWideLayout(
+                isShortHeight: isShortHeight,
+              )
             else
-              _buildMobileLayout(),
+              _buildMobileLayout(
+                isShortHeight: isShortHeight,
+              ),
+
             if (_isLoading)
-              const Opacity(
-                opacity: 1.0,
+              const Positioned.fill(
                 child: LoadingScreen(),
               ),
           ],
@@ -384,74 +390,36 @@ class _LogInState extends State<LogIn> {
     );
   }
 
-  Widget _buildMobileLayout() {
-    final Size size = MediaQuery.of(context).size;
-
+  Widget _buildMobileLayout({
+    required bool isShortHeight,
+  }) {
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: SingleChildScrollView(
+      backgroundColor: AppColors.background,
+      resizeToAvoidBottomInset: true,
+      body: SafeArea(
+        bottom: false,
         child: Column(
           children: [
-            Stack(
-              children: [
-                ClipPath(
-                  clipper: BottomWaveClipper(),
-                  child: Container(
-                    height: size.height * 0.32,
-                    width: double.infinity,
-                    color: _primaryColor.withOpacity(0.8),
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        Image.asset(
-                          'lib/Assets/loginimage.jpeg',
-                          fit: BoxFit.cover,
-                          errorBuilder: (
-                              BuildContext context,
-                              Object error,
-                              StackTrace? stackTrace,
-                              ) {
-                            return Container(
-                              color: _primaryColor,
-                            );
-                          },
-                        ),
-                        Container(
-                          color: Colors.black.withOpacity(0.1),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                Positioned(
-                  top: 50,
-                  left: 20,
-                  child: InkWell(
-                    onTap: () {
-                      if (Navigator.canPop(context)) {
-                        Navigator.pop(context);
-                      }
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.arrow_back,
-                        color: Colors.black,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+            _buildMobileBrandHeader(
+              isShortHeight: isShortHeight,
             ),
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 24,
+
+            Expanded(
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                padding: EdgeInsets.fromLTRB(
+                  AppSpacing.lg,
+                  isShortHeight
+                      ? AppSpacing.md
+                      : AppSpacing.lg,
+                  AppSpacing.lg,
+                  MediaQuery.of(context).padding.bottom +
+                      AppSpacing.lg,
+                ),
+                child: _buildAuthForm(
+                  isCompactHeight: isShortHeight,
+                ),
               ),
-              child: _buildAuthForm(),
             ),
           ],
         ),
@@ -459,9 +427,129 @@ class _LogInState extends State<LogIn> {
     );
   }
 
-  Widget _buildWideLayout() {
+  Widget _buildMobileBrandHeader({
+    required bool isShortHeight,
+  }) {
+    final double screenHeight = MediaQuery.of(context).size.height;
+
+    return SizedBox(
+      height: screenHeight *
+          (isShortHeight ? 0.20 : 0.28),
+      width: double.infinity,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Image.asset(
+            'lib/Assets/loginimage.jpeg',
+            fit: BoxFit.cover,
+            alignment: Alignment.center,
+            errorBuilder: (
+                BuildContext context,
+                Object error,
+                StackTrace? stackTrace,
+                ) {
+              return Container(
+                decoration: const BoxDecoration(
+                  gradient: AppColors.primaryGradient,
+                ),
+              );
+            },
+          ),
+
+          // Dark overlay so the logo/text stay readable.
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  const Color(0xFF012B55).withOpacity(0.72),
+                  const Color(0xFF0253A4).withOpacity(0.28),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+          ),
+
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.lg,
+              AppSpacing.lg,
+              AppSpacing.lg,
+              AppSpacing.xl,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (Navigator.canPop(context))
+                  Material(
+                    color: Colors.white.withOpacity(0.16),
+                    shape: const CircleBorder(),
+                    child: InkWell(
+                      onTap: () {
+                        Navigator.pop(context);
+                      },
+                      customBorder: const CircleBorder(),
+                      child: const Padding(
+                        padding: EdgeInsets.all(9),
+                        child: Icon(
+                          Icons.arrow_back_rounded,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                const Spacer(),
+
+                const Row(
+                  children: [
+                    Icon(
+                      Icons.ev_station_rounded,
+                      color: Colors.white,
+                      size: 30,
+                    ),
+
+                    SizedBox(
+                      width: AppSpacing.sm,
+                    ),
+
+                    Text(
+                      'ChargePath',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 27,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(
+                  height: AppSpacing.sm,
+                ),
+
+                Text(
+                  'Drive smarter. Charge easier.',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.86),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWideLayout({
+    required bool isShortHeight,
+  }) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: Row(
           children: [
@@ -469,23 +557,30 @@ class _LogInState extends State<LogIn> {
               flex: 11,
               child: _buildBrandPanel(),
             ),
+
             Expanded(
               flex: 9,
               child: Container(
                 color: Colors.white,
                 child: Center(
                   child: SingleChildScrollView(
-                    physics: const BouncingScrollPhysics(),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 48,
-                      vertical: 36,
+                    physics:
+                    const BouncingScrollPhysics(),
+                    padding: EdgeInsets.symmetric(
+                      horizontal:
+                      isShortHeight ? 32 : 48,
+                      vertical:
+                      isShortHeight ? 10 : 36,
                     ),
                     child: ConstrainedBox(
-                      constraints: const BoxConstraints(
+                      constraints:
+                      const BoxConstraints(
                         maxWidth: 470,
                       ),
                       child: _buildAuthForm(
                         isWideLayout: true,
+                        isCompactHeight:
+                        isShortHeight,
                       ),
                     ),
                   ),
@@ -515,7 +610,7 @@ class _LogInState extends State<LogIn> {
                   StackTrace? stackTrace,
                   ) {
                 return Container(
-                  color: _primaryColor,
+                  color: AppColors.primary,
                 );
               },
             ),
@@ -677,6 +772,7 @@ class _LogInState extends State<LogIn> {
 
   Widget _buildAuthForm({
     bool isWideLayout = false,
+    bool isCompactHeight = false,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -692,60 +788,72 @@ class _LogInState extends State<LogIn> {
                     ? 'Welcome Back'
                     : 'Create Account',
                 style: TextStyle(
-                  fontSize: isWideLayout ? 34 : 32,
+                  fontSize: isWideLayout
+                      ? (isCompactHeight ? 28 : 34)
+                      : (isCompactHeight ? 24 : 28),
                   fontWeight: FontWeight.bold,
-                  color: _primaryColor,
+                  color: AppColors.primary,
                 ),
               ),
             ),
             Container(
-              height: 44,
-              width: 44,
+              height: isCompactHeight ? 36 : 44,
+              width: isCompactHeight ? 36 : 44,
               decoration: BoxDecoration(
-                color: _primaryColor,
+                color: AppColors.primary,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.ev_station_rounded,
                 color: Colors.white,
-                size: 25,
+                size: isCompactHeight ? 20 : 25,
               ),
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        SizedBox(
+          height: isCompactHeight ? 4 : 8,
+        ),
         Text(
           _isLogin
               ? 'Login to your account'
               : 'Sign up to get started',
           style: TextStyle(
-            fontSize: 16,
-            color: Colors.grey.shade600,
+            fontSize: isCompactHeight ? 13 : 16,
+            color: AppColors.textSecondary,
           ),
         ),
-        const SizedBox(height: 28),
+        SizedBox(
+          height: isCompactHeight ? 14 : 28,
+        ),
         _buildCustomTextField(
           controller: _emailController,
           hintText: 'Email Address',
           icon: Icons.email_outlined,
+          isCompact: isCompactHeight,
         ),
-        const SizedBox(height: 16),
+        SizedBox(
+          height: isCompactHeight ? 10 : 16,
+        ),
         _buildCustomTextField(
           controller: _passwordController,
           hintText: 'Password',
           icon: Icons.lock_outline,
           isPassword: true,
+          isCompact: isCompactHeight,
         ),
-        const SizedBox(height: 10),
+        SizedBox(
+          height: isCompactHeight ? 6 : 10,
+        ),
         if (_isLogin)
           Row(
             children: [
               SizedBox(
-                height: 24,
-                width: 24,
+                height: isCompactHeight ? 20 : 24,
+                width: isCompactHeight ? 20 : 24,
                 child: Checkbox(
                   value: _rememberMe,
-                  activeColor: _primaryColor,
+                  activeColor: AppColors.primary,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(4),
                   ),
@@ -761,7 +869,8 @@ class _LogInState extends State<LogIn> {
                 child: Text(
                   'Remember me',
                   style: TextStyle(
-                    color: Colors.grey.shade600,
+                    color: AppColors.textSecondary,
+                    fontSize: isCompactHeight ? 12 : 14,
                   ),
                 ),
               ),
@@ -770,39 +879,42 @@ class _LogInState extends State<LogIn> {
                 child: Text(
                   'Forgot Password?',
                   style: TextStyle(
-                    color: _primaryColor,
+                    color: AppColors.primary,
                     fontWeight: FontWeight.w600,
+                    fontSize: isCompactHeight ? 12 : 14,
                   ),
                 ),
               ),
             ],
           ),
-        const SizedBox(height: 24),
+        SizedBox(
+          height: isCompactHeight ? 10 : 24,
+        ),
         SizedBox(
           width: double.infinity,
-          height: 55,
+          height: isCompactHeight ? 46 : 54,
           child: ElevatedButton(
             onPressed: _authenticate,
             style: ElevatedButton.styleFrom(
-              backgroundColor: _primaryColor,
+              backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
               elevation: 0,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(30),
+                borderRadius: BorderRadius.circular(14),
               ),
             ),
             child: Text(
-              _isLogin
-                  ? 'Login'
-                  : 'Create Account',
-              style: const TextStyle(
-                fontSize: 18,
+              _isLogin ? 'Login' : 'Create Account',
+              style: TextStyle(
+                fontSize: isCompactHeight ? 14 : 16,
                 fontWeight: FontWeight.bold,
               ),
             ),
           ),
         ),
-        const SizedBox(height: 16),
+        SizedBox(
+          height: isCompactHeight ? 8 : 16,
+        ),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -812,7 +924,8 @@ class _LogInState extends State<LogIn> {
                     ? "Don't have an account? "
                     : "Already have an account? ",
                 style: TextStyle(
-                  color: Colors.grey.shade600,
+                  color: AppColors.textSecondary,
+                  fontSize: isCompactHeight ? 12 : 14,
                 ),
               ),
             ),
@@ -827,14 +940,17 @@ class _LogInState extends State<LogIn> {
                     ? 'Sign up'
                     : 'Login',
                 style: TextStyle(
-                  color: _primaryColor,
+                  color: AppColors.primary,
                   fontWeight: FontWeight.bold,
+                  fontSize: isCompactHeight ? 12 : 14,
                 ),
               ),
             ),
           ],
         ),
-        const SizedBox(height: 18),
+        SizedBox(
+          height: isCompactHeight ? 8 : 18,
+        ),
         Row(
           children: [
             Expanded(
@@ -849,7 +965,7 @@ class _LogInState extends State<LogIn> {
               child: Text(
                 'OR',
                 style: TextStyle(
-                  color: Colors.grey.shade400,
+                  color: AppColors.textSecondary,
                   fontSize: 12,
                 ),
               ),
@@ -861,10 +977,12 @@ class _LogInState extends State<LogIn> {
             ),
           ],
         ),
-        const SizedBox(height: 18),
+        SizedBox(
+          height: isCompactHeight ? 8 : 18,
+        ),
         SizedBox(
           width: double.infinity,
-          height: 55,
+          height: isCompactHeight ? 46 : 54,
           child: OutlinedButton.icon(
             onPressed: _signInWithGoogle,
             style: OutlinedButton.styleFrom(
@@ -872,13 +990,13 @@ class _LogInState extends State<LogIn> {
                 color: Colors.grey.shade300,
               ),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(30),
+                borderRadius: BorderRadius.circular(14),
               ),
             ),
             icon: Image.network(
               'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/768px-Google_%22G%22_logo.svg.png',
-              height: 24,
-              width: 24,
+              height: isCompactHeight ? 20 : 24,
+              width: isCompactHeight ? 20 : 24,
               errorBuilder: (
                   BuildContext context,
                   Object error,
@@ -893,14 +1011,16 @@ class _LogInState extends State<LogIn> {
             label: const Text(
               'Sign in with Google',
               style: TextStyle(
-                color: Colors.black87,
-                fontSize: 16,
+                color: AppColors.textPrimary,
+                fontSize: 14,
                 fontWeight: FontWeight.w500,
               ),
             ),
           ),
         ),
-        const SizedBox(height: 20),
+        SizedBox(
+          height: isCompactHeight ? 4 : 20,
+        ),
       ],
     );
   }
@@ -910,74 +1030,62 @@ class _LogInState extends State<LogIn> {
     required String hintText,
     required IconData icon,
     bool isPassword = false,
+    bool isCompact = false,
   }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: _lightFillColor,
-        borderRadius: BorderRadius.circular(15),
+    return TextField(
+      controller: controller,
+      obscureText: isPassword && !_isPasswordVisible,
+      style: const TextStyle(
+        color: AppColors.textPrimary,
+        fontSize: 14,
+        fontWeight: FontWeight.w500,
       ),
-      child: TextField(
-        controller: controller,
-        obscureText: isPassword && !_isPasswordVisible,
-        decoration: InputDecoration(
-          prefixIcon: Icon(icon, color: Colors.grey[600]),
-          suffixIcon: isPassword
-              ? IconButton(
-            icon: Icon(
-              _isPasswordVisible
-                  ? Icons.visibility
-                  : Icons.visibility_off,
-              color: Colors.grey[600],
-            ),
-            onPressed: () {
-              setState(() {
-                _isPasswordVisible = !_isPasswordVisible;
-              });
-            },
-          )
-              : null,
-          hintText: hintText,
-          hintStyle: TextStyle(color: Colors.grey[500]),
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 20,
-            vertical: 16,
+      decoration: InputDecoration(
+        prefixIcon: Icon(
+          icon,
+          color: AppColors.textSecondary,
+        ),
+        suffixIcon: isPassword
+            ? IconButton(
+          icon: Icon(
+            _isPasswordVisible
+                ? Icons.visibility_rounded
+                : Icons.visibility_off_rounded,
+            color: AppColors.textSecondary,
           ),
+          onPressed: () {
+            setState(() {
+              _isPasswordVisible = !_isPasswordVisible;
+            });
+          },
+        )
+            : null,
+        hintText: hintText,
+        hintStyle: const TextStyle(
+          color: AppColors.textSecondary,
+        ),
+        filled: true,
+        fillColor: AppColors.lightFill,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(
+            color: AppColors.primary,
+            width: 1.4,
+          ),
+        ),
+        contentPadding: EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: isCompact ? 11 : 16,
         ),
       ),
     );
   }
-}
-
-class BottomWaveClipper extends CustomClipper<Path> {
-  @override
-  Path getClip(Size size) {
-    var path = Path();
-    path.lineTo(0, size.height - 40);
-    var firstControlPoint = Offset(size.width / 4, size.height);
-    var firstEndPoint = Offset(size.width / 2.25, size.height - 30);
-    path.quadraticBezierTo(
-      firstControlPoint.dx,
-      firstControlPoint.dy,
-      firstEndPoint.dx,
-      firstEndPoint.dy,
-    );
-    var secondControlPoint = Offset(
-      size.width - (size.width / 3.25),
-      size.height - 80,
-    );
-    var secondEndPoint = Offset(size.width, size.height - 40);
-    path.quadraticBezierTo(
-      secondControlPoint.dx,
-      secondControlPoint.dy,
-      secondEndPoint.dx,
-      secondEndPoint.dy,
-    );
-    path.lineTo(size.width, 0);
-    path.close();
-    return path;
-  }
-
-  @override
-  bool shouldReclip(CustomClipper<Path> oldClipper) => false;
 }

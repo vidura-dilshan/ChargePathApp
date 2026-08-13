@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import 'Theme/app_theme.dart';
 import 'firebase_options.dart';
 import 'Screens/email_verification.dart';
 import 'Screens/login.dart';
@@ -21,13 +22,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'ChargePath',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF0253A4),
-        ),
-        scaffoldBackgroundColor: const Color(0xFFF0F6FF),
-        useMaterial3: true,
-      ),
+      theme: AppTheme.lightTheme,
       home: const _AppStartup(),
     );
   }

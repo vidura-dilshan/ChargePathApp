@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'chargingstations.dart';
+import 'package:chargepath/Theme/app_colors.dart';
+import 'package:chargepath/Theme/app_spacing.dart';
+import 'package:chargepath/Widgets/app_card.dart';
+import 'package:chargepath/Widgets/app_section_header.dart';
 
 class BookStation extends StatefulWidget {
   final String? preSelectedStationId;
@@ -19,11 +22,6 @@ class BookStation extends StatefulWidget {
 }
 
 class _BookStationState extends State<BookStation> {
-  // --- THEME COLORS ---
-  final Color _primaryColor = const Color(0xFF0253A4);
-  final Color _backgroundColor = const Color(0xFFF5F7FA);
-  final Color _lightFillColor = const Color(0xFFE6EFF8);
-
   // --- STATION DROPDOWN STATE ---
   String? _selectedStationId;
   String? _selectedStationName;
@@ -172,10 +170,10 @@ class _BookStationState extends State<BookStation> {
     return Theme(
       data: Theme.of(ctx).copyWith(
         colorScheme: ColorScheme.light(
-          primary: _primaryColor,
+          primary: AppColors.primary,
           onPrimary: Colors.white,
           surface: Colors.white,
-          onSurface: Colors.black87,
+          onSurface: AppColors.textPrimary,
         ),
         dialogBackgroundColor: Colors.white,
       ),
@@ -215,7 +213,7 @@ class _BookStationState extends State<BookStation> {
                 width: 80,
                 height: 80,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF0253A4).withOpacity(0.1),
+                  color: AppColors.primary.withOpacity(0.1),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
@@ -232,7 +230,7 @@ class _BookStationState extends State<BookStation> {
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
-                  color: Colors.black87,
+                  color: AppColors.textPrimary,
                 ),
               ),
               const SizedBox(height: 8),
@@ -241,7 +239,7 @@ class _BookStationState extends State<BookStation> {
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 14,
-                  color: Colors.grey.shade600,
+                  color: AppColors.textSecondary,
                   height: 1.5,
                 ),
               ),
@@ -252,7 +250,7 @@ class _BookStationState extends State<BookStation> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE6EFF8),
+                  color: AppColors.lightFill,
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Column(
@@ -290,7 +288,7 @@ class _BookStationState extends State<BookStation> {
                         Text(
                           'Deposit Paid',
                           style: TextStyle(
-                            color: const Color(0xFF0253A4),
+                            color: AppColors.primary,
                             fontWeight: FontWeight.w600,
                             fontSize: 13,
                           ),
@@ -312,7 +310,7 @@ class _BookStationState extends State<BookStation> {
                         Text(
                           'Total Cost',
                           style: TextStyle(
-                            color: Colors.black87,
+                            color: AppColors.textPrimary,
                             fontWeight: FontWeight.w700,
                             fontSize: 14,
                           ),
@@ -320,7 +318,7 @@ class _BookStationState extends State<BookStation> {
                         Text(
                           'Rs.${totalCost.toStringAsFixed(2)}',
                           style: const TextStyle(
-                            color: Colors.black87,
+                            color: AppColors.textPrimary,
                             fontWeight: FontWeight.w900,
                             fontSize: 17,
                           ),
@@ -346,9 +344,9 @@ class _BookStationState extends State<BookStation> {
                         .popUntil((route) => route.isFirst); // back to MainScreen
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: _primaryColor,
+                    backgroundColor: AppColors.primary,
                     elevation: 4,
-                    shadowColor: _primaryColor.withOpacity(0.4),
+                    shadowColor: AppColors.primary.withOpacity(0.4),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                     ),
@@ -358,7 +356,7 @@ class _BookStationState extends State<BookStation> {
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                      color: AppColors.white,
                     ),
                   ),
                 ),
@@ -374,12 +372,12 @@ class _BookStationState extends State<BookStation> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 18, color: _primaryColor),
+        Icon(icon, size: 18, color: AppColors.primary),
         const SizedBox(width: 10),
         Text(
           '$label: ',
           style: TextStyle(
-            color: _primaryColor,
+            color: AppColors.primary,
             fontSize: 13,
             fontWeight: FontWeight.w600,
           ),
@@ -388,7 +386,7 @@ class _BookStationState extends State<BookStation> {
           child: Text(
             value,
             style: TextStyle(
-              color: Colors.black87,
+              color: AppColors.textPrimary,
               fontSize: 13,
               fontWeight: FontWeight.w500,
             ),
@@ -428,30 +426,108 @@ class _BookStationState extends State<BookStation> {
     final double deposit = totalCost * 0.10;
 
     return Scaffold(
-      backgroundColor: _backgroundColor,
-      appBar: _buildAppBar(),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        physics: const BouncingScrollPhysics(),
+      backgroundColor: AppColors.background,
+      body: SafeArea(
+        bottom: false,
         child: Column(
           children: [
-            _buildStationSelectionCard(),
-            const SizedBox(height: 20),
-            _buildTimePeriodCard(duration),
-            const SizedBox(height: 20),
-            _buildPricingCard(
-              duration: duration,
-              hourlyRate: hourlyRate,
-              totalCost: totalCost,
-              deposit: deposit,
+            _buildMobileHeader(),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.fromLTRB(
+                  AppSpacing.lg,
+                  AppSpacing.lg,
+                  AppSpacing.lg,
+                  MediaQuery.of(context).padding.bottom + 110,
+                ),
+                physics: const BouncingScrollPhysics(),
+                child: Column(
+                  children: [
+                    _buildStationSelectionCard(),
+                    const SizedBox(height: AppSpacing.lg),
+                    _buildTimePeriodCard(duration),
+                    const SizedBox(height: AppSpacing.lg),
+                    _buildPricingCard(
+                      duration: duration,
+                      hourlyRate: hourlyRate,
+                      totalCost: totalCost,
+                      deposit: deposit,
+                    ),
+                    const SizedBox(height: AppSpacing.xxl),
+                    _buildConfirmButton(deposit),
+                    const SizedBox(height: AppSpacing.md),
+                    _buildBalanceNotice(),
+                  ],
+                ),
+              ),
             ),
-            const SizedBox(height: 30),
-            _buildConfirmButton(deposit),
-            const SizedBox(height: 16),
-            _buildBalanceNotice(),
-            const SizedBox(height: 20),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildMobileHeader() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.lg,
+        AppSpacing.lg,
+        AppSpacing.xl,
+      ),
+      decoration: const BoxDecoration(
+        gradient: AppColors.primaryGradient,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Material(
+                color: Colors.white.withOpacity(0.15),
+                shape: const CircleBorder(),
+                child: InkWell(
+                  onTap: () {
+                    Navigator.pop(context);
+                  },
+                  customBorder: const CircleBorder(),
+                  child: const Padding(
+                    padding: EdgeInsets.all(9),
+                    child: Icon(
+                      Icons.arrow_back_rounded,
+                      color: AppColors.white,
+                      size: 20,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              const Expanded(
+                child: Text(
+                  'Book Station',
+                  style: TextStyle(
+                    color: AppColors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Padding(
+            padding: const EdgeInsets.only(left: 49),
+            child: Text(
+              'Choose a charging station and reserve a time slot.',
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.80),
+                fontSize: 13,
+                height: 1.4,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -464,14 +540,14 @@ class _BookStationState extends State<BookStation> {
     final double deposit = totalCost * 0.10;
 
     return Scaffold(
-      backgroundColor: _backgroundColor,
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: Row(
           children: [
             Container(
               width: 380,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.white,
                 border: Border(
                   right: BorderSide(
                     color: Colors.grey.shade200,
@@ -584,40 +660,6 @@ class _BookStationState extends State<BookStation> {
     );
   }
 
-  PreferredSizeWidget _buildAppBar() {
-    return AppBar(
-      backgroundColor: Colors.transparent,
-      elevation: 0,
-      leading: IconButton(
-        icon: const Icon(
-          Icons.arrow_back,
-          color: Colors.black87,
-        ),
-        onPressed: () {
-          Navigator.pop(context);
-        },
-      ),
-      centerTitle: true,
-      title: const Text(
-        'Book Station',
-        style: TextStyle(
-          color: Colors.black87,
-          fontWeight: FontWeight.bold,
-          fontSize: 18,
-        ),
-      ),
-      actions: [
-        IconButton(
-          icon: const Icon(
-            Icons.more_vert,
-            color: Colors.black87,
-          ),
-          onPressed: () {},
-        ),
-      ],
-    );
-  }
-
   Widget _buildWideHeader() {
     return Container(
       width: double.infinity,
@@ -628,14 +670,7 @@ class _BookStationState extends State<BookStation> {
         20,
       ),
       decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            Color(0xFF0253A4),
-            Color(0xFF034485),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        gradient: AppColors.primaryGradient,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -654,7 +689,7 @@ class _BookStationState extends State<BookStation> {
                     padding: EdgeInsets.all(9),
                     child: Icon(
                       Icons.arrow_back_rounded,
-                      color: Colors.white,
+                      color: AppColors.white,
                       size: 20,
                     ),
                   ),
@@ -665,7 +700,7 @@ class _BookStationState extends State<BookStation> {
                 child: Text(
                   'Book Station',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: AppColors.white,
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
                   ),
@@ -732,7 +767,7 @@ class _BookStationState extends State<BookStation> {
                   hint: Text(
                     'Choose a station...',
                     style: TextStyle(
-                      color: Colors.grey.shade600,
+                      color: AppColors.textSecondary,
                     ),
                   ),
                   isExpanded: true,
@@ -776,7 +811,7 @@ class _BookStationState extends State<BookStation> {
               children: [
                 Icon(
                   Icons.flash_on,
-                  color: _primaryColor,
+                  color: AppColors.primary,
                   size: 20,
                 ),
                 const SizedBox(width: 8),
@@ -786,7 +821,7 @@ class _BookStationState extends State<BookStation> {
                         '${_selectedStationData!['available_plugs']?.toString() ?? '?'}/'
                         '${_selectedStationData!['connector_slots']?.toString() ?? '?'} plugs available',
                     style: TextStyle(
-                      color: Colors.grey.shade700,
+                      color: AppColors.textSecondary,
                       fontSize: 13,
                     ),
                   ),
@@ -798,7 +833,7 @@ class _BookStationState extends State<BookStation> {
               children: [
                 Icon(
                   Icons.location_on_outlined,
-                  color: _primaryColor,
+                  color: AppColors.primary,
                   size: 20,
                 ),
                 const SizedBox(width: 8),
@@ -807,7 +842,7 @@ class _BookStationState extends State<BookStation> {
                     _selectedStationData!['address']?.toString() ??
                         'Address not available',
                     style: TextStyle(
-                      color: Colors.grey.shade600,
+                      color: AppColors.textSecondary,
                       fontSize: 12,
                     ),
                     overflow: TextOverflow.ellipsis,
@@ -821,14 +856,14 @@ class _BookStationState extends State<BookStation> {
               children: [
                 Icon(
                   Icons.flash_on,
-                  color: _primaryColor,
+                  color: AppColors.primary,
                   size: 20,
                 ),
                 const SizedBox(width: 8),
                 Text(
                   'Fast charging available',
                   style: TextStyle(
-                    color: Colors.grey.shade700,
+                    color: AppColors.textSecondary,
                     fontSize: 13,
                   ),
                 ),
@@ -908,7 +943,7 @@ class _BookStationState extends State<BookStation> {
                 horizontal: 16,
               ),
               decoration: BoxDecoration(
-                color: _primaryColor.withOpacity(0.1),
+                color: AppColors.primary.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
@@ -918,14 +953,14 @@ class _BookStationState extends State<BookStation> {
                   Text(
                     'Total Duration',
                     style: TextStyle(
-                      color: _primaryColor,
+                      color: AppColors.primary,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                   Text(
                     _formatDuration(duration),
                     style: TextStyle(
-                      color: _primaryColor,
+                      color: AppColors.primary,
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
                     ),
@@ -1009,7 +1044,7 @@ class _BookStationState extends State<BookStation> {
               Text(
                 'Total Cost',
                 style: TextStyle(
-                  color: Colors.grey.shade600,
+                  color: AppColors.textSecondary,
                   fontSize: 16,
                 ),
               ),
@@ -1018,7 +1053,7 @@ class _BookStationState extends State<BookStation> {
                     ? 'Rs.${totalCost.toStringAsFixed(2)}'
                     : '—',
                 style: const TextStyle(
-                  color: Colors.black87,
+                  color: AppColors.textPrimary,
                   fontSize: 20,
                   fontWeight: FontWeight.w900,
                 ),
@@ -1029,7 +1064,7 @@ class _BookStationState extends State<BookStation> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: _lightFillColor,
+              color: AppColors.lightFill,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Column(
@@ -1040,14 +1075,14 @@ class _BookStationState extends State<BookStation> {
                   children: [
                     Icon(
                       Icons.info,
-                      color: _primaryColor,
+                      color: AppColors.primary,
                       size: 20,
                     ),
                     const SizedBox(width: 8),
                     Text(
                       'Deposit Required',
                       style: TextStyle(
-                        color: _primaryColor,
+                        color: AppColors.primary,
                         fontWeight: FontWeight.bold,
                         fontSize: 15,
                       ),
@@ -1058,7 +1093,7 @@ class _BookStationState extends State<BookStation> {
                 RichText(
                   text: TextSpan(
                     style: TextStyle(
-                      color: _primaryColor,
+                      color: AppColors.primary,
                       fontSize: 13,
                       height: 1.4,
                     ),
@@ -1146,10 +1181,10 @@ class _BookStationState extends State<BookStation> {
             width: double.infinity,
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: _primaryColor.withOpacity(0.07),
+              color: AppColors.primary.withOpacity(0.07),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: _primaryColor.withOpacity(0.12),
+                color: AppColors.primary.withOpacity(0.12),
               ),
             ),
             child: Row(
@@ -1157,7 +1192,7 @@ class _BookStationState extends State<BookStation> {
               children: [
                 Icon(
                   Icons.info_outline_rounded,
-                  color: _primaryColor,
+                  color: AppColors.primary,
                   size: 22,
                 ),
                 const SizedBox(width: 12),
@@ -1165,7 +1200,7 @@ class _BookStationState extends State<BookStation> {
                   child: Text(
                     'Complete the station and time selections before confirming the booking.',
                     style: TextStyle(
-                      color: Colors.grey.shade700,
+                      color: AppColors.textSecondary,
                       fontSize: 13,
                       height: 1.45,
                     ),
@@ -1191,12 +1226,12 @@ class _BookStationState extends State<BookStation> {
           width: 40,
           height: 40,
           decoration: BoxDecoration(
-            color: _lightFillColor,
+            color: AppColors.lightFill,
             borderRadius: BorderRadius.circular(12),
           ),
           child: Icon(
             icon,
-            color: _primaryColor,
+            color: AppColors.primary,
             size: 19,
           ),
         ),
@@ -1208,7 +1243,7 @@ class _BookStationState extends State<BookStation> {
               Text(
                 label,
                 style: TextStyle(
-                  color: Colors.grey.shade500,
+                  color: AppColors.textSecondary,
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
                 ),
@@ -1217,7 +1252,7 @@ class _BookStationState extends State<BookStation> {
               Text(
                 value,
                 style: const TextStyle(
-                  color: Colors.black87,
+                  color: AppColors.textPrimary,
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
                 ),
@@ -1242,10 +1277,10 @@ class _BookStationState extends State<BookStation> {
             ? _showConfirmationPopup
             : null,
         style: ElevatedButton.styleFrom(
-          backgroundColor: _primaryColor,
+          backgroundColor: AppColors.primary,
           disabledBackgroundColor: Colors.grey.shade300,
           elevation: isValid ? 4 : 0,
-          shadowColor: _primaryColor.withOpacity(0.4),
+          shadowColor: AppColors.primary.withOpacity(0.4),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
@@ -1259,7 +1294,7 @@ class _BookStationState extends State<BookStation> {
             fontWeight: FontWeight.bold,
             color: isValid
                 ? Colors.white
-                : Colors.grey.shade600,
+                : AppColors.textSecondary,
           ),
           textAlign: TextAlign.center,
         ),
@@ -1272,7 +1307,7 @@ class _BookStationState extends State<BookStation> {
       child: Text(
         'Remaining balance due upon arrival',
         style: TextStyle(
-          color: Colors.grey.shade500,
+          color: AppColors.textSecondary,
           fontSize: 12,
         ),
       ),
@@ -1286,45 +1321,67 @@ class _BookStationState extends State<BookStation> {
     required Widget child,
     bool showShadow = true,
   }) {
+    if (showShadow) {
+      return AppCard(
+        padding: const EdgeInsets.all(AppSpacing.xl),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            AppSectionHeader(
+              icon: _sectionIconForTitle(title),
+              title: title,
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            child,
+          ],
+        ),
+      );
+    }
+
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(AppSpacing.xl),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.white,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: showShadow
-            ? [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 15,
-            offset: const Offset(0, 4),
-          ),
-        ]
-            : [],
+        border: Border.all(
+          color: const Color(0xFFE5E7EB),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
-            ),
+          AppSectionHeader(
+            icon: _sectionIconForTitle(title),
+            title: title,
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: AppSpacing.lg),
           child,
         ],
       ),
     );
   }
 
+  IconData _sectionIconForTitle(String title) {
+    switch (title) {
+      case 'Select Charging Station':
+        return Icons.ev_station_rounded;
+      case 'Select Time Period':
+        return Icons.schedule_rounded;
+      case 'Pricing Details':
+        return Icons.payments_rounded;
+      case 'Booking Overview':
+        return Icons.receipt_long_rounded;
+      default:
+        return Icons.info_outline_rounded;
+    }
+  }
+
   Widget _buildLabel(String text) {
     return Text(
       text,
       style: TextStyle(
-        color: Colors.grey.shade600,
+        color: AppColors.textSecondary,
         fontSize: 13,
         fontWeight: FontWeight.w500,
       ),
@@ -1343,10 +1400,10 @@ class _BookStationState extends State<BookStation> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
         decoration: BoxDecoration(
-          color: hasValue ? _lightFillColor : Colors.white,
+          color: hasValue ? AppColors.lightFill : Colors.white,
           border: Border.all(
             color: hasValue
-                ? _primaryColor.withOpacity(0.4)
+                ? AppColors.primary.withOpacity(0.4)
                 : Colors.grey.shade300,
           ),
           borderRadius: BorderRadius.circular(12),
@@ -1358,7 +1415,7 @@ class _BookStationState extends State<BookStation> {
               child: Text(
                 value ?? hint,
                 style: TextStyle(
-                  color: hasValue ? _primaryColor : Colors.grey.shade500,
+                  color: hasValue ? AppColors.primary : AppColors.textSecondary,
                   fontSize: 13,
                   fontWeight:
                   hasValue ? FontWeight.w600 : FontWeight.normal,
@@ -1368,7 +1425,7 @@ class _BookStationState extends State<BookStation> {
             ),
             Icon(
               icon,
-              color: hasValue ? _primaryColor : Colors.grey.shade500,
+              color: hasValue ? AppColors.primary : AppColors.textSecondary,
               size: 18,
             ),
           ],
@@ -1383,12 +1440,12 @@ class _BookStationState extends State<BookStation> {
       children: [
         Text(
           label,
-          style: TextStyle(color: Colors.grey.shade500, fontSize: 14),
+          style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
         ),
         Text(
           value,
           style: const TextStyle(
-            color: Colors.black87,
+            color: AppColors.textPrimary,
             fontWeight: FontWeight.bold,
             fontSize: 14,
           ),

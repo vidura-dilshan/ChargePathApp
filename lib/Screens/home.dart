@@ -5,6 +5,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import 'package:chargepath/Theme/app_colors.dart';
+import 'package:chargepath/Theme/app_spacing.dart';
+import 'package:chargepath/Widgets/app_card.dart';
+import 'package:chargepath/Widgets/app_section_header.dart';
+
 import 'chargingroute.dart';
 import 'favorites_db.dart';
 
@@ -21,9 +26,6 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  static const Color _primaryColor = Color(0xFF0253A4);
-  static const Color _lightFillColor = Color(0xFFE6EFF8);
-
   List<Map<String, dynamic>> _favorites = [];
   bool _isLoadingFavs = true;
 
@@ -80,8 +82,7 @@ class _HomePageState extends State<HomePage> {
     }
 
     try {
-      // SQLite is not currently being used on Flutter Web.
-      // This allows the responsive layout to be tested in Chrome.
+      // SQLite is currently not used on Flutter Web.
       if (kIsWeb) {
         if (!mounted) {
           return;
@@ -153,10 +154,10 @@ class _HomePageState extends State<HomePage> {
               onPressed: () {
                 Navigator.pop(dialogContext, false);
               },
-              child: Text(
+              child: const Text(
                 'Cancel',
                 style: TextStyle(
-                  color: Colors.grey.shade600,
+                  color: AppColors.textSecondary,
                 ),
               ),
             ),
@@ -165,11 +166,11 @@ class _HomePageState extends State<HomePage> {
                 Navigator.pop(dialogContext, true);
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red.shade400,
+                backgroundColor: AppColors.danger,
                 foregroundColor: Colors.white,
                 elevation: 0,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(12),
                 ),
               ),
               child: const Text('Remove'),
@@ -203,7 +204,7 @@ class _HomePageState extends State<HomePage> {
           content: const Text(
             'Location data unavailable for this station.',
           ),
-          backgroundColor: Colors.red.shade400,
+          backgroundColor: AppColors.danger,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
@@ -219,7 +220,10 @@ class _HomePageState extends State<HomePage> {
       MaterialPageRoute(
         builder: (_) {
           return ChargingRoute(
-            destination: LatLng(latitude, longitude),
+            destination: LatLng(
+              latitude,
+              longitude,
+            ),
             destinationName: stationName,
           );
         },
@@ -243,95 +247,32 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  // ---------------------------------------------------------------------------
+  // MOBILE
+  // ---------------------------------------------------------------------------
+
   Widget _buildMobileLayout() {
-    final Size screenSize = MediaQuery.of(context).size;
-
-    final double headerHeight = screenSize.height * 0.38;
-
-    final double contentSpacerHeight =
-    (headerHeight - 72).clamp(175.0, 245.0);
-
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: Stack(
-        children: [
-          ClipPath(
-            clipper: BottomWaveClipper(),
-            child: Image.asset(
-              'lib/Assets/homeimage.jpeg',
-              height: headerHeight,
-              width: double.infinity,
-              fit: BoxFit.cover,
-              color: const Color(0xFF012B55).withOpacity(0.6),
-              colorBlendMode: BlendMode.darken,
-              errorBuilder: (
-                  BuildContext context,
-                  Object error,
-                  StackTrace? stackTrace,
-                  ) {
-                return Container(
-                  height: headerHeight,
-                  width: double.infinity,
-                  color: _primaryColor,
-                );
-              },
-            ),
-          ),
-          SafeArea(
-            bottom: false,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildMobileHeader(),
-
-                SizedBox(
-                  height: contentSpacerHeight,
-                ),
-
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 12),
-                    child: _buildFavouriteSection(
-                      useGrid: false,
-                      horizontalPadding: 24,
-                      bottomPadding: 100,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTabletLayout() {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF4F7FB),
+      backgroundColor: AppColors.background,
       body: SafeArea(
-        child: Row(
+        bottom: false,
+        child: Column(
           children: [
-            Expanded(
-              flex: 4,
-              child: _buildTabletHeroSection(),
+            // Full-width square hero.
+            _buildHeroSection(
+              compact: true,
             ),
+
+            const SizedBox(height: AppSpacing.xxl),
+
             Expanded(
-              flex: 6,
-              child: Container(
-                color: const Color(0xFFF4F7FB),
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    28,
-                    24,
-                    28,
-                    20,
-                  ),
-                  child: _buildFavouriteSection(
-                    useGrid: true,
-                    horizontalPadding: 0,
-                    bottomPadding: 20,
-                  ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.lg,
+                ),
+                child: _buildFavouriteSection(
+                  useGrid: false,
+                  bottomPadding: 110,
                 ),
               ),
             ),
@@ -341,182 +282,216 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildMobileHeader() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        24,
-        10,
-        24,
-        12,
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'Welcome back,',
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: Colors.white.withOpacity(0.85),
-                    fontWeight: FontWeight.w500,
-                    letterSpacing: 0.2,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  _displayName,
-                  style: const TextStyle(
-                    fontSize: 30,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                    letterSpacing: 0.4,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
+  // ---------------------------------------------------------------------------
+  // TABLET
+  // ---------------------------------------------------------------------------
+
+  Widget _buildTabletLayout() {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: SafeArea(
+        child: Row(
+          children: [
+            // Hero sits flush with the navigation rail
+            // and fills the full available height.
+            Expanded(
+              flex: 4,
+              child: _buildHeroSection(
+                compact: false,
+              ),
             ),
-          ),
-          const SizedBox(width: 16),
-          _buildGlassIconButton(
-            Icons.notifications_outlined,
-          ),
-        ],
+
+            const SizedBox(width: AppSpacing.lg),
+
+            // Only the favourites panel gets outer padding.
+            Expanded(
+              flex: 6,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  0,
+                  AppSpacing.xxl,
+                  AppSpacing.xxl,
+                  AppSpacing.xxl,
+                ),
+                child: _buildFavouriteSection(
+                  useGrid: true,
+                  bottomPadding: AppSpacing.xl,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildTabletHeroSection() {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        Image.asset(
-          'lib/Assets/homeimage.jpeg',
-          fit: BoxFit.cover,
-          errorBuilder: (
-              BuildContext context,
-              Object error,
-              StackTrace? stackTrace,
-              ) {
-            return Container(
-              color: _primaryColor,
-            );
-          },
-        ),
-        Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                const Color(0xFF012B55).withOpacity(0.88),
-                const Color(0xFF0253A4).withOpacity(0.70),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+  // ---------------------------------------------------------------------------
+  // SHARED HERO
+  // ---------------------------------------------------------------------------
+
+  Widget _buildHeroSection({
+    required bool compact,
+  }) {
+    return ClipRRect(
+      borderRadius: BorderRadius.zero,
+      child: SizedBox(
+        height: compact ? 285 : double.infinity,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Image.asset(
+              'lib/Assets/homeimage.jpeg',
+              fit: BoxFit.cover,
+              errorBuilder: (
+                  BuildContext context,
+                  Object error,
+                  StackTrace? stackTrace,
+                  ) {
+                return Container(
+                  color: AppColors.primary,
+                );
+              },
             ),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.all(36),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Align(
-                alignment: Alignment.topRight,
-                child: _buildGlassIconButton(
-                  Icons.notifications_outlined,
+
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    const Color(0xFF012B55).withOpacity(0.92),
+                    AppColors.primary.withOpacity(0.70),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
               ),
-              const Spacer(),
-              Text(
-                'Welcome back,',
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.82),
-                  fontSize: 18,
-                  fontWeight: FontWeight.w500,
-                ),
+            ),
+
+            Padding(
+              padding: EdgeInsets.all(
+                compact ? 22 : 34,
               ),
-              const SizedBox(height: 8),
-              Text(
-                _displayName,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 38,
-                  height: 1.1,
-                  fontWeight: FontWeight.bold,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 18),
-              Text(
-                'Find charging stations, plan your journey, '
-                    'and continue driving with confidence.',
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.82),
-                  fontSize: 15,
-                  height: 1.5,
-                ),
-              ),
-              const SizedBox(height: 28),
-              SizedBox(
-                height: 54,
-                child: ElevatedButton.icon(
-                  onPressed: widget.onNavigateToStations,
-                  icon: const Icon(
-                    Icons.ev_station_rounded,
-                    size: 22,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Align(
+                    alignment: Alignment.topRight,
+                    child: _buildGlassIconButton(
+                      Icons.notifications_outlined,
+                      compact: compact,
+                    ),
                   ),
-                  label: const Text(
-                    'Find Charging Stations',
+
+                  const Spacer(),
+
+                  Text(
+                    'Welcome back,',
                     style: TextStyle(
-                      fontSize: 15,
+                      color: Colors.white.withOpacity(0.82),
+                      fontSize: compact ? 14 : 18,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+
+                  SizedBox(
+                    height: compact ? 5 : 8,
+                  ),
+
+                  Text(
+                    _displayName,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: compact ? 28 : 38,
+                      height: 1.1,
                       fontWeight: FontWeight.bold,
                     ),
+                    maxLines: compact ? 1 : 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: _primaryColor,
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
+
+                  SizedBox(
+                    height: compact ? 10 : 18,
+                  ),
+
+                  Text(
+                    'Find charging stations, plan your journey, '
+                        'and continue driving with confidence.',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.82),
+                      fontSize: compact ? 13 : 15,
+                      height: 1.45,
                     ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+                    maxLines: compact ? 2 : 3,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+
+                  SizedBox(
+                    height: compact ? 18 : 28,
+                  ),
+
+                  SizedBox(
+                    height: compact ? 48 : 54,
+                    child: ElevatedButton.icon(
+                      onPressed: widget.onNavigateToStations,
+                      icon: Icon(
+                        Icons.ev_station_rounded,
+                        size: compact ? 19 : 22,
+                      ),
+                      label: Text(
+                        compact
+                            ? 'Find Stations'
+                            : 'Find Charging Stations',
+                        style: TextStyle(
+                          fontSize: compact ? 13 : 15,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: AppColors.primary,
+                        elevation: 0,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: compact ? 18 : 24,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(15),
+                        ),
+                      ),
                     ),
                   ),
-                ),
+                ],
               ),
-              const SizedBox(height: 20),
-            ],
-          ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
+
+  // ---------------------------------------------------------------------------
+  // FAVOURITES SECTION
+  // ---------------------------------------------------------------------------
 
   Widget _buildFavouriteSection({
     required bool useGrid,
-    required double horizontalPadding,
     required double bottomPadding,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: EdgeInsets.symmetric(
-            horizontal: horizontalPadding,
-          ),
-          child: _buildFavouriteHeader(),
+        AppSectionHeader(
+          icon: Icons.star_rounded,
+          title: 'Favourite Stations',
+          subtitle: 'Your saved charging locations',
+          trailing: !_isLoadingFavs && _favorites.isNotEmpty
+              ? _buildCountBadge()
+              : null,
         ),
-        const SizedBox(height: 16),
+
+        const SizedBox(height: AppSpacing.lg),
+
         Expanded(
           child: _buildFavouriteContent(
             useGrid: useGrid,
-            horizontalPadding: horizontalPadding,
             bottomPadding: bottomPadding,
           ),
         ),
@@ -524,74 +499,41 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildFavouriteHeader() {
-    return Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(7),
-          decoration: BoxDecoration(
-            color: Colors.amber.shade50,
-            borderRadius: BorderRadius.circular(9),
-            border: Border.all(
-              color: Colors.amber.shade200,
-            ),
-          ),
-          child: Icon(
-            Icons.star_rounded,
-            color: Colors.amber.shade600,
-            size: 19,
-          ),
+  Widget _buildCountBadge() {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 11,
+        vertical: 6,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.lightFill,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        '${_favorites.length}',
+        style: const TextStyle(
+          color: AppColors.primary,
+          fontWeight: FontWeight.bold,
+          fontSize: 12,
         ),
-        const SizedBox(width: 10),
-        const Expanded(
-          child: Text(
-            'Favourite Stations',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
-            ),
-          ),
-        ),
-        if (!_isLoadingFavs && _favorites.isNotEmpty)
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 11,
-              vertical: 5,
-            ),
-            decoration: BoxDecoration(
-              color: _lightFillColor,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              '${_favorites.length}',
-              style: const TextStyle(
-                color: _primaryColor,
-                fontWeight: FontWeight.bold,
-                fontSize: 13,
-              ),
-            ),
-          ),
-      ],
+      ),
     );
   }
 
   Widget _buildFavouriteContent({
     required bool useGrid,
-    required double horizontalPadding,
     required double bottomPadding,
   }) {
     if (_isLoadingFavs) {
       return const Center(
         child: CircularProgressIndicator(
-          color: _primaryColor,
+          color: AppColors.primary,
         ),
       );
     }
 
     if (_favorites.isEmpty) {
       return _buildEmptyFavourites(
-        horizontalPadding: horizontalPadding,
         bottomPadding: bottomPadding,
       );
     }
@@ -599,23 +541,23 @@ class _HomePageState extends State<HomePage> {
     if (!useGrid) {
       return RefreshIndicator(
         onRefresh: _loadFavorites,
-        color: _primaryColor,
-        child: ListView.builder(
-          physics: const BouncingScrollPhysics(),
-          padding: EdgeInsets.fromLTRB(
-            horizontalPadding,
-            0,
-            horizontalPadding,
-            bottomPadding,
+        color: AppColors.primary,
+        child: ListView.separated(
+          physics: const AlwaysScrollableScrollPhysics(
+            parent: BouncingScrollPhysics(),
+          ),
+          padding: EdgeInsets.only(
+            bottom: bottomPadding,
           ),
           itemCount: _favorites.length,
+          separatorBuilder: (_, __) {
+            return const SizedBox(
+              height: AppSpacing.lg,
+            );
+          },
           itemBuilder: (context, index) {
-            final Map<String, dynamic> favourite =
-            _favorites[index];
-
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 16),
-              child: _buildFavouriteCard(favourite),
+            return _buildFavouriteCard(
+              _favorites[index],
             );
           },
         ),
@@ -629,7 +571,7 @@ class _HomePageState extends State<HomePage> {
 
         return RefreshIndicator(
           onRefresh: _loadFavorites,
-          color: _primaryColor,
+          color: AppColors.primary,
           child: GridView.builder(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: EdgeInsets.only(
@@ -639,9 +581,9 @@ class _HomePageState extends State<HomePage> {
             gridDelegate:
             SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: columnCount,
-              crossAxisSpacing: 18,
-              mainAxisSpacing: 18,
-              mainAxisExtent: 360,
+              crossAxisSpacing: AppSpacing.lg,
+              mainAxisSpacing: AppSpacing.lg,
+              mainAxisExtent: 335,
             ),
             itemBuilder: (context, index) {
               return _buildFavouriteCard(
@@ -654,8 +596,11 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  // ---------------------------------------------------------------------------
+  // EMPTY STATE
+  // ---------------------------------------------------------------------------
+
   Widget _buildEmptyFavourites({
-    required double horizontalPadding,
     required double bottomPadding,
   }) {
     return LayoutBuilder(
@@ -667,105 +612,86 @@ class _HomePageState extends State<HomePage> {
               minHeight: constraints.maxHeight,
             ),
             child: Padding(
-              padding: EdgeInsets.fromLTRB(
-                horizontalPadding,
-                6,
-                horizontalPadding,
-                bottomPadding,
+              padding: EdgeInsets.only(
+                bottom: bottomPadding,
               ),
               child: Align(
                 alignment: Alignment.topCenter,
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(
-                    maxWidth: 600,
+                    maxWidth: 620,
                   ),
-                  child: Container(
-                    width: double.infinity,
+                  child: AppCard(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 22,
-                      vertical: 24,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(26),
-                      boxShadow: [
-                        BoxShadow(
-                          color: _primaryColor.withOpacity(0.08),
-                          blurRadius: 24,
-                          offset: const Offset(0, 10),
-                        ),
-                      ],
+                      horizontal: 24,
+                      vertical: 28,
                     ),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Container(
-                          width: 76,
-                          height: 76,
-                          decoration: BoxDecoration(
-                            color: Colors.amber.shade50,
+                          width: 72,
+                          height: 72,
+                          decoration: const BoxDecoration(
+                            color: AppColors.lightFill,
                             shape: BoxShape.circle,
-                            border: Border.all(
-                              color: Colors.amber.shade200,
-                              width: 2,
-                            ),
                           ),
-                          child: Icon(
+                          child: const Icon(
                             Icons.star_outline_rounded,
-                            size: 42,
-                            color: Colors.amber.shade500,
+                            size: 36,
+                            color: AppColors.primary,
                           ),
                         ),
-                        const SizedBox(height: 20),
+
+                        const SizedBox(height: AppSpacing.xl),
+
                         const Text(
                           'No Favourites Yet',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
-                            color: Colors.black87,
+                            color: AppColors.textPrimary,
                           ),
                         ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Tap the star on any charging station in '
-                              '"Find Stations" to save it here.',
+
+                        const SizedBox(height: AppSpacing.sm),
+
+                        const Text(
+                          'Save charging stations you use frequently '
+                              'and they will appear here.',
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            color: Colors.grey.shade500,
+                            color: AppColors.textSecondary,
                             fontSize: 13,
                             height: 1.5,
                           ),
                         ),
-                        const SizedBox(height: 22),
-                        Material(
-                          color: _lightFillColor,
-                          borderRadius: BorderRadius.circular(16),
-                          child: InkWell(
-                            onTap: widget.onNavigateToStations,
-                            borderRadius: BorderRadius.circular(16),
-                            child: const Padding(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 20,
-                                vertical: 12,
+
+                        const SizedBox(height: AppSpacing.xl),
+
+                        SizedBox(
+                          height: 46,
+                          child: ElevatedButton.icon(
+                            onPressed: widget.onNavigateToStations,
+                            icon: const Icon(
+                              Icons.ev_station_rounded,
+                              size: 19,
+                            ),
+                            label: const Text(
+                              'Find Stations',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
                               ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.ev_station_rounded,
-                                    color: _primaryColor,
-                                    size: 20,
-                                  ),
-                                  SizedBox(width: 8),
-                                  Text(
-                                    'Go to Find Stations',
-                                    style: TextStyle(
-                                      color: _primaryColor,
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                ],
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor:
+                              AppColors.lightFill,
+                              foregroundColor:
+                              AppColors.primary,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius:
+                                BorderRadius.circular(14),
                               ),
                             ),
                           ),
@@ -781,6 +707,10 @@ class _HomePageState extends State<HomePage> {
       },
     );
   }
+
+  // ---------------------------------------------------------------------------
+  // FAVOURITE CARD
+  // ---------------------------------------------------------------------------
 
   Widget _buildFavouriteCard(
       Map<String, dynamic> favourite,
@@ -809,7 +739,8 @@ class _HomePageState extends State<HomePage> {
     final bool isAvailable = availablePlugs > 0;
 
     final String rawConnectors =
-        favourite['supported_connector_types']?.toString() ??
+        favourite['supported_connector_types']
+            ?.toString() ??
             '';
 
     final List<String> connectors = rawConnectors
@@ -819,8 +750,9 @@ class _HomePageState extends State<HomePage> {
         .take(3)
         .toList();
 
-    final Color statusColor =
-    isAvailable ? Colors.green : Colors.red;
+    final Color statusColor = isAvailable
+        ? AppColors.success
+        : AppColors.danger;
 
     final String stationId =
         favourite['station_id']?.toString() ?? '';
@@ -836,19 +768,8 @@ class _HomePageState extends State<HomePage> {
     final bool hasLocation =
         latitude != null && longitude != null;
 
-    return Container(
+    return AppCard(
       padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: [
-          BoxShadow(
-            color: _primaryColor.withOpacity(0.07),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -856,19 +777,21 @@ class _HomePageState extends State<HomePage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                width: 52,
-                height: 52,
+                width: 50,
+                height: 50,
                 decoration: BoxDecoration(
-                  color: _lightFillColor,
+                  color: AppColors.lightFill,
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: const Icon(
                   Icons.ev_station_rounded,
-                  color: _primaryColor,
-                  size: 28,
+                  color: AppColors.primary,
+                  size: 27,
                 ),
               ),
-              const SizedBox(width: 14),
+
+              const SizedBox(width: AppSpacing.md),
+
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -878,26 +801,30 @@ class _HomePageState extends State<HomePage> {
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        color: Colors.black87,
+                        color: AppColors.textPrimary,
                         height: 1.2,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 4),
+
+                    const SizedBox(height: 5),
+
                     Row(
                       children: [
-                        Icon(
+                        const Icon(
                           Icons.location_on_outlined,
-                          size: 13,
-                          color: Colors.grey.shade500,
+                          size: 14,
+                          color: AppColors.textSecondary,
                         ),
-                        const SizedBox(width: 3),
+
+                        const SizedBox(width: 4),
+
                         Expanded(
                           child: Text(
                             address,
-                            style: TextStyle(
-                              color: Colors.grey.shade500,
+                            style: const TextStyle(
+                              color: AppColors.textSecondary,
                               fontSize: 12,
                             ),
                             maxLines: 1,
@@ -909,9 +836,11 @@ class _HomePageState extends State<HomePage> {
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
+
+              const SizedBox(width: AppSpacing.sm),
+
               Material(
-                color: Colors.red.shade50,
+                color: const Color(0xFFFFEEEE),
                 shape: const CircleBorder(),
                 child: InkWell(
                   onTap: () {
@@ -921,99 +850,79 @@ class _HomePageState extends State<HomePage> {
                     );
                   },
                   customBorder: const CircleBorder(),
-                  child: Container(
-                    padding: const EdgeInsets.all(7),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: Colors.red.shade200,
-                      ),
-                    ),
+                  child: const Padding(
+                    padding: EdgeInsets.all(9),
                     child: Icon(
                       Icons.delete_outline_rounded,
-                      color: Colors.red.shade500,
-                      size: 18,
+                      color: AppColors.danger,
+                      size: 19,
                     ),
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 14),
+
+          const SizedBox(height: AppSpacing.lg),
+
           const Divider(
             height: 1,
-            color: Color(0xFFF3F3F3),
+            color: Color(0xFFF0F1F3),
           ),
-          const SizedBox(height: 14),
+
+          const SizedBox(height: AppSpacing.lg),
+
           Row(
             children: [
-              _buildInfoChip(
-                icon: Icons.flash_on_rounded,
-                label: '$chargingPower kW',
-                iconColor: Colors.orange.shade600,
+              Expanded(
+                child: _buildInfoItem(
+                  icon: Icons.flash_on_rounded,
+                  value: '$chargingPower kW',
+                  label: 'Power',
+                  iconColor: AppColors.warning,
+                ),
               ),
-              const SizedBox(width: 10),
-              _buildInfoChip(
-                icon: Icons.power_rounded,
-                label: '$availablePlugs/$totalSlots plugs',
-                iconColor: statusColor,
+
+              const SizedBox(width: AppSpacing.sm),
+
+              Expanded(
+                child: _buildInfoItem(
+                  icon: Icons.power_rounded,
+                  value: '$availablePlugs/$totalSlots',
+                  label: 'Plugs',
+                  iconColor: statusColor,
+                ),
               ),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 5,
-                ),
-                decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 7,
-                      height: 7,
-                      decoration: BoxDecoration(
-                        color: statusColor,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 5),
-                    Text(
-                      isAvailable
-                          ? 'Available'
-                          : 'Unavailable',
-                      style: TextStyle(
-                        color: statusColor,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
+
+              const SizedBox(width: AppSpacing.sm),
+
+              _buildStatusBadge(
+                available: isAvailable,
+                color: statusColor,
               ),
             ],
           ),
+
           if (connectors.isNotEmpty) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.lg),
+
             Wrap(
-              spacing: 6,
-              runSpacing: 6,
+              spacing: AppSpacing.sm,
+              runSpacing: AppSpacing.sm,
               children: connectors.map((connector) {
                 return Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 10,
-                    vertical: 5,
+                    vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: _lightFillColor,
+                    color: AppColors.lightFill,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
                     connector,
                     style: const TextStyle(
-                      color: _primaryColor,
+                      color: AppColors.primary,
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
                     ),
@@ -1022,7 +931,9 @@ class _HomePageState extends State<HomePage> {
               }).toList(),
             ),
           ],
-          const Spacer(),
+
+          const SizedBox(height: AppSpacing.xl),
+
           SizedBox(
             width: double.infinity,
             height: 46,
@@ -1032,31 +943,28 @@ class _HomePageState extends State<HomePage> {
                 _openRoute(favourite);
               }
                   : null,
-              icon: Icon(
+              icon: const Icon(
                 Icons.directions_rounded,
                 size: 18,
-                color: hasLocation
-                    ? _primaryColor
-                    : Colors.grey.shade400,
               ),
               label: Text(
                 hasLocation
                     ? 'Get Route'
                     : 'Location Unavailable',
-                style: TextStyle(
-                  color: hasLocation
-                      ? _primaryColor
-                      : Colors.grey.shade400,
+                style: const TextStyle(
                   fontWeight: FontWeight.bold,
-                  fontSize: 14,
+                  fontSize: 13,
                 ),
               ),
               style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.primary,
+                disabledForegroundColor:
+                AppColors.textSecondary,
                 side: BorderSide(
                   color: hasLocation
-                      ? _primaryColor
-                      : Colors.grey.shade300,
-                  width: 1.5,
+                      ? AppColors.primary
+                      : const Color(0xFFD1D5DB),
+                  width: 1.4,
                 ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
@@ -1069,111 +977,132 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildInfoChip({
+  Widget _buildInfoItem({
     required IconData icon,
+    required String value,
     required String label,
     required Color iconColor,
   }) {
     return Row(
-      mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(
-          icon,
-          size: 14,
-          color: iconColor,
+        Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            color: iconColor.withOpacity(0.10),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(
+            icon,
+            size: 18,
+            color: iconColor,
+          ),
         ),
-        const SizedBox(width: 4),
-        Text(
-          label,
-          style: TextStyle(
-            color: Colors.grey.shade600,
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
+
+        const SizedBox(width: 7),
+
+        Flexible(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                value,
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+
+              Text(
+                label,
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 10,
+                ),
+              ),
+            ],
           ),
         ),
       ],
     );
   }
 
-  Widget _buildGlassIconButton(IconData icon) {
+  Widget _buildStatusBadge({
+    required bool available,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 9,
+        vertical: 6,
+      ),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.10),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+            ),
+          ),
+
+          const SizedBox(width: 5),
+
+          Text(
+            available ? 'Available' : 'Full',
+            style: TextStyle(
+              color: color,
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // GLASS BUTTON
+  // ---------------------------------------------------------------------------
+
+  Widget _buildGlassIconButton(
+      IconData icon, {
+        required bool compact,
+      }) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(15),
+      borderRadius: BorderRadius.circular(14),
       child: BackdropFilter(
         filter: ImageFilter.blur(
           sigmaX: 10,
           sigmaY: 10,
         ),
         child: Container(
-          padding: const EdgeInsets.all(12),
+          padding: EdgeInsets.all(
+            compact ? 10 : 12,
+          ),
           decoration: BoxDecoration(
             color: Colors.white.withOpacity(0.15),
             border: Border.all(
-              color: Colors.white.withOpacity(0.2),
+              color: Colors.white.withOpacity(0.20),
             ),
-            borderRadius: BorderRadius.circular(15),
+            borderRadius: BorderRadius.circular(14),
           ),
           child: Icon(
             icon,
             color: Colors.white,
-            size: 24,
+            size: compact ? 21 : 24,
           ),
         ),
       ),
     );
-  }
-}
-
-class BottomWaveClipper extends CustomClipper<Path> {
-  @override
-  Path getClip(Size size) {
-    final Path path = Path();
-
-    path.lineTo(0, size.height - 50);
-
-    final Offset firstControlPoint = Offset(
-      size.width / 4,
-      size.height,
-    );
-
-    final Offset firstEndPoint = Offset(
-      size.width / 2.25,
-      size.height - 30,
-    );
-
-    path.quadraticBezierTo(
-      firstControlPoint.dx,
-      firstControlPoint.dy,
-      firstEndPoint.dx,
-      firstEndPoint.dy,
-    );
-
-    final Offset secondControlPoint = Offset(
-      size.width - (size.width / 3.25),
-      size.height - 80,
-    );
-
-    final Offset secondEndPoint = Offset(
-      size.width,
-      size.height - 40,
-    );
-
-    path.quadraticBezierTo(
-      secondControlPoint.dx,
-      secondControlPoint.dy,
-      secondEndPoint.dx,
-      secondEndPoint.dy,
-    );
-
-    path.lineTo(size.width, 0);
-    path.close();
-
-    return path;
-  }
-
-  @override
-  bool shouldReclip(
-      CustomClipper<Path> oldClipper,
-      ) {
-    return false;
   }
 }

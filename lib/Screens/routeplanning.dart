@@ -3,7 +3,11 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:url_launcher/url_launcher.dart';
+import 'package:chargepath/Theme/app_colors.dart';
+import 'package:chargepath/Theme/app_spacing.dart';
+import 'package:chargepath/Widgets/app_card.dart';
+import 'package:chargepath/Widgets/app_primary_button.dart';
+import 'package:chargepath/Widgets/app_section_header.dart';
 import 'chargingroute.dart';
 
 class RoutePlanningPage extends StatefulWidget {
@@ -17,9 +21,6 @@ class _RoutePlanningPageState extends State<RoutePlanningPage> {
   // --- CONFIGURATION ---
   final String _googleApiKey = "AIzaSyALER_NJqGFdwseum4UGUk_wTTYZbGK-es";
 
-  final Color _primaryColor = const Color(0xFF0253A4);
-  final Color _lightFillColor = const Color(0xFFE6EFF8);
-  final Color _accentGreen = const Color(0xFF00C853);
 
   double _currentBattery = 60.0;
 
@@ -190,36 +191,97 @@ class _RoutePlanningPageState extends State<RoutePlanningPage> {
 
   Widget _buildMobileLayout() {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
-      appBar: _buildAppBar(),
-      body: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 24, 20, 100),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+      backgroundColor: AppColors.background,
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            _buildMobileHeader(),
+            Expanded(
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.lg,
+                  AppSpacing.lg,
+                  AppSpacing.lg,
+                  110,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildRouteLocationsCard(),
+                    const SizedBox(height: AppSpacing.lg),
+                    _buildVehicleSettingsCard(),
+                    const SizedBox(height: AppSpacing.xl),
+                    _buildPlanRouteButton(),
+                    const SizedBox(height: AppSpacing.xxl),
+                    _buildMapCard(mapHeight: 220),
+                    const SizedBox(height: AppSpacing.lg),
+                    _buildChargingStopsCard(),
+                    const SizedBox(height: AppSpacing.lg),
+                    _buildTripSummaryCard(),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMobileHeader() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.lg,
+        AppSpacing.lg,
+        AppSpacing.xl,
+      ),
+      decoration: const BoxDecoration(
+        gradient: AppColors.primaryGradient,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
             children: [
-              _buildRouteLocationsCard(),
-              const SizedBox(height: 16),
-              _buildVehicleSettingsCard(),
-              const SizedBox(height: 20),
-              _buildPlanRouteButton(),
-              const SizedBox(height: 24),
-              _buildMapCard(mapHeight: 200),
-              const SizedBox(height: 16),
-              _buildChargingStopsCard(),
-              const SizedBox(height: 16),
-              _buildTripSummaryCard(),
+              Icon(
+                Icons.alt_route_rounded,
+                color: Colors.white,
+                size: 28,
+              ),
+              SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  'Route Planning',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
             ],
           ),
-        ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            'Plan an EV-friendly journey using your battery, range, and connector requirements.',
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.78),
+              fontSize: 13,
+              height: 1.4,
+            ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildWideLayout() {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: Row(
           children: [
@@ -308,23 +370,12 @@ class _RoutePlanningPageState extends State<RoutePlanningPage> {
     );
   }
 
-  PreferredSizeWidget _buildAppBar() {
-    return AppBar(
-      backgroundColor: Colors.white,
-      elevation: 0,
-      automaticallyImplyLeading: false,
-      title: const Text('Route Planning', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold, fontSize: 20)),
-      centerTitle: true,
-      bottom: PreferredSize(preferredSize: const Size.fromHeight(1), child: Container(color: const Color(0xFFF1F1F1), height: 1)),
-    );
-  }
-
   Widget _buildWideHeader() {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(22, 24, 22, 20),
       decoration: const BoxDecoration(
-        gradient: LinearGradient(colors: [Color(0xFF0253A4), Color(0xFF034485)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+        gradient: AppColors.primaryGradient,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -363,15 +414,11 @@ class _RoutePlanningPageState extends State<RoutePlanningPage> {
   }
 
   Widget _buildPlanRouteButton() {
-    return SizedBox(
-      width: double.infinity,
-      height: 56,
-      child: ElevatedButton.icon(
-        onPressed: _isLoading ? null : _fetchRoute,
-        icon: _isLoading ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5)) : const Icon(Icons.navigation_rounded, color: Colors.white, size: 20),
-        label: Text(_isLoading ? 'Planning...' : 'Plan Route', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-        style: ElevatedButton.styleFrom(backgroundColor: _primaryColor, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
-      ),
+    return AppPrimaryButton(
+      text: _isLoading ? 'Planning...' : 'Plan Route',
+      icon: Icons.navigation_rounded,
+      isLoading: _isLoading,
+      onPressed: _isLoading ? null : _fetchRoute,
     );
   }
 
@@ -384,7 +431,7 @@ class _RoutePlanningPageState extends State<RoutePlanningPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(children: [Expanded(child: _buildSectionTitle('Route Preview', Icons.map_rounded)), if (_routeStops.isNotEmpty) Container(padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6), decoration: BoxDecoration(color: _primaryColor.withOpacity(0.09), borderRadius: BorderRadius.circular(20)), child: Text('${_totalDistance.toStringAsFixed(1)} km', style: TextStyle(color: _primaryColor, fontSize: 12, fontWeight: FontWeight.bold)))]),
+          Row(children: [Expanded(child: _buildSectionTitle('Route Preview', Icons.map_rounded)), if (_routeStops.isNotEmpty) Container(padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6), decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.09), borderRadius: BorderRadius.circular(20)), child: Text('${_totalDistance.toStringAsFixed(1)} km', style: TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.bold)))]),
           const SizedBox(height: 16),
           Expanded(child: _buildMapPreview(expand: true)),
         ],
@@ -397,10 +444,10 @@ class _RoutePlanningPageState extends State<RoutePlanningPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(children: [Expanded(child: _buildSectionTitle('Charging Stops', Icons.ev_station_rounded)), if (_routeStops.isNotEmpty) Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: _accentGreen.withOpacity(0.12), borderRadius: BorderRadius.circular(20)), child: Text('${_routeStops.length} stops', style: TextStyle(color: _accentGreen, fontSize: 12, fontWeight: FontWeight.bold)))]),
+          Row(children: [Expanded(child: _buildSectionTitle('Charging Stops', Icons.ev_station_rounded)), if (_routeStops.isNotEmpty) Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: AppColors.success.withOpacity(0.12), borderRadius: BorderRadius.circular(20)), child: Text('${_routeStops.length} stops', style: TextStyle(color: AppColors.success, fontSize: 12, fontWeight: FontWeight.bold)))]),
           const SizedBox(height: 16),
           if (_routeStops.isEmpty)
-            Center(child: Padding(padding: const EdgeInsets.symmetric(vertical: 24), child: Column(children: [Icon(Icons.ev_station_outlined, size: 48, color: Colors.grey.shade300), const SizedBox(height: 12), Text('Route not calculated yet', style: TextStyle(color: Colors.grey.shade400, fontSize: 14))])))
+            Center(child: Padding(padding: const EdgeInsets.symmetric(vertical: 24), child: Column(children: [Icon(Icons.ev_station_outlined, size: 48, color: Colors.grey.shade300), const SizedBox(height: 12), Text('Route not calculated yet', style: TextStyle(color: AppColors.textSecondary, fontSize: 14))])))
           else
             ListView.builder(shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), itemCount: _routeStops.length, itemBuilder: (context, index) => _buildStopItem(index + 1, _routeStops[index])),
         ],
@@ -419,47 +466,31 @@ class _RoutePlanningPageState extends State<RoutePlanningPage> {
     required Widget child,
     bool showShadow = true,
   }) {
+    if (showShadow) {
+      return AppCard(
+        padding: const EdgeInsets.all(AppSpacing.xl),
+        child: child,
+      );
+    }
+
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(AppSpacing.xl),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.white,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: showShadow
-            ? [
-          BoxShadow(
-            color: const Color(0xFF0253A4).withOpacity(0.06),
-            blurRadius: 20,
-            offset: const Offset(0, 6),
-          ),
-        ]
-            : [],
+        border: Border.all(
+          color: const Color(0xFFE5E7EB),
+        ),
       ),
       child: child,
     );
   }
 
   Widget _buildSectionTitle(String title, IconData icon) {
-    return Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: _primaryColor.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Icon(icon, color: _primaryColor, size: 18),
-        ),
-        const SizedBox(width: 10),
-        Text(
-          title,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: Colors.black87,
-          ),
-        ),
-      ],
+    return AppSectionHeader(
+      icon: icon,
+      title: title,
     );
   }
 
@@ -477,12 +508,12 @@ class _RoutePlanningPageState extends State<RoutePlanningPage> {
                 width: 14,
                 height: 14,
                 decoration: BoxDecoration(
-                  color: _accentGreen,
+                  color: AppColors.success,
                   shape: BoxShape.circle,
                   border: Border.all(color: Colors.white, width: 2),
                   boxShadow: [
                     BoxShadow(
-                      color: _accentGreen.withOpacity(0.4),
+                      color: AppColors.success.withOpacity(0.4),
                       blurRadius: 6,
                       offset: const Offset(0, 2),
                     ),
@@ -583,7 +614,7 @@ class _RoutePlanningPageState extends State<RoutePlanningPage> {
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
-                color: Colors.grey.shade700,
+                color: AppColors.textSecondary,
               ),
             ),
             if (sublabel != null) ...[
@@ -592,7 +623,7 @@ class _RoutePlanningPageState extends State<RoutePlanningPage> {
                 "($sublabel)",
                 style: TextStyle(
                   fontSize: 12,
-                  color: Colors.grey.shade400,
+                  color: AppColors.textSecondary,
                 ),
               ),
             ],
@@ -608,7 +639,7 @@ class _RoutePlanningPageState extends State<RoutePlanningPage> {
       {bool isNumber = false}) {
     return Container(
       decoration: BoxDecoration(
-        color: _lightFillColor,
+        color: AppColors.lightFill,
         borderRadius: BorderRadius.circular(12),
       ),
       child: TextField(
@@ -618,7 +649,7 @@ class _RoutePlanningPageState extends State<RoutePlanningPage> {
         decoration: InputDecoration(
           hintText: hint,
           hintStyle: TextStyle(
-            color: Colors.grey.shade400,
+            color: AppColors.textSecondary,
             fontSize: 14,
             fontWeight: FontWeight.w400,
           ),
@@ -627,12 +658,12 @@ class _RoutePlanningPageState extends State<RoutePlanningPage> {
           const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           suffixIcon: isNumber
               ? Icon(Icons.speed_rounded,
-              size: 18, color: _primaryColor.withOpacity(0.5))
+              size: 18, color: AppColors.primary.withOpacity(0.5))
               : Icon(Icons.search_rounded,
-              size: 18, color: _primaryColor.withOpacity(0.5)),
+              size: 18, color: AppColors.primary.withOpacity(0.5)),
         ),
         style: const TextStyle(
-            fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black87),
+            fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.textPrimary),
       ),
     );
   }
@@ -643,7 +674,7 @@ class _RoutePlanningPageState extends State<RoutePlanningPage> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
         decoration: BoxDecoration(
-          color: _lightFillColor,
+          color: AppColors.lightFill,
           borderRadius: BorderRadius.circular(12),
         ),
         child: DropdownButtonHideUnderline(
@@ -651,14 +682,14 @@ class _RoutePlanningPageState extends State<RoutePlanningPage> {
             value: _selectedConnector,
             isExpanded: true,
             icon: Icon(Icons.keyboard_arrow_down_rounded,
-                color: _primaryColor),
+                color: AppColors.primary),
             items: _connectorOptions.map((String value) {
               return DropdownMenuItem<String>(
                 value: value,
                 child: Row(
                   children: [
                     Icon(Icons.electrical_services_rounded,
-                        color: _primaryColor, size: 18),
+                        color: AppColors.primary, size: 18),
                     const SizedBox(width: 10),
                     Text(
                       value,
@@ -683,7 +714,7 @@ class _RoutePlanningPageState extends State<RoutePlanningPage> {
         ? Colors.red.shade500
         : _currentBattery < 50
         ? Colors.orange.shade600
-        : _accentGreen;
+        : AppColors.success;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -696,7 +727,7 @@ class _RoutePlanningPageState extends State<RoutePlanningPage> {
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
-                color: Colors.grey.shade700,
+                color: AppColors.textSecondary,
               ),
             ),
             Container(
@@ -736,7 +767,7 @@ class _RoutePlanningPageState extends State<RoutePlanningPage> {
           data: SliderTheme.of(context).copyWith(
             trackHeight: 6,
             activeTrackColor: batteryColor,
-            inactiveTrackColor: _lightFillColor,
+            inactiveTrackColor: AppColors.lightFill,
             thumbColor: batteryColor,
             overlayColor: batteryColor.withOpacity(0.15),
             thumbShape:
@@ -807,11 +838,11 @@ class _RoutePlanningPageState extends State<RoutePlanningPage> {
               width: 34,
               height: 34,
               decoration: BoxDecoration(
-                color: _accentGreen,
+                color: AppColors.success,
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: _accentGreen.withOpacity(0.3),
+                    color: AppColors.success.withOpacity(0.3),
                     blurRadius: 8,
                     offset: const Offset(0, 3),
                   ),
@@ -839,19 +870,19 @@ class _RoutePlanningPageState extends State<RoutePlanningPage> {
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 14,
-                      color: Colors.black87,
+                      color: AppColors.textPrimary,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Row(
                     children: [
                       Icon(Icons.straighten_rounded,
-                          size: 12, color: Colors.grey.shade400),
+                          size: 12, color: AppColors.textSecondary),
                       const SizedBox(width: 4),
                       Text(
                         "${stop['DistancetoFind']} km",
                         style: TextStyle(
-                            color: Colors.grey.shade500, fontSize: 12),
+                            color: AppColors.textSecondary, fontSize: 12),
                       ),
                     ],
                   ),
@@ -859,19 +890,19 @@ class _RoutePlanningPageState extends State<RoutePlanningPage> {
                   Row(
                     children: [
                       Icon(Icons.navigation_rounded,
-                          size: 12, color: _primaryColor),
+                          size: 12, color: AppColors.primary),
                       const SizedBox(width: 4),
                       Text(
                         "Tap to Navigate",
                         style: TextStyle(
                           fontSize: 11,
-                          color: _primaryColor,
+                          color: AppColors.primary,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                       const SizedBox(width: 4),
                       Icon(Icons.arrow_forward_rounded,
-                          size: 11, color: _primaryColor),
+                          size: 11, color: AppColors.primary),
                     ],
                   ),
                 ],
@@ -882,17 +913,17 @@ class _RoutePlanningPageState extends State<RoutePlanningPage> {
               padding:
               const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                color: _accentGreen.withOpacity(0.12),
+                color: AppColors.success.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Column(
                 children: [
                   Icon(Icons.bolt_rounded,
-                      size: 14, color: _accentGreen),
+                      size: 14, color: AppColors.success),
                   Text(
                     "${stop['NeedChargePercentage']}",
                     style: TextStyle(
-                      color: _accentGreen,
+                      color: AppColors.success,
                       fontWeight: FontWeight.bold,
                       fontSize: 12,
                     ),
@@ -958,13 +989,13 @@ class _RoutePlanningPageState extends State<RoutePlanningPage> {
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 15,
-                    color: Colors.black87,
+                    color: AppColors.textPrimary,
                   ),
                 ),
                 Text(
                   label,
                   style: TextStyle(
-                    color: Colors.grey.shade500,
+                    color: AppColors.textSecondary,
                     fontSize: 10,
                     fontWeight: FontWeight.w500,
                   ),

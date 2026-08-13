@@ -3,12 +3,14 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:chargepath/Theme/app_colors.dart';
+import 'package:chargepath/Theme/app_spacing.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter_polyline_points/flutter_polyline_points.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:http/http.dart' as http;
-import 'package:url_launcher/url_launcher.dart'; // ADD THIS
+import 'package:url_launcher/url_launcher.dart';
 
 class ChargingRoute extends StatefulWidget {
   final LatLng destination;
@@ -25,10 +27,6 @@ class ChargingRoute extends StatefulWidget {
 }
 
 class _ChargingRouteState extends State<ChargingRoute> {
-  // ── THEME ─────────────────────────────────────────────────────────────────
-  final Color _primaryColor = const Color(0xFF0253A4);
-  final Color _backgroundColor = const Color(0xFFF5F7FA);
-
   // ── GOOGLE MAPS ───────────────────────────────────────────────────────────
   static const String _kGoogleApiKey =
       "AIzaSyALER_NJqGFdwseum4UGUk_wTTYZbGK-es";
@@ -89,14 +87,14 @@ class _ChargingRouteState extends State<ChargingRoute> {
       Offset(cx, cy),
       30,
       Paint()
-        ..color = const Color(0xFF0253A4).withOpacity(0.12)
+        ..color = AppColors.primary.withOpacity(0.12)
         ..style = PaintingStyle.fill,
     );
     canvas.drawCircle(
       Offset(cx, cy),
       20,
       Paint()
-        ..color = const Color(0xFF0253A4).withOpacity(0.22)
+        ..color = AppColors.primary.withOpacity(0.22)
         ..style = PaintingStyle.fill,
     );
     // White ring
@@ -112,7 +110,7 @@ class _ChargingRouteState extends State<ChargingRoute> {
       Offset(cx, cy),
       9,
       Paint()
-        ..color = const Color(0xFF0253A4)
+        ..color = AppColors.primary
         ..style = PaintingStyle.fill,
     );
 
@@ -143,7 +141,7 @@ class _ChargingRouteState extends State<ChargingRoute> {
     );
 
     final Paint pinPaint = Paint()
-      ..color = _primaryColor
+      ..color = AppColors.primary
       ..style = PaintingStyle.fill;
 
     // ── pointed tail ──────────────────────────────────────────────────────
@@ -172,7 +170,7 @@ class _ChargingRouteState extends State<ChargingRoute> {
         fontSize: 36,
         fontFamily: Icons.bolt_rounded.fontFamily,
         package: Icons.bolt_rounded.fontPackage,
-        color: _primaryColor,
+        color: AppColors.primary,
       ),
     );
     tp.layout();
@@ -369,7 +367,7 @@ class _ChargingRouteState extends State<ChargingRoute> {
     return {
       Polyline(
         polylineId: const PolylineId("route_casing"),
-        color: _primaryColor.withOpacity(0.22),
+        color: AppColors.primary.withOpacity(0.22),
         points: _routeCoords,
         width: 12,
         zIndex: 0,
@@ -379,7 +377,7 @@ class _ChargingRouteState extends State<ChargingRoute> {
       ),
       Polyline(
         polylineId: const PolylineId("route"),
-        color: _primaryColor,
+        color: AppColors.primary,
         points: _routeCoords,
         width: 6,
         zIndex: 1,
@@ -416,7 +414,6 @@ class _ChargingRouteState extends State<ChargingRoute> {
   }
 
   // ── 3. LAUNCH GOOGLE MAPS FOR NAVIGATION ─────────────────────────────────
-  // ADD THIS — replaces all custom in-app navigation logic.
   Future<void> _launchGoogleMapsNavigation() async {
     if (_currentPosition == null) return;
 
@@ -458,7 +455,7 @@ class _ChargingRouteState extends State<ChargingRoute> {
           child: Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppColors.white,
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
@@ -480,17 +477,17 @@ class _ChargingRouteState extends State<ChargingRoute> {
                         Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: _primaryColor.withOpacity(0.1),
+                            color: AppColors.primary.withOpacity(0.1),
                             shape: BoxShape.circle,
                           ),
                           child: Icon(Icons.flash_on,
-                              color: _primaryColor, size: 18),
+                              color: AppColors.primary, size: 18),
                         ),
                         const SizedBox(width: 8),
                         Text(
                           'Estimated Cost',
                           style: TextStyle(
-                            color: Colors.grey.shade700,
+                            color: AppColors.textSecondary,
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
                           ),
@@ -517,7 +514,7 @@ class _ChargingRouteState extends State<ChargingRoute> {
                   style: TextStyle(
                     fontSize: 36,
                     fontWeight: FontWeight.bold,
-                    color: Colors.black87,
+                    color: AppColors.textPrimary,
                     letterSpacing: -0.5,
                   ),
                 ),
@@ -527,19 +524,19 @@ class _ChargingRouteState extends State<ChargingRoute> {
                   padding: const EdgeInsets.symmetric(
                       horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
-                    color: _primaryColor,
+                    color: AppColors.primary,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       const Icon(Icons.electric_bolt,
-                          color: Colors.white, size: 16),
+                          color: AppColors.white, size: 16),
                       const SizedBox(width: 6),
                       Text(
                         '${_totalDistance != "--" ? _totalDistance : "?"} to $_destinationName',
                         style: const TextStyle(
-                          color: Colors.white,
+                          color: AppColors.white,
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                         ),
@@ -577,7 +574,7 @@ class _ChargingRouteState extends State<ChargingRoute> {
     final double mapHeight = screenHeight * 0.45;
 
     return Scaffold(
-      backgroundColor: _backgroundColor,
+      backgroundColor: AppColors.background,
       body: Stack(
         children: [
           Positioned(
@@ -620,7 +617,7 @@ class _ChargingRouteState extends State<ChargingRoute> {
 
   Widget _buildWideLayout() {
     return Scaffold(
-      backgroundColor: _backgroundColor,
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: Row(
           children: [
@@ -652,7 +649,7 @@ class _ChargingRouteState extends State<ChargingRoute> {
             Container(
               width: 390,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.white,
                 border: Border(
                   left: BorderSide(
                     color: Colors.grey.shade200,
@@ -677,20 +674,20 @@ class _ChargingRouteState extends State<ChargingRoute> {
   Widget _buildMap() {
     if (_currentPosition == null) {
       return Container(
-        color: _backgroundColor,
+        color: AppColors.background,
         child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               CircularProgressIndicator(
-                color: _primaryColor,
+                color: AppColors.primary,
                 strokeWidth: 3,
               ),
               const SizedBox(height: 16),
               Text(
                 'Getting your location...',
                 style: TextStyle(
-                  color: Colors.grey.shade600,
+                  color: AppColors.textSecondary,
                   fontSize: 14,
                 ),
               ),
@@ -727,7 +724,7 @@ class _ChargingRouteState extends State<ChargingRoute> {
         width: 46,
         height: 46,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.white,
           borderRadius: BorderRadius.circular(14),
           boxShadow: [
             BoxShadow(
@@ -740,7 +737,7 @@ class _ChargingRouteState extends State<ChargingRoute> {
         child: const Icon(
           Icons.arrow_back_ios_new_rounded,
           size: 18,
-          color: Colors.black87,
+          color: AppColors.textPrimary,
         ),
       ),
     );
@@ -755,7 +752,7 @@ class _ChargingRouteState extends State<ChargingRoute> {
           vertical: 11,
         ),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.white,
           borderRadius: BorderRadius.circular(30),
           boxShadow: [
             BoxShadow(
@@ -770,12 +767,12 @@ class _ChargingRouteState extends State<ChargingRoute> {
             Container(
               padding: const EdgeInsets.all(5),
               decoration: BoxDecoration(
-                color: _primaryColor.withOpacity(0.1),
+                color: AppColors.primary.withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 Icons.monetization_on_rounded,
-                color: _primaryColor,
+                color: AppColors.primary,
                 size: 18,
               ),
             ),
@@ -837,7 +834,7 @@ class _ChargingRouteState extends State<ChargingRoute> {
   Widget _buildMobileRouteSheet() {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.white,
         borderRadius: const BorderRadius.only(
           topLeft: Radius.circular(30),
           topRight: Radius.circular(30),
@@ -869,10 +866,10 @@ class _ChargingRouteState extends State<ChargingRoute> {
           Expanded(
             child: ListView(
               padding: const EdgeInsets.fromLTRB(
-                24,
-                10,
-                24,
-                24,
+                AppSpacing.xxl,
+                AppSpacing.sm,
+                AppSpacing.xxl,
+                AppSpacing.xxl,
               ),
               physics: const BouncingScrollPhysics(),
               children: [
@@ -881,7 +878,9 @@ class _ChargingRouteState extends State<ChargingRoute> {
                 _buildStatsPanel(),
                 const SizedBox(height: 24),
                 _buildTimeline(),
-                const SizedBox(height: 20),
+                const SizedBox(height: AppSpacing.lg),
+                _buildRouteStatusCard(),
+                const SizedBox(height: AppSpacing.xl),
                 _buildRouteActions(),
               ],
             ),
@@ -897,26 +896,19 @@ class _ChargingRouteState extends State<ChargingRoute> {
         Container(
           width: double.infinity,
           padding: const EdgeInsets.fromLTRB(
-            24,
-            26,
-            24,
-            22,
+            AppSpacing.xxl,
+            AppSpacing.xxl,
+            AppSpacing.xxl,
+            AppSpacing.xl,
           ),
           decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                Color(0xFF0253A4),
-                Color(0xFF034485),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
+            gradient: AppColors.primaryGradient,
           ),
           child: const Row(
             children: [
               Icon(
                 Icons.navigation_rounded,
-                color: Colors.white,
+                color: AppColors.white,
                 size: 28,
               ),
               SizedBox(width: 12),
@@ -924,7 +916,7 @@ class _ChargingRouteState extends State<ChargingRoute> {
                 child: Text(
                   'Charging Route',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: AppColors.white,
                     fontSize: 23,
                     fontWeight: FontWeight.bold,
                   ),
@@ -936,7 +928,7 @@ class _ChargingRouteState extends State<ChargingRoute> {
         Expanded(
           child: ListView(
             physics: const BouncingScrollPhysics(),
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(AppSpacing.xxl),
             children: [
               _buildRouteHeader(),
               const SizedBox(height: 22),
@@ -962,12 +954,12 @@ class _ChargingRouteState extends State<ChargingRoute> {
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: _primaryColor,
+            color: AppColors.primary,
             borderRadius: BorderRadius.circular(14),
           ),
           child: const Icon(
             Icons.alt_route_rounded,
-            color: Colors.white,
+            color: AppColors.white,
             size: 22,
           ),
         ),
@@ -981,7 +973,7 @@ class _ChargingRouteState extends State<ChargingRoute> {
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
-                  color: Colors.black87,
+                  color: AppColors.textPrimary,
                 ),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
@@ -991,7 +983,7 @@ class _ChargingRouteState extends State<ChargingRoute> {
                 'Optimal charging route',
                 style: TextStyle(
                   fontSize: 13,
-                  color: Colors.grey.shade500,
+                  color: AppColors.textSecondary,
                 ),
               ),
             ],
@@ -1018,21 +1010,21 @@ class _ChargingRouteState extends State<ChargingRoute> {
             _totalDistance,
             'Distance',
             Icons.straighten_rounded,
-            Colors.black87,
+            AppColors.textPrimary,
           ),
           _buildDivider(),
           _buildStatItem(
             _totalDuration,
             'Duration',
             Icons.access_time_rounded,
-            Colors.black87,
+            AppColors.textPrimary,
           ),
           _buildDivider(),
           _buildStatItem(
             'Rs.24.50',
             'Cost',
             Icons.electric_bolt_rounded,
-            _primaryColor,
+            AppColors.primary,
           ),
         ],
       ),
@@ -1096,7 +1088,7 @@ class _ChargingRouteState extends State<ChargingRoute> {
                   ? 'Route is ready. Open Google Maps to begin navigation.'
                   : 'Preparing your route and location details.',
               style: TextStyle(
-                color: Colors.grey.shade700,
+                color: AppColors.textSecondary,
                 fontSize: 13,
                 height: 1.4,
               ),
@@ -1121,7 +1113,7 @@ class _ChargingRouteState extends State<ChargingRoute> {
                   : _launchGoogleMapsNavigation,
               icon: const Icon(
                 Icons.navigation_rounded,
-                color: Colors.white,
+                color: AppColors.white,
                 size: 20,
               ),
               label: Text(
@@ -1131,13 +1123,13 @@ class _ChargingRouteState extends State<ChargingRoute> {
                 style: const TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.bold,
-                  color: Colors.white,
+                  color: AppColors.white,
                 ),
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: _isLoading
                     ? Colors.grey.shade400
-                    : _primaryColor,
+                    : AppColors.primary,
                 elevation: 0,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
@@ -1169,7 +1161,7 @@ class _ChargingRouteState extends State<ChargingRoute> {
         width: 44,
         height: 44,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.white,
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
@@ -1179,7 +1171,7 @@ class _ChargingRouteState extends State<ChargingRoute> {
             ),
           ],
         ),
-        child: Icon(icon, color: Colors.black87, size: 22),
+        child: Icon(icon, color: AppColors.textPrimary, size: 22),
       ),
     );
   }
@@ -1208,7 +1200,7 @@ class _ChargingRouteState extends State<ChargingRoute> {
           label,
           style: TextStyle(
             fontSize: 11,
-            color: Colors.grey.shade500,
+            color: AppColors.textSecondary,
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -1243,14 +1235,14 @@ class _ChargingRouteState extends State<ChargingRoute> {
                   width: 32,
                   height: 32,
                   decoration: BoxDecoration(
-                    color: _primaryColor,
+                    color: AppColors.primary,
                     shape: BoxShape.circle,
                   ),
                   child: Center(
                     child: Text(
                       '$index',
                       style: const TextStyle(
-                        color: Colors.white,
+                        color: AppColors.white,
                         fontWeight: FontWeight.bold,
                         fontSize: 14,
                       ),
@@ -1261,7 +1253,7 @@ class _ChargingRouteState extends State<ChargingRoute> {
                   Expanded(
                     child: Container(
                       width: 2,
-                      color: _primaryColor.withOpacity(0.15),
+                      color: AppColors.primary.withOpacity(0.15),
                       margin: const EdgeInsets.symmetric(vertical: 4),
                     ),
                   ),
@@ -1289,14 +1281,14 @@ class _ChargingRouteState extends State<ChargingRoute> {
                             style: const TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 14,
-                              color: Colors.black87,
+                              color: AppColors.textPrimary,
                             ),
                           ),
                           const SizedBox(height: 4),
                           Text(
                             details,
                             style: TextStyle(
-                              color: Colors.grey.shade500,
+                              color: AppColors.textSecondary,
                               fontSize: 12,
                             ),
                           ),
@@ -1307,13 +1299,13 @@ class _ChargingRouteState extends State<ChargingRoute> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: _primaryColor.withOpacity(0.1),
+                        color: AppColors.primary.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
                         tag,
                         style: TextStyle(
-                          color: _primaryColor,
+                          color: AppColors.primary,
                           fontWeight: FontWeight.bold,
                           fontSize: 12,
                         ),
@@ -1337,11 +1329,11 @@ class _ChargingRouteState extends State<ChargingRoute> {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.grey.shade200),
       ),
-      child: Icon(icon, color: Colors.grey.shade600, size: 22),
+      child: Icon(icon, color: AppColors.textSecondary, size: 22),
     );
   }
 }
