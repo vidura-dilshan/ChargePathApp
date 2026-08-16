@@ -23,7 +23,7 @@ class FindStations extends StatefulWidget {
 }
 
 class _FindStationsState extends State<FindStations> {
-  // Google Maps API key
+  // Google Maps API key.
   static const String _googleApiKey =
       'AIzaSyALER_NJqGFdwseum4UGUk_wTTYZbGK-es';
 
@@ -49,9 +49,11 @@ class _FindStationsState extends State<FindStations> {
   // SEARCH
   // ---------------------------------------------------------------------------
 
-  final TextEditingController _searchController = TextEditingController();
+  final TextEditingController _searchController =
+  TextEditingController();
 
-  final FocusNode _searchFocusNode = FocusNode();
+  final FocusNode _searchFocusNode =
+  FocusNode();
 
   LatLng? _searchedTownPosition;
   String? _searchedTownName;
@@ -92,27 +94,6 @@ class _FindStationsState extends State<FindStations> {
           _isSearchActive ||
           _searchedTownPosition != null;
 
-  /// Number displayed on the mobile filter icon.
-  int get _activeFilterCount {
-    int count = 0;
-
-    if (_selectedConnectorType != 'All') {
-      count++;
-    }
-
-    if (_selectedChargingType != 'All') {
-      count++;
-    }
-
-    // Distance is only counted as an active filter if it differs
-    // from the default 5 km value.
-    if (_showDistanceSlider && _distanceValue != 5.0) {
-      count++;
-    }
-
-    return count;
-  }
-
   // ---------------------------------------------------------------------------
   // LIFECYCLE
   // ---------------------------------------------------------------------------
@@ -129,7 +110,9 @@ class _FindStationsState extends State<FindStations> {
     );
 
     _stationsStream =
-        FirebaseFirestore.instance.collection('users').snapshots();
+        FirebaseFirestore.instance
+            .collection('users')
+            .snapshots();
 
     _searchFocusNode.addListener(() {
       if (!mounted) {
@@ -137,7 +120,8 @@ class _FindStationsState extends State<FindStations> {
       }
 
       setState(() {
-        _isSearchActive = _searchFocusNode.hasFocus;
+        _isSearchActive =
+            _searchFocusNode.hasFocus;
       });
     });
   }
@@ -160,7 +144,6 @@ class _FindStationsState extends State<FindStations> {
 
   Future<void> _loadFavorites() async {
     try {
-      // SQLite is not currently used on Flutter Web.
       if (kIsWeb) {
         if (!mounted) {
           return;
@@ -174,7 +157,8 @@ class _FindStationsState extends State<FindStations> {
       }
 
       final List<Map<String, dynamic>> rows =
-      await FavoritesDb.instance.getAllFavorites();
+      await FavoritesDb.instance
+          .getAllFavorites();
 
       if (!mounted) {
         return;
@@ -185,7 +169,8 @@ class _FindStationsState extends State<FindStations> {
           ..clear()
           ..addAll(
             rows.map(
-                  (row) => row['station_id'].toString(),
+                  (row) =>
+                  row['station_id'].toString(),
             ),
           );
       });
@@ -216,16 +201,17 @@ class _FindStationsState extends State<FindStations> {
       String stationId,
       Map<String, dynamic> data,
       ) async {
-    final bool isFavourite = _favoriteIds.contains(stationId);
+    final bool isFavourite =
+    _favoriteIds.contains(stationId);
 
     try {
       if (!kIsWeb) {
         if (isFavourite) {
-          await FavoritesDb.instance.removeFavorite(
-            stationId,
-          );
+          await FavoritesDb.instance
+              .removeFavorite(stationId);
         } else {
-          await FavoritesDb.instance.addFavorite(
+          await FavoritesDb.instance
+              .addFavorite(
             stationId,
             data,
           );
@@ -285,7 +271,9 @@ class _FindStationsState extends State<FindStations> {
               color: Colors.white,
               size: 18,
             ),
-            const SizedBox(width: AppSpacing.sm),
+            const SizedBox(
+              width: AppSpacing.sm,
+            ),
             Expanded(
               child: Text(
                 message,
@@ -297,14 +285,22 @@ class _FindStationsState extends State<FindStations> {
             ),
           ],
         ),
-        duration: const Duration(seconds: 2),
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: AppColors.primary,
+        duration:
+        const Duration(seconds: 2),
+        behavior:
+        SnackBarBehavior.floating,
+        backgroundColor:
+        AppColors.primary,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius:
+          BorderRadius.circular(14),
         ),
         margin: EdgeInsets.only(
-          bottom: MediaQuery.of(context).size.height - 130,
+          bottom:
+          MediaQuery.of(context)
+              .size
+              .height -
+              130,
           left: AppSpacing.lg,
           right: AppSpacing.lg,
         ),
@@ -327,14 +323,22 @@ class _FindStationsState extends State<FindStations> {
             fontWeight: FontWeight.w600,
           ),
         ),
-        duration: const Duration(seconds: 2),
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: AppColors.primary,
+        duration:
+        const Duration(seconds: 2),
+        behavior:
+        SnackBarBehavior.floating,
+        backgroundColor:
+        AppColors.primary,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius:
+          BorderRadius.circular(14),
         ),
         margin: EdgeInsets.only(
-          bottom: MediaQuery.of(context).size.height - 130,
+          bottom:
+          MediaQuery.of(context)
+              .size
+              .height -
+              130,
           left: AppSpacing.lg,
           right: AppSpacing.lg,
         ),
@@ -353,7 +357,8 @@ class _FindStationsState extends State<FindStations> {
 
     try {
       final bool serviceEnabled =
-      await Geolocator.isLocationServiceEnabled();
+      await Geolocator
+          .isLocationServiceEnabled();
 
       if (!serviceEnabled) {
         if (mounted) {
@@ -366,12 +371,17 @@ class _FindStationsState extends State<FindStations> {
       }
 
       LocationPermission permission =
-      await Geolocator.checkPermission();
+      await Geolocator
+          .checkPermission();
 
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
+      if (permission ==
+          LocationPermission.denied) {
+        permission =
+        await Geolocator
+            .requestPermission();
 
-        if (permission == LocationPermission.denied) {
+        if (permission ==
+            LocationPermission.denied) {
           if (mounted) {
             setState(() {
               _isLoadingLocation = false;
@@ -382,7 +392,8 @@ class _FindStationsState extends State<FindStations> {
         }
       }
 
-      if (permission == LocationPermission.deniedForever) {
+      if (permission ==
+          LocationPermission.deniedForever) {
         if (mounted) {
           setState(() {
             _isLoadingLocation = false;
@@ -393,8 +404,10 @@ class _FindStationsState extends State<FindStations> {
       }
 
       final Position position =
-      await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
+      await Geolocator
+          .getCurrentPosition(
+        desiredAccuracy:
+        LocationAccuracy.high,
       );
 
       if (!mounted) {
@@ -422,24 +435,6 @@ class _FindStationsState extends State<FindStations> {
     }
   }
 
-  Future<void> _useCurrentLocation() async {
-    FocusManager.instance.primaryFocus?.unfocus();
-
-    _searchController.clear();
-
-    if (mounted) {
-      setState(() {
-        _searchedTownPosition = null;
-        _searchedTownName = null;
-
-        // Current location filtering requires Nearby mode.
-        _isNearbySelected = true;
-      });
-    }
-
-    await _getUserLocation();
-  }
-
   // ---------------------------------------------------------------------------
   // SEARCH
   // ---------------------------------------------------------------------------
@@ -447,7 +442,8 @@ class _FindStationsState extends State<FindStations> {
   Future<void> _searchTown(
       String query,
       ) async {
-    final String cleanQuery = query.trim();
+    final String cleanQuery =
+    query.trim();
 
     if (cleanQuery.isEmpty) {
       _clearSearch();
@@ -471,23 +467,29 @@ class _FindStationsState extends State<FindStations> {
       await http.get(url);
 
       final Map<String, dynamic> body =
-      json.decode(response.body) as Map<String, dynamic>;
+      json.decode(response.body)
+      as Map<String, dynamic>;
 
       final List results =
           (body['results'] as List?) ?? [];
 
-      if (body['status'] == 'OK' && results.isNotEmpty) {
+      if (body['status'] == 'OK' &&
+          results.isNotEmpty) {
         final dynamic location =
-        results[0]['geometry']['location'];
+        results[0]['geometry']
+        ['location'];
 
         final double latitude =
-        (location['lat'] as num).toDouble();
+        (location['lat'] as num)
+            .toDouble();
 
         final double longitude =
-        (location['lng'] as num).toDouble();
+        (location['lng'] as num)
+            .toDouble();
 
         final String name =
-            results[0]['formatted_address']?.toString() ??
+            results[0]['formatted_address']
+                ?.toString() ??
                 cleanQuery;
 
         if (!mounted) {
@@ -495,10 +497,11 @@ class _FindStationsState extends State<FindStations> {
         }
 
         setState(() {
-          _searchedTownPosition = LatLng(
-            latitude,
-            longitude,
-          );
+          _searchedTownPosition =
+              LatLng(
+                latitude,
+                longitude,
+              );
 
           _searchedTownName = name;
           _isSearching = false;
@@ -551,7 +554,8 @@ class _FindStationsState extends State<FindStations> {
   // ---------------------------------------------------------------------------
 
   double _parsePower(dynamic raw) {
-    final RegExpMatch? match = RegExp(
+    final RegExpMatch? match =
+    RegExp(
       r'[\d.]+',
     ).firstMatch(
       raw?.toString() ?? '',
@@ -593,29 +597,35 @@ class _FindStationsState extends State<FindStations> {
 
     return docs.where((doc) {
       final Map<String, dynamic> data =
-      doc.data() as Map<String, dynamic>;
+      doc.data()
+      as Map<String, dynamic>;
 
-      if (_selectedChargingType != 'All') {
+      if (_selectedChargingType !=
+          'All') {
         final double power =
         _parsePower(
           data['charging_power'],
         );
 
         final bool isFast =
-            power >= _fastChargingThreshold;
+            power >=
+                _fastChargingThreshold;
 
-        if (_selectedChargingType == 'Fast' &&
+        if (_selectedChargingType ==
+            'Fast' &&
             !isFast) {
           return false;
         }
 
-        if (_selectedChargingType == 'Normal' &&
+        if (_selectedChargingType ==
+            'Normal' &&
             isFast) {
           return false;
         }
       }
 
-      if (_selectedConnectorType != 'All') {
+      if (_selectedConnectorType !=
+          'All') {
         final String rawConnectors =
             data['supported_connector_types']
                 ?.toString() ??
@@ -634,7 +644,8 @@ class _FindStationsState extends State<FindStations> {
         parts.any(
               (part) =>
           part.toLowerCase() ==
-              _selectedConnectorType.toLowerCase(),
+              _selectedConnectorType
+                  .toLowerCase(),
         );
 
         if (!hasConnector) {
@@ -645,12 +656,15 @@ class _FindStationsState extends State<FindStations> {
       if (filterCenter != null) {
         final double? latitude =
         double.tryParse(
-          data['latitude']?.toString() ?? '',
+          data['latitude']?.toString() ??
+              '',
         );
 
         final double? longitude =
         double.tryParse(
-          data['longitude']?.toString() ?? '',
+          data['longitude']
+              ?.toString() ??
+              '',
         );
 
         if (latitude == null ||
@@ -666,7 +680,8 @@ class _FindStationsState extends State<FindStations> {
           longitude,
         );
 
-        if (distanceKm > _distanceValue) {
+        if (distanceKm >
+            _distanceValue) {
           return false;
         }
       }
@@ -676,8 +691,7 @@ class _FindStationsState extends State<FindStations> {
   }
 
   // ---------------------------------------------------------------------------
-  // STANDARD FILTER SHEET
-  // Used by tablet / wide layout
+  // FILTER SHEET
   // ---------------------------------------------------------------------------
 
   void _showFilterSheet(
@@ -688,183 +702,16 @@ class _FindStationsState extends State<FindStations> {
       ) {
     showModalBottomSheet(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: AppColors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
+      backgroundColor:
+      AppColors.white,
+      shape:
+      const RoundedRectangleBorder(
+        borderRadius:
+        BorderRadius.vertical(
           top: Radius.circular(24),
         ),
       ),
-      builder: (sheetContext) {
-        final double screenHeight =
-            MediaQuery.of(sheetContext).size.height;
-
-        final double sheetHeight =
-        screenHeight < 500
-            ? screenHeight * 0.72
-            : screenHeight * 0.55;
-
-        return SizedBox(
-          height: sheetHeight,
-          child: SafeArea(
-            top: false,
-            child: Column(
-              children: [
-                Container(
-                  margin: const EdgeInsets.only(
-                    top: 10,
-                    bottom: 4,
-                  ),
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
-                    borderRadius:
-                    BorderRadius.circular(2),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    20,
-                    10,
-                    12,
-                    10,
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          title,
-                          style: const TextStyle(
-                            fontSize: 17,
-                            fontWeight:
-                            FontWeight.bold,
-                            color:
-                            AppColors.textPrimary,
-                          ),
-                        ),
-                      ),
-                      if (selected != 'All')
-                        TextButton(
-                          onPressed: () {
-                            onSelected('All');
-
-                            Navigator.pop(
-                              sheetContext,
-                            );
-                          },
-                          child: const Text(
-                            'Clear',
-                            style: TextStyle(
-                              color:
-                              AppColors.primary,
-                              fontWeight:
-                              FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-                const Divider(height: 1),
-                Expanded(
-                  child: ListView.separated(
-                    padding:
-                    const EdgeInsets.symmetric(
-                      vertical: 4,
-                    ),
-                    physics:
-                    const BouncingScrollPhysics(),
-                    itemCount: options.length,
-                    separatorBuilder: (_, __) {
-                      return const Divider(
-                        height: 1,
-                        indent: 20,
-                        endIndent: 20,
-                      );
-                    },
-                    itemBuilder: (
-                        context,
-                        index,
-                        ) {
-                      final String option =
-                      options[index];
-
-                      final bool isSelected =
-                          selected == option;
-
-                      return ListTile(
-                        dense: screenHeight < 500,
-                        contentPadding:
-                        const EdgeInsets.symmetric(
-                          horizontal: 20,
-                        ),
-                        title: Text(
-                          option,
-                          style: TextStyle(
-                            color: isSelected
-                                ? AppColors.primary
-                                : AppColors
-                                .textPrimary,
-                            fontSize: 14,
-                            fontWeight: isSelected
-                                ? FontWeight.w700
-                                : FontWeight.w500,
-                          ),
-                        ),
-                        trailing: Icon(
-                          isSelected
-                              ? Icons
-                              .check_circle_rounded
-                              : Icons
-                              .radio_button_unchecked_rounded,
-                          color: isSelected
-                              ? AppColors.primary
-                              : AppColors
-                              .textSecondary,
-                          size: 21,
-                        ),
-                        onTap: () {
-                          onSelected(option);
-
-                          Navigator.pop(
-                            sheetContext,
-                          );
-                        },
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(height: 6),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  // ---------------------------------------------------------------------------
-  // MOBILE FILTER SHEET
-  // ---------------------------------------------------------------------------
-
-  void _showMobileFiltersSheet() {
-    // Temporary values allow the user to change filters without
-    // immediately changing the station list.
-    double temporaryDistance =
-        _distanceValue;
-
-    String temporaryConnector =
-        _selectedConnectorType;
-
-    String temporaryCharging =
-        _selectedChargingType;
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (sheetContext) {
+      builder: (_) {
         return StatefulBuilder(
           builder: (
               context,
@@ -872,425 +719,166 @@ class _FindStationsState extends State<FindStations> {
               ) {
             return SafeArea(
               top: false,
-              child: Container(
-                constraints: BoxConstraints(
-                  maxHeight:
-                  MediaQuery.of(context).size.height *
-                      0.82,
-                ),
-                decoration: const BoxDecoration(
-                  color: AppColors.white,
-                  borderRadius:
-                  BorderRadius.vertical(
-                    top: Radius.circular(26),
-                  ),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Drag handle
-                    Container(
-                      width: 42,
-                      height: 4,
-                      margin:
-                      const EdgeInsets.only(
-                        top: 10,
-                        bottom: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color:
-                        Colors.grey.shade300,
-                        borderRadius:
-                        BorderRadius.circular(2),
+              child: Column(
+                mainAxisSize:
+                MainAxisSize.min,
+                children: [
+                  Container(
+                    margin:
+                    const EdgeInsets.only(
+                      top: 12,
+                      bottom: 4,
+                    ),
+                    width: 40,
+                    height: 4,
+                    decoration:
+                    BoxDecoration(
+                      color:
+                      Colors.grey.shade300,
+                      borderRadius:
+                      BorderRadius.circular(
+                        2,
                       ),
                     ),
-
-                    // Header
-                    Padding(
-                      padding:
-                      const EdgeInsets.fromLTRB(
-                        20,
-                        8,
-                        12,
-                        8,
-                      ),
-                      child: Row(
-                        children: [
-                          const Expanded(
-                            child: Text(
-                              'Filters',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight:
-                                FontWeight.bold,
-                                color: AppColors
-                                    .textPrimary,
-                              ),
+                  ),
+                  Padding(
+                    padding:
+                    const EdgeInsets
+                        .symmetric(
+                      horizontal: 20,
+                      vertical: 12,
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            title,
+                            style:
+                            const TextStyle(
+                              fontSize: 17,
+                              fontWeight:
+                              FontWeight
+                                  .bold,
+                              color: AppColors
+                                  .textPrimary,
                             ),
                           ),
-                          IconButton(
+                        ),
+                        if (selected !=
+                            'All')
+                          TextButton(
                             onPressed: () {
+                              onSelected(
+                                'All',
+                              );
+
                               Navigator.pop(
-                                sheetContext,
+                                context,
                               );
                             },
-                            icon: const Icon(
-                              Icons.close_rounded,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const Divider(height: 1),
-
-                    Flexible(
-                      child: SingleChildScrollView(
-                        padding:
-                        const EdgeInsets.fromLTRB(
-                          20,
-                          18,
-                          20,
-                          20,
-                        ),
-                        child: Column(
-                          crossAxisAlignment:
-                          CrossAxisAlignment
-                              .start,
-                          children: [
-                            // -------------------------------------------------
-                            // DISTANCE RADIUS
-                            // -------------------------------------------------
-
-                            if (_showDistanceSlider) ...[
-                              Row(
-                                children: [
-                                  const Expanded(
-                                    child: Text(
-                                      'Distance Radius',
-                                      style: TextStyle(
-                                        fontSize: 15,
-                                        fontWeight:
-                                        FontWeight
-                                            .w700,
-                                        color: AppColors
-                                            .textPrimary,
-                                      ),
-                                    ),
-                                  ),
-                                  Container(
-                                    padding:
-                                    const EdgeInsets
-                                        .symmetric(
-                                      horizontal: 10,
-                                      vertical: 5,
-                                    ),
-                                    decoration:
-                                    BoxDecoration(
-                                      color: AppColors
-                                          .lightFill,
-                                      borderRadius:
-                                      BorderRadius
-                                          .circular(
-                                        8,
-                                      ),
-                                    ),
-                                    child: Text(
-                                      '${temporaryDistance.toInt()} km',
-                                      style:
-                                      const TextStyle(
-                                        color: AppColors
-                                            .primary,
-                                        fontSize: 13,
-                                        fontWeight:
-                                        FontWeight
-                                            .bold,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              SliderTheme(
-                                data:
-                                SliderTheme.of(
-                                  context,
-                                ).copyWith(
-                                  activeTrackColor:
-                                  AppColors.primary,
-                                  inactiveTrackColor:
-                                  const Color(
-                                    0xFFD1D5DB,
-                                  ),
-                                  thumbColor:
-                                  AppColors.primary,
-                                  overlayColor:
-                                  AppColors.primary
-                                      .withOpacity(
-                                    0.10,
-                                  ),
-                                  trackHeight: 5,
-                                  thumbShape:
-                                  const RoundSliderThumbShape(
-                                    enabledThumbRadius:
-                                    9,
-                                  ),
-                                  overlayShape:
-                                  const RoundSliderOverlayShape(
-                                    overlayRadius: 16,
-                                  ),
-                                  trackShape:
-                                  const RoundedRectSliderTrackShape(),
-                                ),
-                                child: Slider(
-                                  value:
-                                  temporaryDistance,
-                                  min: 1,
-                                  max: 50,
-                                  divisions: 49,
-                                  onChanged: (value) {
-                                    setSheetState(() {
-                                      temporaryDistance =
-                                          value;
-                                    });
-                                  },
-                                ),
-                              ),
-                              const SizedBox(
-                                height: 20,
-                              ),
-                              const Divider(height: 1),
-                              const SizedBox(
-                                height: 20,
-                              ),
-                            ],
-
-                            // -------------------------------------------------
-                            // CONNECTOR TYPE
-                            // -------------------------------------------------
-
+                            child:
                             const Text(
-                              'Connector Type',
-                              style: TextStyle(
-                                fontSize: 15,
-                                fontWeight:
-                                FontWeight.w700,
-                                color: AppColors
-                                    .textPrimary,
+                              'Clear',
+                              style:
+                              TextStyle(
+                                color:
+                                AppColors
+                                    .primary,
                               ),
                             ),
-
-                            const SizedBox(height: 12),
-
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children:
-                              _connectorTypes.map(
-                                    (connector) {
-                                  final bool
-                                  isSelected =
-                                      temporaryConnector ==
-                                          connector;
-
-                                  return _buildFilterChoice(
-                                    label: connector,
-                                    isSelected:
-                                    isSelected,
-                                    onTap: () {
-                                      setSheetState(() {
-                                        temporaryConnector =
-                                            connector;
-                                      });
-                                    },
-                                  );
-                                },
-                              ).toList(),
-                            ),
-
-                            const SizedBox(
-                              height: 20,
-                            ),
-
-                            const Divider(height: 1),
-
-                            const SizedBox(
-                              height: 20,
-                            ),
-
-                            // -------------------------------------------------
-                            // CHARGING TYPE
-                            // -------------------------------------------------
-
-                            const Text(
-                              'Charging Type',
-                              style: TextStyle(
-                                fontSize: 15,
-                                fontWeight:
-                                FontWeight.w700,
-                                color: AppColors
-                                    .textPrimary,
-                              ),
-                            ),
-
-                            const SizedBox(height: 12),
-
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children:
-                              _chargingTypes.map(
-                                    (chargingType) {
-                                  final bool
-                                  isSelected =
-                                      temporaryCharging ==
-                                          chargingType;
-
-                                  return _buildFilterChoice(
-                                    label:
-                                    chargingType ==
-                                        'All'
-                                        ? 'All'
-                                        : '$chargingType Charging',
-                                    isSelected:
-                                    isSelected,
-                                    onTap: () {
-                                      setSheetState(() {
-                                        temporaryCharging =
-                                            chargingType;
-                                      });
-                                    },
-                                  );
-                                },
-                              ).toList(),
-                            ),
-                          ],
-                        ),
-                      ),
+                          ),
+                      ],
                     ),
-
-                    // ---------------------------------------------------------
-                    // CLEAR / APPLY BUTTONS
-                    // ---------------------------------------------------------
-
-                    Container(
-                      padding:
-                      const EdgeInsets.fromLTRB(
-                        20,
-                        12,
-                        20,
-                        16,
-                      ),
-                      decoration: const BoxDecoration(
-                        color: AppColors.white,
-                        border: Border(
-                          top: BorderSide(
-                            color: Color(
-                              0xFFE5E7EB,
-                            ),
-                          ),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: SizedBox(
-                              height: 48,
-                              child: OutlinedButton(
-                                onPressed: () {
-                                  setSheetState(() {
-                                    temporaryDistance =
-                                    5.0;
-
-                                    temporaryConnector =
-                                    'All';
-
-                                    temporaryCharging =
-                                    'All';
-                                  });
-                                },
-                                style:
-                                OutlinedButton
-                                    .styleFrom(
-                                  foregroundColor:
-                                  AppColors.primary,
-                                  side:
-                                  const BorderSide(
-                                    color:
-                                    AppColors.primary,
-                                  ),
-                                  shape:
-                                  RoundedRectangleBorder(
-                                    borderRadius:
-                                    BorderRadius
-                                        .circular(
-                                      12,
-                                    ),
-                                  ),
-                                ),
-                                child: const Text(
-                                  'Clear',
-                                  style: TextStyle(
-                                    fontWeight:
-                                    FontWeight.w700,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: SizedBox(
-                              height: 48,
-                              child: ElevatedButton(
-                                onPressed: () {
-                                  setState(() {
-                                    _distanceValue =
-                                        temporaryDistance;
-
-                                    _selectedConnectorType =
-                                        temporaryConnector;
-
-                                    _selectedChargingType =
-                                        temporaryCharging;
-                                  });
-
-                                  Navigator.pop(
-                                    sheetContext,
-                                  );
-                                },
-                                style:
-                                ElevatedButton
-                                    .styleFrom(
-                                  elevation: 0,
-                                  backgroundColor:
-                                  AppColors.primary,
-                                  foregroundColor:
-                                  Colors.white,
-                                  shape:
-                                  RoundedRectangleBorder(
-                                    borderRadius:
-                                    BorderRadius
-                                        .circular(
-                                      12,
-                                    ),
-                                  ),
-                                ),
-                                child: const Text(
-                                  'Apply',
-                                  style: TextStyle(
-                                    fontWeight:
-                                    FontWeight.w700,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+                  ),
+                  const Divider(
+                    height: 1,
+                  ),
+                  ConstrainedBox(
+                    constraints:
+                    BoxConstraints(
+                      maxHeight:
+                      MediaQuery.of(
+                        context,
+                      )
+                          .size
+                          .height *
+                          0.45 -
+                          MediaQuery.of(
+                            context,
+                          )
+                              .viewPadding
+                              .bottom -
+                          21,
                     ),
-                  ],
-                ),
+                    child:
+                    ListView.builder(
+                      shrinkWrap: true,
+                      physics:
+                      const BouncingScrollPhysics(),
+                      itemCount:
+                      options.length,
+                      itemBuilder: (
+                          context,
+                          index,
+                          ) {
+                        final String option =
+                        options[index];
+
+                        final bool
+                        isSelected =
+                            selected ==
+                                option;
+
+                        return ListTile(
+                          title: Text(
+                            option,
+                            style:
+                            TextStyle(
+                              color: isSelected
+                                  ? AppColors
+                                  .primary
+                                  : AppColors
+                                  .textPrimary,
+                              fontWeight: isSelected
+                                  ? FontWeight
+                                  .w700
+                                  : FontWeight
+                                  .normal,
+                            ),
+                          ),
+                          trailing:
+                          isSelected
+                              ? const Icon(
+                            Icons
+                                .check_circle,
+                            color:
+                            AppColors
+                                .primary,
+                          )
+                              : const Icon(
+                            Icons
+                                .radio_button_unchecked,
+                            color:
+                            Colors
+                                .grey,
+                          ),
+                          onTap: () {
+                            onSelected(
+                              option,
+                            );
+
+                            Navigator.pop(
+                              context,
+                            );
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(
+                    height: 20,
+                  ),
+                ],
               ),
             );
           },
@@ -1299,118 +887,91 @@ class _FindStationsState extends State<FindStations> {
     );
   }
 
-  Widget _buildFilterChoice({
-    required String label,
-    required bool isSelected,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: AnimatedContainer(
-        duration:
-        const Duration(milliseconds: 150),
-        padding:
-        const EdgeInsets.symmetric(
-          horizontal: 14,
-          vertical: 9,
-        ),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? AppColors.primary
-              : AppColors.background,
-          borderRadius:
-          BorderRadius.circular(20),
-          border: Border.all(
-            color: isSelected
-                ? AppColors.primary
-                : const Color(
-              0xFFE5E7EB,
-            ),
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: isSelected
-                ? Colors.white
-                : AppColors.textPrimary,
-            fontSize: 13,
-            fontWeight: isSelected
-                ? FontWeight.w700
-                : FontWeight.w500,
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ---------------------------------------------------------------------------
+  // ===========================================================================
   // RESPONSIVE BUILD
-  // ---------------------------------------------------------------------------
+  // ===========================================================================
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (
-          context,
-          constraints,
-          ) {
-        final bool useWideLayout =
-            constraints.maxWidth >= 700;
+    final Size screenSize =
+    MediaQuery.sizeOf(context);
 
-        if (useWideLayout) {
-          return _buildWideLayout();
-        }
+    // Using shortestSide prevents a landscape phone
+    // from being incorrectly treated as a tablet.
+    final bool useWideLayout =
+        screenSize.shortestSide >= 600;
 
-        return _buildMobileLayout();
-      },
-    );
+    if (useWideLayout) {
+      return _buildWideLayout();
+    }
+
+    return _buildMobileLayout();
   }
 
-  // ---------------------------------------------------------------------------
+  // ===========================================================================
   // MOBILE
-  // ---------------------------------------------------------------------------
+  // ===========================================================================
 
   Widget _buildMobileLayout() {
+    final bool isLandscape =
+        MediaQuery.orientationOf(
+          context,
+        ) ==
+            Orientation.landscape;
+
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor:
+      AppColors.background,
       body: SafeArea(
         bottom: false,
-        child: Column(
-          children: [
-            _buildMobileHeader(),
-
-            Expanded(
-              child: Column(
-                children: [
-                  // Compact mobile controls.
-                  Padding(
-                    padding:
-                    const EdgeInsets.fromLTRB(
-                      AppSpacing.lg,
-                      AppSpacing.md,
-                      AppSpacing.lg,
-                      0,
-                    ),
-                    child:
-                    _buildMobileControls(),
-                  ),
-
-                  const SizedBox(
-                    height: AppSpacing.xs,
-                  ),
-
-                  Expanded(
-                    child: _buildStationResults(
-                      useGrid: false,
-                      horizontalPadding:
-                      AppSpacing.lg,
-                      bottomPadding: 100,
-                    ),
-                  ),
-                ],
+        child: CustomScrollView(
+          physics:
+          const BouncingScrollPhysics(
+            parent:
+            AlwaysScrollableScrollPhysics(),
+          ),
+          slivers: [
+            SliverToBoxAdapter(
+              child: _buildMobileHeader(
+                compact: isLandscape,
               ),
+            ),
+
+            SliverPadding(
+              padding: EdgeInsets.fromLTRB(
+                AppSpacing.md,
+                isLandscape ? 6 : AppSpacing.sm,
+                AppSpacing.md,
+                0,
+              ),
+              sliver:
+              SliverToBoxAdapter(
+                child: AppCard(
+                  padding: EdgeInsets.all(
+                    isLandscape ? 8 : 10,
+                  ),
+                  child:
+                  _buildControlsPanel(
+                    horizontalPadding: 0,
+                    isWideLayout: false,
+                    compactMobile:
+                    isLandscape,
+                  ),
+                ),
+              ),
+            ),
+
+            SliverToBoxAdapter(
+              child: SizedBox(
+                height: isLandscape ? 4 : 6,
+              ),
+            ),
+
+            _buildMobileStationResultsSliver(
+              bottomPadding:
+              isLandscape
+                  ? 80
+                  : 110,
             ),
           ],
         ),
@@ -1418,150 +979,14 @@ class _FindStationsState extends State<FindStations> {
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // MOBILE CONTROLS
-  // ---------------------------------------------------------------------------
-
-  Widget _buildMobileControls() {
-    return Column(
-      crossAxisAlignment:
-      CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            // Nearby / All Stations stays visible on mobile.
-            Expanded(
-              child: Container(
-                padding:
-                const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: AppColors.white,
-                  borderRadius:
-                  BorderRadius.circular(12),
-                  border: Border.all(
-                    color:
-                    const Color(0xFFE5E7EB),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: _buildToggleButton(
-                        'Nearby',
-                        _isNearbySelected,
-                      ),
-                    ),
-                    Expanded(
-                      child: _buildToggleButton(
-                        'All Stations',
-                        !_isNearbySelected,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            const SizedBox(width: 10),
-
-            // Mobile filter button.
-            _buildMobileFilterButton(),
-          ],
-        ),
-
-        // Keep location information below the toggle,
-        // but without the large filters that previously consumed space.
-        _buildLocationStatus(),
-      ],
-    );
-  }
-
-  Widget _buildMobileFilterButton() {
-    final bool hasActiveFilters =
-        _activeFilterCount > 0;
-
-    return Material(
-      color: hasActiveFilters
-          ? AppColors.primary
-          : AppColors.white,
-      borderRadius:
-      BorderRadius.circular(12),
-      child: InkWell(
-        onTap: _showMobileFiltersSheet,
-        borderRadius:
-        BorderRadius.circular(12),
-        child: Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            borderRadius:
-            BorderRadius.circular(12),
-            border: Border.all(
-              color: hasActiveFilters
-                  ? AppColors.primary
-                  : const Color(
-                0xFFE5E7EB,
-              ),
-            ),
-          ),
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Center(
-                child: Icon(
-                  Icons.tune_rounded,
-                  color: hasActiveFilters
-                      ? Colors.white
-                      : AppColors.primary,
-                  size: 22,
-                ),
-              ),
-
-              if (hasActiveFilters)
-                Positioned(
-                  top: -5,
-                  right: -5,
-                  child: Container(
-                    width: 20,
-                    height: 20,
-                    decoration: BoxDecoration(
-                      color: AppColors.white,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color:
-                        AppColors.primary,
-                        width: 1.5,
-                      ),
-                    ),
-                    alignment:
-                    Alignment.center,
-                    child: Text(
-                      '$_activeFilterCount',
-                      style:
-                      const TextStyle(
-                        color:
-                        AppColors.primary,
-                        fontSize: 10,
-                        fontWeight:
-                        FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ---------------------------------------------------------------------------
+  // ===========================================================================
   // TABLET / CAR
-  // ---------------------------------------------------------------------------
+  // ===========================================================================
 
   Widget _buildWideLayout() {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor:
+      AppColors.background,
       body: SafeArea(
         child: Row(
           children: [
@@ -1572,9 +997,8 @@ class _FindStationsState extends State<FindStations> {
                 color: AppColors.white,
                 border: Border(
                   right: BorderSide(
-                    color: Color(
-                      0xFFE5E7EB,
-                    ),
+                    color:
+                    Color(0xFFE5E7EB),
                   ),
                 ),
               ),
@@ -1585,8 +1009,11 @@ class _FindStationsState extends State<FindStations> {
                   Expanded(
                     child:
                     SingleChildScrollView(
+                      physics:
+                      const BouncingScrollPhysics(),
                       padding:
-                      const EdgeInsets.only(
+                      const EdgeInsets
+                          .only(
                         bottom:
                         AppSpacing.xxl,
                       ),
@@ -1626,21 +1053,23 @@ class _FindStationsState extends State<FindStations> {
     );
   }
 
-  // ---------------------------------------------------------------------------
+  // ===========================================================================
   // HEADERS
-  // ---------------------------------------------------------------------------
+  // ===========================================================================
 
-  Widget _buildMobileHeader() {
+  Widget _buildMobileHeader({
+    bool compact = false,
+  }) {
     return Container(
       width: double.infinity,
-      padding:
-      const EdgeInsets.fromLTRB(
+      padding: EdgeInsets.fromLTRB(
         AppSpacing.lg,
+        compact ? 6 : AppSpacing.md,
         AppSpacing.lg,
-        AppSpacing.lg,
-        AppSpacing.lg,
+        compact ? AppSpacing.sm : AppSpacing.md,
       ),
-      decoration: const BoxDecoration(
+      decoration:
+      const BoxDecoration(
         gradient:
         AppColors.primaryGradient,
       ),
@@ -1650,90 +1079,51 @@ class _FindStationsState extends State<FindStations> {
         children: [
           Row(
             children: [
-              const Icon(
+              Icon(
                 Icons.ev_station_rounded,
                 color: Colors.white,
-                size: 28,
+                size: compact ? 22 : 28,
               ),
-
               const SizedBox(
                 width: AppSpacing.sm,
               ),
-
-              const Expanded(
+              Expanded(
                 child: Text(
                   'Find Stations',
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 22,
+                    fontSize:
+                    compact ? 18 : 22,
                     fontWeight:
                     FontWeight.bold,
-                  ),
-                ),
-              ),
-
-              Material(
-                color: Colors.white
-                    .withOpacity(0.16),
-                borderRadius:
-                BorderRadius.circular(12),
-                child: InkWell(
-                  onTap: _isLoadingLocation
-                      ? null
-                      : _useCurrentLocation,
-                  borderRadius:
-                  BorderRadius.circular(12),
-                  child: SizedBox(
-                    width: 40,
-                    height: 40,
-                    child: Center(
-                      child: _isLoadingLocation
-                          ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child:
-                        CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color:
-                          Colors.white,
-                        ),
-                      )
-                          : const Icon(
-                        Icons
-                            .my_location_rounded,
-                        color:
-                        Colors.white,
-                        size: 20,
-                      ),
-                    ),
                   ),
                 ),
               ),
             ],
           ),
 
-          const SizedBox(
-            height: AppSpacing.xs,
-          ),
-
-          Text(
-            'Search and filter available charging stations.',
-            style: TextStyle(
-              color: Colors.white
-                  .withOpacity(0.78),
-              fontSize: 12,
-              height: 1.3,
+          if (!compact) ...[
+            const SizedBox(height: 4),
+            Text(
+              'Search and filter available charging stations.',
+              style: TextStyle(
+                color: Colors.white
+                    .withValues(
+                  alpha: 0.78,
+                ),
+                fontSize: 13,
+                height: 1.4,
+              ),
             ),
+          ],
+
+          SizedBox(
+            height: compact ? 6 : AppSpacing.sm,
           ),
 
-          const SizedBox(
-            height: AppSpacing.md,
-          ),
-
-          // Compact search bar used only on mobile.
           _buildSearchBar(
             useDarkBackground: true,
-            compact: true,
+            compact: compact,
           ),
         ],
       ),
@@ -1750,7 +1140,8 @@ class _FindStationsState extends State<FindStations> {
         AppSpacing.xxl,
         AppSpacing.xl,
       ),
-      decoration: const BoxDecoration(
+      decoration:
+      const BoxDecoration(
         gradient:
         AppColors.primaryGradient,
       ),
@@ -1765,11 +1156,9 @@ class _FindStationsState extends State<FindStations> {
                 color: Colors.white,
                 size: 30,
               ),
-
               SizedBox(
                 width: AppSpacing.sm,
               ),
-
               Expanded(
                 child: Text(
                   'Find Stations',
@@ -1783,25 +1172,23 @@ class _FindStationsState extends State<FindStations> {
               ),
             ],
           ),
-
           const SizedBox(
             height: AppSpacing.sm,
           ),
-
           Text(
             'Search and filter available charging stations.',
             style: TextStyle(
               color: Colors.white
-                  .withOpacity(0.78),
+                  .withValues(
+                alpha: 0.78,
+              ),
               fontSize: 13,
               height: 1.4,
             ),
           ),
-
           const SizedBox(
             height: AppSpacing.lg,
           ),
-
           _buildSearchBar(
             useDarkBackground: true,
           ),
@@ -1824,7 +1211,8 @@ class _FindStationsState extends State<FindStations> {
           const Expanded(
             child: Column(
               crossAxisAlignment:
-              CrossAxisAlignment.start,
+              CrossAxisAlignment
+                  .start,
               children: [
                 Text(
                   'Available Stations',
@@ -1832,13 +1220,13 @@ class _FindStationsState extends State<FindStations> {
                     fontSize: 24,
                     fontWeight:
                     FontWeight.bold,
-                    color:
-                    AppColors.textPrimary,
+                    color: AppColors
+                        .textPrimary,
                   ),
                 ),
-
-                SizedBox(height: 4),
-
+                SizedBox(
+                  height: 4,
+                ),
                 Text(
                   'Select a station to book or begin route navigation.',
                   style: TextStyle(
@@ -1850,16 +1238,15 @@ class _FindStationsState extends State<FindStations> {
               ],
             ),
           ),
-
           IconButton(
             tooltip:
-            'Use current location',
-            onPressed: _isLoadingLocation
-                ? null
-                : _useCurrentLocation,
+            'Refresh location',
+            onPressed:
+            _getUserLocation,
             icon: const Icon(
               Icons.my_location_rounded,
-              color: AppColors.primary,
+              color:
+              AppColors.primary,
             ),
           ),
         ],
@@ -1867,37 +1254,34 @@ class _FindStationsState extends State<FindStations> {
     );
   }
 
-  // ---------------------------------------------------------------------------
+  // ===========================================================================
   // SEARCH BAR
-  // ---------------------------------------------------------------------------
+  // ===========================================================================
 
   Widget _buildSearchBar({
     bool useDarkBackground = false,
     bool compact = false,
   }) {
-    final double searchHeight =
-    compact
-        ? 40
-        : useDarkBackground
-        ? 48
-        : 44;
-
     return Container(
-      height: searchHeight,
-      padding:
-      EdgeInsets.symmetric(
-        horizontal: compact ? 12 : 14,
+      height: compact
+          ? 30
+          : useDarkBackground
+          ? 34
+          : 34,
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 8 : 10,
       ),
       decoration: BoxDecoration(
         color: AppColors.white,
-        borderRadius:
-        BorderRadius.circular(
-          compact ? 12 : 14,
+        borderRadius: BorderRadius.circular(
+          compact ? 7 : 8,
         ),
         border: Border.all(
           color: _isSearchActive
               ? AppColors.primary
-              .withOpacity(0.50)
+              .withValues(
+            alpha: 0.50,
+          )
               : const Color(
             0xFFE5E7EB,
           ),
@@ -1905,14 +1289,14 @@ class _FindStationsState extends State<FindStations> {
         boxShadow: [
           BoxShadow(
             color: Colors.black
-                .withOpacity(
-              useDarkBackground
+                .withValues(
+              alpha: useDarkBackground
                   ? 0.12
                   : 0.04,
             ),
-            blurRadius:
-            compact ? 6 : 10,
-            offset: const Offset(0, 4),
+            blurRadius: 10,
+            offset:
+            const Offset(0, 4),
           ),
         ],
       ),
@@ -1924,11 +1308,13 @@ class _FindStationsState extends State<FindStations> {
                 ? AppColors.primary
                 : AppColors
                 .textSecondary,
-            size: compact ? 18 : 20,
+            size: compact ? 16 : 18,
           ),
 
-          const SizedBox(
-            width: AppSpacing.sm,
+          SizedBox(
+            width: compact
+                ? 6
+                : AppSpacing.sm,
           ),
 
           Expanded(
@@ -1939,15 +1325,16 @@ class _FindStationsState extends State<FindStations> {
               _searchFocusNode,
               textInputAction:
               TextInputAction.search,
-              onSubmitted: _searchTown,
+              onSubmitted:
+              _searchTown,
               onChanged: (_) {
                 setState(() {});
               },
               style: TextStyle(
                 fontSize:
-                compact ? 13 : 14,
-                color:
-                AppColors.textPrimary,
+                compact ? 12 : 14,
+                color: AppColors
+                    .textPrimary,
               ),
               decoration:
               const InputDecoration(
@@ -1965,8 +1352,8 @@ class _FindStationsState extends State<FindStations> {
 
           if (_isSearching)
             SizedBox(
-              width: compact ? 16 : 18,
-              height: compact ? 16 : 18,
+              width: compact ? 15 : 18,
+              height: compact ? 15 : 18,
               child:
               const CircularProgressIndicator(
                 strokeWidth: 2,
@@ -1986,7 +1373,9 @@ class _FindStationsState extends State<FindStations> {
               ),
             ),
 
-            const SizedBox(width: 8),
+            SizedBox(
+              width: compact ? 4 : 6,
+            ),
 
             GestureDetector(
               onTap: () {
@@ -1999,7 +1388,7 @@ class _FindStationsState extends State<FindStations> {
                     .arrow_circle_right_rounded,
                 color:
                 AppColors.primary,
-                size: compact ? 23 : 26,
+                size: compact ? 22 : 26,
               ),
             ),
           ],
@@ -2008,13 +1397,14 @@ class _FindStationsState extends State<FindStations> {
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // WIDE CONTROLS
-  // ---------------------------------------------------------------------------
+  // ===========================================================================
+  // CONTROLS
+  // ===========================================================================
 
   Widget _buildControlsPanel({
     required double horizontalPadding,
     required bool isWideLayout,
+    bool compactMobile = false,
   }) {
     return Padding(
       padding: EdgeInsets.fromLTRB(
@@ -2045,46 +1435,85 @@ class _FindStationsState extends State<FindStations> {
             ),
           ],
 
-          Container(
-            padding:
-            const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              color:
-              AppColors.background,
-              borderRadius:
-              BorderRadius.circular(12),
-              border: Border.all(
-                color:
-                const Color(0xFFE5E7EB),
-              ),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child:
-                  _buildToggleButton(
-                    'Nearby',
-                    _isNearbySelected,
+          Row(
+            children: [
+              Expanded(
+                child: Container(
+                  padding: EdgeInsets.all(
+                    compactMobile ? 2 : 3,
+                  ),
+                  decoration:
+                  BoxDecoration(
+                    color: AppColors
+                        .background,
+                    borderRadius:
+                    BorderRadius.circular(
+                      12,
+                    ),
+                    border: Border.all(
+                      color: const Color(
+                        0xFFE5E7EB,
+                      ),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child:
+                        _buildToggleButton(
+                          'Nearby',
+                          _isNearbySelected,
+                          compact:
+                          compactMobile,
+                        ),
+                      ),
+                      Expanded(
+                        child:
+                        _buildToggleButton(
+                          'All Stations',
+                          !_isNearbySelected,
+                          compact:
+                          compactMobile,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                Expanded(
-                  child:
-                  _buildToggleButton(
-                    'All Stations',
-                    !_isNearbySelected,
-                  ),
+              ),
+
+              if (!isWideLayout) ...[
+                SizedBox(
+                  width: compactMobile
+                      ? 6
+                      : AppSpacing.sm,
+                ),
+                _buildMobileFilterButton(
+                  compact:
+                  compactMobile,
                 ),
               ],
-            ),
+            ],
           ),
 
-          _buildLocationStatus(),
+          if (_showDistanceSlider) ...[
+            SizedBox(
+              height: compactMobile ? 4 : 6,
+            ),
+            _buildDistanceRadiusControl(
+              compact:
+              compactMobile,
+            ),
+          ],
 
-          const SizedBox(
-            height: AppSpacing.lg,
+          _buildLocationStatus(
+            compact:
+            compactMobile,
           ),
 
           if (isWideLayout) ...[
+            const SizedBox(
+              height: AppSpacing.lg,
+            ),
             const Text(
               'Filters',
               style: TextStyle(
@@ -2098,71 +1527,74 @@ class _FindStationsState extends State<FindStations> {
             const SizedBox(
               height: AppSpacing.sm,
             ),
+
+            _buildFilterDropdown(
+              label:
+              _selectedConnectorType ==
+                  'All'
+                  ? 'Connector Type'
+                  : _selectedConnectorType,
+              isActive:
+              _selectedConnectorType !=
+                  'All',
+              onTap: () {
+                _showFilterSheet(
+                  'Connector Type',
+                  _connectorTypes,
+                  _selectedConnectorType,
+                      (value) {
+                    setState(() {
+                      _selectedConnectorType =
+                          value;
+                    });
+                  },
+                );
+              },
+            ),
+
+            const SizedBox(
+              height: AppSpacing.md,
+            ),
+
+            _buildFilterDropdown(
+              label:
+              _selectedChargingType ==
+                  'All'
+                  ? 'Charging Type'
+                  : '$_selectedChargingType Charging',
+              isActive:
+              _selectedChargingType !=
+                  'All',
+              onTap: () {
+                _showFilterSheet(
+                  'Charging Type',
+                  _chargingTypes,
+                  _selectedChargingType,
+                      (value) {
+                    setState(() {
+                      _selectedChargingType =
+                          value;
+                    });
+                  },
+                );
+              },
+            ),
           ],
-
-          _buildFilterDropdown(
-            label:
-            _selectedConnectorType ==
-                'All'
-                ? 'Connector Type'
-                : _selectedConnectorType,
-            isActive:
-            _selectedConnectorType !=
-                'All',
-            onTap: () {
-              _showFilterSheet(
-                'Connector Type',
-                _connectorTypes,
-                _selectedConnectorType,
-                    (value) {
-                  setState(() {
-                    _selectedConnectorType =
-                        value;
-                  });
-                },
-              );
-            },
-          ),
-
-          const SizedBox(
-            height: AppSpacing.md,
-          ),
-
-          _buildFilterDropdown(
-            label:
-            _selectedChargingType ==
-                'All'
-                ? 'Charging Type'
-                : '$_selectedChargingType Charging',
-            isActive:
-            _selectedChargingType !=
-                'All',
-            onTap: () {
-              _showFilterSheet(
-                'Charging Type',
-                _chargingTypes,
-                _selectedChargingType,
-                    (value) {
-                  setState(() {
-                    _selectedChargingType =
-                        value;
-                  });
-                },
-              );
-            },
-          ),
 
           if (_selectedConnectorType !=
               'All' ||
               _selectedChargingType !=
                   'All') ...[
-            const SizedBox(
-              height: AppSpacing.sm,
+            SizedBox(
+              height: compactMobile
+                  ? 6
+                  : AppSpacing.sm,
             ),
 
             Wrap(
               spacing: AppSpacing.sm,
-              runSpacing: AppSpacing.sm,
+              runSpacing:
+              AppSpacing.sm,
               children: [
                 if (_selectedConnectorType !=
                     'All')
@@ -2191,146 +1623,622 @@ class _FindStationsState extends State<FindStations> {
             ),
           ],
 
-          if (_showDistanceSlider) ...[
-            const SizedBox(
-              height: AppSpacing.lg,
-            ),
-
-            Row(
-              mainAxisAlignment:
-              MainAxisAlignment
-                  .spaceBetween,
-              children: [
-                const Text(
-                  'Distance Radius',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight:
-                    FontWeight.w700,
-                    color:
-                    AppColors.textPrimary,
-                  ),
-                ),
-
-                Container(
-                  padding:
-                  const EdgeInsets
-                      .symmetric(
-                    horizontal: 12,
-                    vertical: 4,
-                  ),
-                  decoration:
-                  BoxDecoration(
-                    color:
-                    AppColors.lightFill,
-                    borderRadius:
-                    BorderRadius.circular(
-                      8,
-                    ),
-                  ),
-                  child: Text(
-                    '${_distanceValue.toInt()} km',
-                    style:
-                    const TextStyle(
-                      fontSize: 13,
-                      fontWeight:
-                      FontWeight.bold,
-                      color:
-                      AppColors.primary,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 4),
-
-            SizedBox(
-              height: 36,
-              child: SliderTheme(
-                data:
-                SliderTheme.of(context)
-                    .copyWith(
-                  activeTrackColor:
-                  AppColors.primary,
-                  inactiveTrackColor:
-                  const Color(
-                    0xFFD1D5DB,
-                  ),
-                  thumbColor:
-                  AppColors.primary,
-                  overlayColor:
-                  AppColors.primary
-                      .withOpacity(0.10),
-                  trackHeight: 5,
-                  thumbShape:
-                  const RoundSliderThumbShape(
-                    enabledThumbRadius: 9,
-                  ),
-                  overlayShape:
-                  const RoundSliderOverlayShape(
-                    overlayRadius: 16,
-                  ),
-                  trackShape:
-                  const RoundedRectSliderTrackShape(),
-                ),
-                child: Slider(
-                  value:
-                  _distanceValue,
-                  min: 1,
-                  max: 50,
-                  divisions: 49,
-                  onChanged: (value) {
-                    setState(() {
-                      _distanceValue =
-                          value;
-                    });
-                  },
-                ),
-              ),
-            ),
-          ],
-
-          const SizedBox(
-            height: AppSpacing.sm,
+          SizedBox(
+            height: compactMobile ? 2 : 4,
           ),
         ],
       ),
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // LOCATION STATUS
-  // ---------------------------------------------------------------------------
+  // ===========================================================================
+  // MOBILE FILTER BUTTON
+  // ===========================================================================
 
-  Widget _buildLocationStatus() {
-    if (_searchedTownPosition != null) {
+  Widget _buildMobileFilterButton({
+    bool compact = false,
+  }) {
+    final bool hasActiveFilter =
+        _selectedConnectorType != 'All' ||
+            _selectedChargingType != 'All';
+
+    final double buttonSize =
+    compact ? 34 : 40;
+
+    return Material(
+      color: AppColors.white,
+      borderRadius:
+      BorderRadius.circular(12),
+      child: InkWell(
+        onTap:
+        _showMobileFilters,
+        borderRadius:
+        BorderRadius.circular(12),
+        child: Container(
+          width: buttonSize,
+          height: buttonSize,
+          decoration:
+          BoxDecoration(
+            color: hasActiveFilter
+                ? AppColors.lightFill
+                : AppColors.white,
+            borderRadius:
+            BorderRadius.circular(
+              12,
+            ),
+            border: Border.all(
+              color: hasActiveFilter
+                  ? AppColors.primary
+                  .withValues(
+                alpha: 0.35,
+              )
+                  : const Color(
+                0xFFE5E7EB,
+              ),
+            ),
+          ),
+          child: Stack(
+            alignment:
+            Alignment.center,
+            children: [
+              Icon(
+                Icons.tune_rounded,
+                color: hasActiveFilter
+                    ? AppColors.primary
+                    : AppColors
+                    .textSecondary,
+                size:
+                compact ? 19 : 22,
+              ),
+
+              if (hasActiveFilter)
+                Positioned(
+                  top: compact ? 6 : 8,
+                  right: compact ? 6 : 8,
+                  child: Container(
+                    width: 7,
+                    height: 7,
+                    decoration:
+                    const BoxDecoration(
+                      color:
+                      AppColors.primary,
+                      shape:
+                      BoxShape.circle,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ===========================================================================
+  // MOBILE FILTER SHEET
+  // ===========================================================================
+
+  void _showMobileFilters() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor:
+      AppColors.white,
+      shape:
+      const RoundedRectangleBorder(
+        borderRadius:
+        BorderRadius.vertical(
+          top: Radius.circular(24),
+        ),
+      ),
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (
+              context,
+              setSheetState,
+              ) {
+            void updateSheet(
+                VoidCallback update,
+                ) {
+              setState(update);
+              setSheetState(() {});
+            }
+
+            final double maxHeight =
+                MediaQuery.of(context)
+                    .size
+                    .height *
+                    0.78;
+
+            return SafeArea(
+              top: false,
+              child: ConstrainedBox(
+                constraints:
+                BoxConstraints(
+                  maxHeight: maxHeight,
+                ),
+                child:
+                SingleChildScrollView(
+                  physics:
+                  const BouncingScrollPhysics(),
+                  padding:
+                  const EdgeInsets
+                      .fromLTRB(
+                    AppSpacing.xl,
+                    AppSpacing.md,
+                    AppSpacing.xl,
+                    AppSpacing.xxl,
+                  ),
+                  child: Column(
+                    crossAxisAlignment:
+                    CrossAxisAlignment
+                        .start,
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 40,
+                          height: 4,
+                          decoration:
+                          BoxDecoration(
+                            color:
+                            const Color(
+                              0xFFD1D5DB,
+                            ),
+                            borderRadius:
+                            BorderRadius
+                                .circular(
+                              2,
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(
+                        height:
+                        AppSpacing.lg,
+                      ),
+
+                      Row(
+                        children: [
+                          const Expanded(
+                            child: Text(
+                              'Filters',
+                              style:
+                              TextStyle(
+                                fontSize: 20,
+                                fontWeight:
+                                FontWeight
+                                    .bold,
+                                color: AppColors
+                                    .textPrimary,
+                              ),
+                            ),
+                          ),
+
+                          if (_selectedConnectorType !=
+                              'All' ||
+                              _selectedChargingType !=
+                                  'All')
+                            TextButton(
+                              onPressed: () {
+                                updateSheet(
+                                      () {
+                                    _selectedConnectorType =
+                                    'All';
+
+                                    _selectedChargingType =
+                                    'All';
+                                  },
+                                );
+                              },
+                              child:
+                              const Text(
+                                'Clear all',
+                                style:
+                                TextStyle(
+                                  color:
+                                  AppColors
+                                      .primary,
+                                  fontWeight:
+                                  FontWeight
+                                      .w700,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+
+                      const SizedBox(
+                        height:
+                        AppSpacing.xl,
+                      ),
+
+                      const Text(
+                        'Connector Type',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight:
+                          FontWeight.bold,
+                          color: AppColors
+                              .textPrimary,
+                        ),
+                      ),
+
+                      const SizedBox(
+                        height:
+                        AppSpacing.sm,
+                      ),
+
+                      Wrap(
+                        spacing:
+                        AppSpacing.sm,
+                        runSpacing:
+                        AppSpacing.sm,
+                        children:
+                        _connectorTypes
+                            .map(
+                              (option) {
+                            final bool selected =
+                                _selectedConnectorType ==
+                                    option;
+
+                            return ChoiceChip(
+                              label:
+                              Text(option),
+                              selected:
+                              selected,
+                              showCheckmark:
+                              false,
+                              selectedColor:
+                              AppColors
+                                  .lightFill,
+                              backgroundColor:
+                              AppColors
+                                  .background,
+                              side:
+                              BorderSide(
+                                color: selected
+                                    ? AppColors
+                                    .primary
+                                    .withValues(
+                                  alpha:
+                                  0.45,
+                                )
+                                    : const Color(
+                                  0xFFE5E7EB,
+                                ),
+                              ),
+                              labelStyle:
+                              TextStyle(
+                                color: selected
+                                    ? AppColors
+                                    .primary
+                                    : AppColors
+                                    .textPrimary,
+                                fontWeight: selected
+                                    ? FontWeight
+                                    .w700
+                                    : FontWeight
+                                    .w500,
+                              ),
+                              onSelected: (_) {
+                                updateSheet(
+                                      () {
+                                    _selectedConnectorType =
+                                        option;
+                                  },
+                                );
+                              },
+                            );
+                          },
+                        ).toList(),
+                      ),
+
+                      const SizedBox(
+                        height:
+                        AppSpacing.xl,
+                      ),
+
+                      const Text(
+                        'Charging Type',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight:
+                          FontWeight.bold,
+                          color: AppColors
+                              .textPrimary,
+                        ),
+                      ),
+
+                      const SizedBox(
+                        height:
+                        AppSpacing.sm,
+                      ),
+
+                      Wrap(
+                        spacing:
+                        AppSpacing.sm,
+                        runSpacing:
+                        AppSpacing.sm,
+                        children:
+                        _chargingTypes
+                            .map(
+                              (option) {
+                            final bool selected =
+                                _selectedChargingType ==
+                                    option;
+
+                            return ChoiceChip(
+                              label: Text(
+                                option == 'All'
+                                    ? 'All'
+                                    : '$option Charging',
+                              ),
+                              selected:
+                              selected,
+                              showCheckmark:
+                              false,
+                              selectedColor:
+                              AppColors
+                                  .lightFill,
+                              backgroundColor:
+                              AppColors
+                                  .background,
+                              side:
+                              BorderSide(
+                                color: selected
+                                    ? AppColors
+                                    .primary
+                                    .withValues(
+                                  alpha:
+                                  0.45,
+                                )
+                                    : const Color(
+                                  0xFFE5E7EB,
+                                ),
+                              ),
+                              labelStyle:
+                              TextStyle(
+                                color: selected
+                                    ? AppColors
+                                    .primary
+                                    : AppColors
+                                    .textPrimary,
+                                fontWeight: selected
+                                    ? FontWeight
+                                    .w700
+                                    : FontWeight
+                                    .w500,
+                              ),
+                              onSelected: (_) {
+                                updateSheet(
+                                      () {
+                                    _selectedChargingType =
+                                        option;
+                                  },
+                                );
+                              },
+                            );
+                          },
+                        ).toList(),
+                      ),
+
+                      const SizedBox(
+                        height:
+                        AppSpacing.xxl,
+                      ),
+
+                      SizedBox(
+                        width:
+                        double.infinity,
+                        height: 48,
+                        child:
+                        ElevatedButton(
+                          onPressed: () {
+                            Navigator.pop(
+                              sheetContext,
+                            );
+                          },
+                          style:
+                          ElevatedButton
+                              .styleFrom(
+                            backgroundColor:
+                            AppColors
+                                .primary,
+                            foregroundColor:
+                            Colors.white,
+                            elevation: 0,
+                            shape:
+                            RoundedRectangleBorder(
+                              borderRadius:
+                              BorderRadius
+                                  .circular(
+                                14,
+                              ),
+                            ),
+                          ),
+                          child:
+                          const Text(
+                            'Apply Filters',
+                            style:
+                            TextStyle(
+                              fontWeight:
+                              FontWeight
+                                  .bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // ===========================================================================
+  // DISTANCE RADIUS
+  // ===========================================================================
+
+  Widget _buildDistanceRadiusControl({
+    bool compact = false,
+  }) {
+    return Column(
+      crossAxisAlignment:
+      CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(
+              Icons.radar_rounded,
+              color: AppColors.primary,
+              size: compact ? 15 : 17,
+            ),
+
+            const SizedBox(
+              width: 6,
+            ),
+
+            Expanded(
+              child: Text(
+                'Distance Radius',
+                style: TextStyle(
+                  fontSize:
+                  compact ? 11 : 13,
+                  fontWeight:
+                  FontWeight.w700,
+                  color:
+                  AppColors.textPrimary,
+                ),
+              ),
+            ),
+
+            Container(
+              padding:
+              EdgeInsets.symmetric(
+                horizontal:
+                compact ? 8 : 10,
+                vertical:
+                compact ? 2 : 4,
+              ),
+              decoration:
+              BoxDecoration(
+                color:
+                AppColors.lightFill,
+                borderRadius:
+                BorderRadius.circular(
+                  8,
+                ),
+              ),
+              child: Text(
+                '${_distanceValue.toInt()} km',
+                style: TextStyle(
+                  fontSize:
+                  compact ? 10 : 12,
+                  fontWeight:
+                  FontWeight.bold,
+                  color:
+                  AppColors.primary,
+                ),
+              ),
+            ),
+          ],
+        ),
+
+        SizedBox(
+          height: compact ? 18 : 22,
+          child: SliderTheme(
+            data:
+            SliderTheme.of(context)
+                .copyWith(
+              activeTrackColor:
+              AppColors.primary,
+              inactiveTrackColor:
+              const Color(
+                0xFFD1D5DB,
+              ),
+              thumbColor:
+              AppColors.primary,
+              overlayColor:
+              AppColors.primary
+                  .withValues(
+                alpha: 0.10,
+              ),
+              trackHeight:
+              compact ? 3 : 4,
+              thumbShape:
+              RoundSliderThumbShape(
+                enabledThumbRadius:
+                compact ? 6 : 8,
+              ),
+              overlayShape:
+              RoundSliderOverlayShape(
+                overlayRadius:
+                compact ? 11 : 14,
+              ),
+            ),
+            child: Slider(
+              value: _distanceValue,
+              min: 1,
+              max: 50,
+              onChanged: (value) {
+                setState(() {
+                  _distanceValue =
+                      value;
+                });
+              },
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ===========================================================================
+  // LOCATION STATUS
+  // ===========================================================================
+
+  Widget _buildLocationStatus({
+    bool compact = false,
+  }) {
+    if (_searchedTownPosition !=
+        null) {
       return Padding(
         padding:
-        const EdgeInsets.only(
-          top: AppSpacing.sm,
+        EdgeInsets.only(
+          top: compact
+              ? 4
+              : AppSpacing.sm,
         ),
         child: Row(
           children: [
-            const Icon(
+            Icon(
               Icons.place,
               color:
               AppColors.primary,
-              size: 16,
+              size: compact ? 14 : 16,
             ),
-            const SizedBox(width: 6),
+            const SizedBox(
+              width: 6,
+            ),
             Expanded(
               child: Text(
                 'Within ${_distanceValue.toInt()} km of '
                     '${_searchedTownName ?? 'searched area'}',
-                maxLines: 2,
+                maxLines:
+                compact ? 1 : 2,
                 overflow:
                 TextOverflow.ellipsis,
-                style:
-                const TextStyle(
+                style: TextStyle(
                   color:
                   AppColors.primary,
-                  fontSize: 12,
+                  fontSize:
+                  compact ? 10 : 12,
                   fontWeight:
                   FontWeight.w600,
                 ),
@@ -2346,29 +2254,36 @@ class _FindStationsState extends State<FindStations> {
     }
 
     if (_isLoadingLocation) {
-      return const Padding(
+      return Padding(
         padding: EdgeInsets.only(
-          top: AppSpacing.sm,
+          top: compact
+              ? 4
+              : AppSpacing.sm,
         ),
         child: Row(
           children: [
             SizedBox(
-              width: 14,
-              height: 14,
+              width:
+              compact ? 12 : 14,
+              height:
+              compact ? 12 : 14,
               child:
-              CircularProgressIndicator(
+              const CircularProgressIndicator(
                 strokeWidth: 2,
                 color:
                 AppColors.primary,
               ),
             ),
-            SizedBox(width: 8),
+            const SizedBox(
+              width: 8,
+            ),
             Text(
               'Getting your location...',
               style: TextStyle(
                 color: AppColors
                     .textSecondary,
-                fontSize: 12,
+                fontSize:
+                compact ? 10 : 12,
               ),
             ),
           ],
@@ -2379,69 +2294,96 @@ class _FindStationsState extends State<FindStations> {
     if (_currentUserPosition == null) {
       return Padding(
         padding:
-        const EdgeInsets.only(
-          top: AppSpacing.sm,
+        EdgeInsets.only(
+          top: compact
+              ? 4
+              : AppSpacing.sm,
         ),
         child: Row(
           children: [
-            const Icon(
+            Icon(
               Icons.location_off,
               color:
               AppColors.warning,
-              size: 16,
+              size: compact ? 14 : 16,
             ),
-            const SizedBox(width: 6),
-            const Expanded(
+            const SizedBox(
+              width: 6,
+            ),
+            Expanded(
               child: Text(
                 'Location unavailable — showing all stations.',
+                maxLines: 1,
+                overflow:
+                TextOverflow.ellipsis,
                 style: TextStyle(
                   color:
                   AppColors.warning,
-                  fontSize: 12,
+                  fontSize:
+                  compact ? 10 : 12,
                 ),
               ),
             ),
-            TextButton(
-              onPressed:
-              _getUserLocation,
-              child: const Text(
-                'Retry',
-                style: TextStyle(
+
+            if (!compact)
+              TextButton(
+                onPressed:
+                _getUserLocation,
+                child: const Text(
+                  'Retry',
+                  style: TextStyle(
+                    color:
+                    AppColors.primary,
+                    fontSize: 12,
+                    fontWeight:
+                    FontWeight.bold,
+                  ),
+                ),
+              )
+            else
+              GestureDetector(
+                onTap:
+                _getUserLocation,
+                child: const Icon(
+                  Icons.refresh_rounded,
                   color:
                   AppColors.primary,
-                  fontSize: 12,
-                  fontWeight:
-                  FontWeight.bold,
+                  size: 18,
                 ),
               ),
-            ),
           ],
         ),
       );
     }
 
     return Padding(
-      padding:
-      const EdgeInsets.only(
-        top: AppSpacing.sm,
+      padding: EdgeInsets.only(
+        top: compact
+            ? 4
+            : AppSpacing.sm,
       ),
       child: Row(
         children: [
-          const Icon(
+          Icon(
             Icons.location_on,
             color:
             AppColors.success,
-            size: 16,
+            size: compact ? 14 : 16,
           ),
-          const SizedBox(width: 6),
+          const SizedBox(
+            width: 6,
+          ),
           Expanded(
             child: Text(
               'Showing stations within ${_distanceValue.toInt()} km',
-              style:
-              const TextStyle(
+              maxLines: 1,
+              overflow:
+              TextOverflow.ellipsis,
+              style: TextStyle(
                 color:
                 AppColors.success,
-                fontSize: 12,
+                fontSize:
+                compact ? 10 : 12,
                 fontWeight:
                 FontWeight.w500,
               ),
@@ -2452,9 +2394,153 @@ class _FindStationsState extends State<FindStations> {
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // RESULTS
-  // ---------------------------------------------------------------------------
+  // ===========================================================================
+  // MOBILE STATION RESULTS
+  // ===========================================================================
+
+  Widget _buildMobileStationResultsSliver({
+    required double bottomPadding,
+  }) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: _stationsStream,
+      builder: (
+          context,
+          snapshot,
+          ) {
+        if (snapshot.connectionState ==
+            ConnectionState.waiting) {
+          return const SliverToBoxAdapter(
+            child: Padding(
+              padding:
+              EdgeInsets.symmetric(
+                vertical: 50,
+              ),
+              child: Center(
+                child:
+                CircularProgressIndicator(
+                  color:
+                  AppColors.primary,
+                ),
+              ),
+            ),
+          );
+        }
+
+        if (snapshot.hasError) {
+          return SliverToBoxAdapter(
+            child: Padding(
+              padding:
+              const EdgeInsets.all(
+                AppSpacing.xxl,
+              ),
+              child: Center(
+                child: Text(
+                  'Unable to load stations.\n${snapshot.error}',
+                  textAlign:
+                  TextAlign.center,
+                ),
+              ),
+            ),
+          );
+        }
+
+        if (!snapshot.hasData ||
+            snapshot
+                .data!.docs.isEmpty) {
+          return const SliverToBoxAdapter(
+            child: Padding(
+              padding:
+              EdgeInsets.symmetric(
+                vertical: 50,
+              ),
+              child: Center(
+                child: Text(
+                  'No stations found.',
+                ),
+              ),
+            ),
+          );
+        }
+
+        final List<
+            QueryDocumentSnapshot>
+        filtered =
+        _filterStations(
+          snapshot.data!.docs,
+        );
+
+        if (filtered.isEmpty) {
+          return SliverPadding(
+            padding:
+            EdgeInsets.fromLTRB(
+              AppSpacing.lg,
+              AppSpacing.sm,
+              AppSpacing.lg,
+              bottomPadding,
+            ),
+            sliver:
+            SliverToBoxAdapter(
+              child:
+              _buildMobileNoStationsState(),
+            ),
+          );
+        }
+
+        return SliverPadding(
+          padding:
+          EdgeInsets.fromLTRB(
+            AppSpacing.lg,
+            AppSpacing.sm,
+            AppSpacing.lg,
+            bottomPadding,
+          ),
+          sliver: SliverList(
+            delegate:
+            SliverChildBuilderDelegate(
+                  (
+                  context,
+                  index,
+                  ) {
+                if (index == 0) {
+                  return Padding(
+                    padding:
+                    const EdgeInsets
+                        .only(
+                      bottom:
+                      AppSpacing.md,
+                    ),
+                    child: Text(
+                      '${filtered.length} station'
+                          '${filtered.length == 1 ? '' : 's'} found',
+                      style:
+                      const TextStyle(
+                        color: AppColors
+                            .textSecondary,
+                        fontSize: 13,
+                        fontWeight:
+                        FontWeight
+                            .w600,
+                      ),
+                    ),
+                  );
+                }
+
+                return _buildStationFromDocument(
+                  filtered[index - 1],
+                );
+              },
+              childCount:
+              filtered.length + 1,
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // ===========================================================================
+  // WIDE RESULTS
+  // ===========================================================================
 
   Widget _buildStationResults({
     required bool useGrid,
@@ -2495,7 +2581,8 @@ class _FindStationsState extends State<FindStations> {
         }
 
         if (!snapshot.hasData ||
-            snapshot.data!.docs.isEmpty) {
+            snapshot
+                .data!.docs.isEmpty) {
           return const Center(
             child: Text(
               'No stations found.',
@@ -2503,7 +2590,8 @@ class _FindStationsState extends State<FindStations> {
           );
         }
 
-        final List<QueryDocumentSnapshot>
+        final List<
+            QueryDocumentSnapshot>
         filtered =
         _filterStations(
           snapshot.data!.docs,
@@ -2518,7 +2606,7 @@ class _FindStationsState extends State<FindStations> {
             padding:
             EdgeInsets.fromLTRB(
               horizontalPadding,
-              AppSpacing.sm,
+              AppSpacing.md,
               horizontalPadding,
               bottomPadding,
             ),
@@ -2533,9 +2621,10 @@ class _FindStationsState extends State<FindStations> {
               if (index == 0) {
                 return Padding(
                   padding:
-                  const EdgeInsets.only(
+                  const EdgeInsets
+                      .only(
                     bottom:
-                    AppSpacing.sm,
+                    AppSpacing.md,
                   ),
                   child: Text(
                     '${filtered.length} station'
@@ -2565,7 +2654,8 @@ class _FindStationsState extends State<FindStations> {
               constraints,
               ) {
             final int columnCount =
-            constraints.maxWidth >= 800
+            constraints.maxWidth >=
+                800
                 ? 2
                 : 1;
 
@@ -2579,14 +2669,15 @@ class _FindStationsState extends State<FindStations> {
               ),
               physics:
               const AlwaysScrollableScrollPhysics(),
-              itemCount: filtered.length,
+              itemCount:
+              filtered.length,
               gridDelegate:
               SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount:
                 columnCount,
                 crossAxisSpacing: 18,
                 mainAxisSpacing: 18,
-                mainAxisExtent: 410,
+                mainAxisExtent: 340,
               ),
               itemBuilder: (
                   context,
@@ -2602,6 +2693,10 @@ class _FindStationsState extends State<FindStations> {
       },
     );
   }
+
+  // ===========================================================================
+  // STATION DOCUMENT
+  // ===========================================================================
 
   Widget _buildStationFromDocument(
       QueryDocumentSnapshot document,
@@ -2649,16 +2744,19 @@ class _FindStationsState extends State<FindStations> {
 
     final double? latitude =
     double.tryParse(
-      data['latitude']?.toString() ?? '',
+      data['latitude']?.toString() ??
+          '',
     );
 
     final double? longitude =
     double.tryParse(
-      data['longitude']?.toString() ?? '',
+      data['longitude']?.toString() ??
+          '',
     );
 
     final String stationName =
-        data['station_name']?.toString() ??
+        data['station_name']
+            ?.toString() ??
             'Unknown Station';
 
     final LatLng? distanceCenter =
@@ -2715,19 +2813,125 @@ class _FindStationsState extends State<FindStations> {
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // NO RESULTS
-  // ---------------------------------------------------------------------------
+  // ===========================================================================
+  // MOBILE NO RESULTS
+  // ===========================================================================
+
+  Widget _buildMobileNoStationsState() {
+    final bool radiusActive =
+        _searchedTownPosition != null ||
+            (_isNearbySelected &&
+                _currentUserPosition !=
+                    null);
+
+    late final String message;
+
+    if (_searchedTownPosition !=
+        null) {
+      message =
+      'No stations within ${_distanceValue.toInt()} km of '
+          '${_searchedTownName ?? 'that location'}';
+    } else if (_isNearbySelected &&
+        _currentUserPosition != null) {
+      message =
+      'No stations within ${_distanceValue.toInt()} km '
+          'of your location';
+    } else {
+      message =
+      'No stations match the selected filters';
+    }
+
+    return AppCard(
+      padding:
+      const EdgeInsets.all(
+        AppSpacing.xl,
+      ),
+      child: Column(
+        mainAxisSize:
+        MainAxisSize.min,
+        children: [
+          Container(
+            width: 64,
+            height: 64,
+            decoration:
+            const BoxDecoration(
+              color:
+              AppColors.lightFill,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons
+                  .ev_station_outlined,
+              size: 34,
+              color:
+              AppColors.primary,
+            ),
+          ),
+          const SizedBox(
+            height: AppSpacing.lg,
+          ),
+          Text(
+            message,
+            textAlign:
+            TextAlign.center,
+            style: const TextStyle(
+              color: AppColors
+                  .textSecondary,
+              fontSize: 14,
+              height: 1.5,
+            ),
+          ),
+
+          if (radiusActive) ...[
+            const SizedBox(
+              height: AppSpacing.md,
+            ),
+            TextButton.icon(
+              onPressed: () {
+                setState(() {
+                  _distanceValue =
+                      (_distanceValue +
+                          10)
+                          .clamp(
+                        1,
+                        50,
+                      );
+                });
+              },
+              icon: const Icon(
+                Icons.add,
+                color:
+                AppColors.primary,
+              ),
+              label: const Text(
+                'Increase radius',
+                style: TextStyle(
+                  color:
+                  AppColors.primary,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // ===========================================================================
+  // WIDE NO RESULTS
+  // ===========================================================================
 
   Widget _buildNoStationsState() {
     final bool radiusActive =
         _searchedTownPosition != null ||
             (_isNearbySelected &&
-                _currentUserPosition != null);
+                _currentUserPosition !=
+                    null);
 
     late final String message;
 
-    if (_searchedTownPosition != null) {
+    if (_searchedTownPosition !=
+        null) {
       message =
       'No stations within ${_distanceValue.toInt()} km of '
           '${_searchedTownName ?? 'that location'}';
@@ -2742,7 +2946,8 @@ class _FindStationsState extends State<FindStations> {
     }
 
     return Center(
-      child: SingleChildScrollView(
+      child:
+      SingleChildScrollView(
         padding:
         const EdgeInsets.all(
           AppSpacing.xxxl,
@@ -2774,11 +2979,10 @@ class _FindStationsState extends State<FindStations> {
                   AppColors.primary,
                 ),
               ),
-
               const SizedBox(
-                height: AppSpacing.lg,
+                height:
+                AppSpacing.lg,
               ),
-
               Text(
                 message,
                 textAlign:
@@ -2797,7 +3001,6 @@ class _FindStationsState extends State<FindStations> {
                   height:
                   AppSpacing.lg,
                 ),
-
                 TextButton.icon(
                   onPressed: () {
                     setState(() {
@@ -2831,14 +3034,15 @@ class _FindStationsState extends State<FindStations> {
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // CONTROL HELPERS
-  // ---------------------------------------------------------------------------
+  // ===========================================================================
+  // TOGGLE BUTTON
+  // ===========================================================================
 
   Widget _buildToggleButton(
       String text,
-      bool isSelected,
-      ) {
+      bool isSelected, {
+        bool compact = false,
+      }) {
     return GestureDetector(
       onTap: () {
         setState(() {
@@ -2847,7 +3051,8 @@ class _FindStationsState extends State<FindStations> {
         });
 
         if (text == 'Nearby' &&
-            _currentUserPosition == null) {
+            _currentUserPosition ==
+                null) {
           _getUserLocation();
         }
       },
@@ -2857,21 +3062,24 @@ class _FindStationsState extends State<FindStations> {
           milliseconds: 180,
         ),
         padding:
-        const EdgeInsets.symmetric(
-          vertical: 10,
+        EdgeInsets.symmetric(
+          vertical: compact ? 5 : 7,
         ),
         decoration: BoxDecoration(
           color: isSelected
               ? AppColors.primary
               : Colors.transparent,
           borderRadius:
-          BorderRadius.circular(10),
+          BorderRadius.circular(
+            10,
+          ),
           boxShadow: isSelected
               ? [
             BoxShadow(
-              color: AppColors.primary
-                  .withOpacity(
-                0.20,
+              color: AppColors
+                  .primary
+                  .withValues(
+                alpha: 0.20,
               ),
               blurRadius: 8,
               offset:
@@ -2887,6 +3095,9 @@ class _FindStationsState extends State<FindStations> {
           text,
           textAlign:
           TextAlign.center,
+          maxLines: 1,
+          overflow:
+          TextOverflow.ellipsis,
           style: TextStyle(
             color: isSelected
                 ? Colors.white
@@ -2894,12 +3105,16 @@ class _FindStationsState extends State<FindStations> {
                 .textSecondary,
             fontWeight:
             FontWeight.w600,
-            fontSize: 14,
+            fontSize: compact ? 10 : 12,
           ),
         ),
       ),
     );
   }
+
+  // ===========================================================================
+  // FILTER DROPDOWN
+  // ===========================================================================
 
   Widget _buildFilterDropdown({
     required String label,
@@ -2910,7 +3125,8 @@ class _FindStationsState extends State<FindStations> {
       onTap: onTap,
       child: Container(
         padding:
-        const EdgeInsets.symmetric(
+        const EdgeInsets
+            .symmetric(
           horizontal: 14,
           vertical: 12,
         ),
@@ -2919,11 +3135,15 @@ class _FindStationsState extends State<FindStations> {
               ? AppColors.lightFill
               : AppColors.background,
           borderRadius:
-          BorderRadius.circular(12),
+          BorderRadius.circular(
+            12,
+          ),
           border: Border.all(
             color: isActive
                 ? AppColors.primary
-                .withOpacity(0.50)
+                .withValues(
+              alpha: 0.50,
+            )
                 : const Color(
               0xFFE5E7EB,
             ),
@@ -2943,7 +3163,8 @@ class _FindStationsState extends State<FindStations> {
                       : AppColors
                       .textPrimary,
                   fontSize: 13,
-                  fontWeight: isActive
+                  fontWeight:
+                  isActive
                       ? FontWeight.w700
                       : FontWeight.w500,
                 ),
@@ -2951,7 +3172,6 @@ class _FindStationsState extends State<FindStations> {
                 TextOverflow.ellipsis,
               ),
             ),
-
             Icon(
               Icons
                   .keyboard_arrow_down,
@@ -2967,20 +3187,27 @@ class _FindStationsState extends State<FindStations> {
     );
   }
 
+  // ===========================================================================
+  // ACTIVE FILTER CHIP
+  // ===========================================================================
+
   Widget _buildActiveFilterChip(
       String label,
       VoidCallback onRemove,
       ) {
     return Container(
       padding:
-      const EdgeInsets.symmetric(
+      const EdgeInsets
+          .symmetric(
         horizontal: 12,
         vertical: 6,
       ),
       decoration: BoxDecoration(
         color: AppColors.primary,
         borderRadius:
-        BorderRadius.circular(20),
+        BorderRadius.circular(
+          20,
+        ),
       ),
       child: Row(
         mainAxisSize:
@@ -2996,7 +3223,9 @@ class _FindStationsState extends State<FindStations> {
               FontWeight.w600,
             ),
           ),
-          const SizedBox(width: 6),
+          const SizedBox(
+            width: 6,
+          ),
           GestureDetector(
             onTap: onRemove,
             child: const Icon(
@@ -3010,9 +3239,9 @@ class _FindStationsState extends State<FindStations> {
     );
   }
 
-  // ---------------------------------------------------------------------------
+  // ===========================================================================
   // STATION CARD
-  // ---------------------------------------------------------------------------
+  // ===========================================================================
 
   Widget _buildStationCard({
     required QueryDocumentSnapshot doc,
@@ -3032,36 +3261,38 @@ class _FindStationsState extends State<FindStations> {
     as Map<String, dynamic>;
 
     final bool isFavourite =
-    _favoriteIds.contains(
-      doc.id,
-    );
+    _favoriteIds.contains(doc.id);
 
     return Padding(
       padding:
       const EdgeInsets.only(
-        bottom: AppSpacing.lg,
+        bottom: AppSpacing.md,
       ),
       child: AppCard(
         padding:
-        const EdgeInsets.all(18),
+        const EdgeInsets.all(
+          14,
+        ),
         child: Column(
           crossAxisAlignment:
           CrossAxisAlignment.start,
           children: [
             Row(
               crossAxisAlignment:
-              CrossAxisAlignment.start,
+              CrossAxisAlignment
+                  .start,
               children: [
                 Container(
-                  width: 50,
-                  height: 50,
+                  width: 44,
+                  height: 44,
                   decoration:
                   BoxDecoration(
-                    color:
-                    AppColors.lightFill,
+                    color: AppColors
+                        .lightFill,
                     borderRadius:
-                    BorderRadius.circular(
-                      14,
+                    BorderRadius
+                        .circular(
+                      12,
                     ),
                   ),
                   child: const Icon(
@@ -3069,12 +3300,12 @@ class _FindStationsState extends State<FindStations> {
                         .ev_station_rounded,
                     color:
                     AppColors.primary,
-                    size: 27,
+                    size: 24,
                   ),
                 ),
 
                 const SizedBox(
-                  width: AppSpacing.md,
+                  width: AppSpacing.sm,
                 ),
 
                 Expanded(
@@ -3087,7 +3318,7 @@ class _FindStationsState extends State<FindStations> {
                         name,
                         style:
                         const TextStyle(
-                          fontSize: 16,
+                          fontSize: 15,
                           fontWeight:
                           FontWeight.bold,
                           color: AppColors
@@ -3101,7 +3332,7 @@ class _FindStationsState extends State<FindStations> {
                       ),
 
                       const SizedBox(
-                        height: 5,
+                        height: 4,
                       ),
 
                       Row(
@@ -3109,15 +3340,13 @@ class _FindStationsState extends State<FindStations> {
                           const Icon(
                             Icons
                                 .location_on_outlined,
-                            size: 14,
+                            size: 13,
                             color: AppColors
                                 .textSecondary,
                           ),
-
                           const SizedBox(
-                            width: 4,
+                            width: 3,
                           ),
-
                           Expanded(
                             child: Text(
                               address,
@@ -3125,9 +3354,46 @@ class _FindStationsState extends State<FindStations> {
                               const TextStyle(
                                 color: AppColors
                                     .textSecondary,
-                                fontSize: 12,
+                                fontSize: 11,
                               ),
-                              maxLines: 2,
+                              maxLines: 1,
+                              overflow:
+                              TextOverflow
+                                  .ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(
+                        height: 4,
+                      ),
+
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons
+                                .near_me_rounded,
+                            size: 12,
+                            color: AppColors
+                                .primary,
+                          ),
+                          const SizedBox(
+                            width: 4,
+                          ),
+                          Expanded(
+                            child: Text(
+                              distance,
+                              style:
+                              const TextStyle(
+                                color: AppColors
+                                    .textSecondary,
+                                fontSize: 11,
+                                fontWeight:
+                                FontWeight
+                                    .w500,
+                              ),
+                              maxLines: 1,
                               overflow:
                               TextOverflow
                                   .ellipsis,
@@ -3156,10 +3422,8 @@ class _FindStationsState extends State<FindStations> {
                     const Duration(
                       milliseconds: 200,
                     ),
-                    padding:
-                    const EdgeInsets.all(
-                      8,
-                    ),
+                    width: 36,
+                    height: 36,
                     decoration:
                     BoxDecoration(
                       color: isFavourite
@@ -3169,10 +3433,10 @@ class _FindStationsState extends State<FindStations> {
                           .background,
                       shape:
                       BoxShape.circle,
-                      border:
-                      Border.all(
+                      border: Border.all(
                         color: isFavourite
-                            ? Colors.amber
+                            ? Colors
+                            .amber
                             .shade300
                             : const Color(
                           0xFFE5E7EB,
@@ -3186,11 +3450,11 @@ class _FindStationsState extends State<FindStations> {
                           : Icons
                           .star_outline_rounded,
                       color: isFavourite
-                          ? Colors.amber
-                          .shade600
+                          ? Colors
+                          .amber.shade600
                           : AppColors
                           .textSecondary,
-                      size: 22,
+                      size: 20,
                     ),
                   ),
                 ),
@@ -3198,140 +3462,138 @@ class _FindStationsState extends State<FindStations> {
             ),
 
             const SizedBox(
-              height: AppSpacing.lg,
+              height: AppSpacing.md,
             ),
 
-            Row(
+            Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              crossAxisAlignment:
+              WrapCrossAlignment
+                  .center,
               children: [
                 _buildStatusBadge(
                   statusColor,
                   availabilityText,
                 ),
 
-                const Spacer(),
-
-                _buildSmallInfo(
-                  icon:
-                  Icons.near_me_rounded,
-                  text: distance,
-                  iconColor:
-                  AppColors.primary,
-                ),
-              ],
-            ),
-
-            const SizedBox(
-              height: AppSpacing.lg,
-            ),
-
-            const Divider(
-              height: 1,
-              color:
-              Color(0xFFF0F1F3),
-            ),
-
-            const SizedBox(
-              height: AppSpacing.lg,
-            ),
-
-            Row(
-              children: [
-                Expanded(
-                  child:
-                  _buildInfoBox(
-                    icon: Icons
-                        .flash_on_rounded,
-                    value: power,
-                    label:
-                    'Charging Power',
-                    color:
-                    AppColors.warning,
+                Container(
+                  padding:
+                  const EdgeInsets
+                      .symmetric(
+                    horizontal: 10,
+                    vertical: 6,
                   ),
-                ),
-
-                const SizedBox(
-                  width: AppSpacing.md,
-                ),
-
-                Expanded(
-                  child:
-                  _buildInfoBox(
-                    icon:
-                    Icons.power_rounded,
-                    value:
-                    availabilityText,
-                    label:
-                    'Availability',
-                    color:
-                    statusColor,
+                  decoration:
+                  BoxDecoration(
+                    color: AppColors
+                        .warning
+                        .withValues(
+                      alpha: 0.10,
+                    ),
+                    borderRadius:
+                    BorderRadius
+                        .circular(
+                      20,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize:
+                    MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons
+                            .bolt_rounded,
+                        color: AppColors
+                            .warning,
+                        size: 14,
+                      ),
+                      const SizedBox(
+                        width: 4,
+                      ),
+                      Text(
+                        power,
+                        style:
+                        const TextStyle(
+                          color: AppColors
+                              .warning,
+                          fontSize: 12,
+                          fontWeight:
+                          FontWeight
+                              .w700,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
 
-            if (connectors.isNotEmpty) ...[
+            if (connectors
+                .isNotEmpty) ...[
               const SizedBox(
-                height: AppSpacing.lg,
+                height: AppSpacing.md,
               ),
 
               Wrap(
-                spacing: AppSpacing.sm,
-                runSpacing:
-                AppSpacing.sm,
-                children:
-                connectors
+                spacing: 6,
+                runSpacing: 6,
+                children: connectors
                     .map(
-                      (connector) =>
-                      Container(
-                        padding:
-                        const EdgeInsets
-                            .symmetric(
-                          horizontal:
-                          10,
-                          vertical: 6,
-                        ),
-                        decoration:
-                        BoxDecoration(
-                          color: AppColors
-                              .lightFill,
-                          borderRadius:
-                          BorderRadius
-                              .circular(
-                            10,
-                          ),
-                        ),
-                        child: Text(
-                          connector,
-                          style:
-                          const TextStyle(
-                            color: AppColors
-                                .primary,
-                            fontSize: 11,
-                            fontWeight:
-                            FontWeight
-                                .w700,
-                          ),
+                      (connector) {
+                    return Container(
+                      padding:
+                      const EdgeInsets
+                          .symmetric(
+                        horizontal: 9,
+                        vertical: 5,
+                      ),
+                      decoration:
+                      BoxDecoration(
+                        color:
+                        AppColors
+                            .lightFill,
+                        borderRadius:
+                        BorderRadius
+                            .circular(
+                          9,
                         ),
                       ),
-                )
-                    .toList(),
+                      child: Text(
+                        connector,
+                        style:
+                        const TextStyle(
+                          color:
+                          AppColors
+                              .primary,
+                          fontSize: 10,
+                          fontWeight:
+                          FontWeight
+                              .w700,
+                        ),
+                      ),
+                    );
+                  },
+                ).toList(),
               ),
             ],
 
             const SizedBox(
-              height: AppSpacing.xl,
+              height: AppSpacing.md,
             ),
 
             Row(
               children: [
                 Expanded(
                   child: SizedBox(
-                    height: 48,
+                    height: 42,
                     child:
                     ElevatedButton.icon(
-                      onPressed: isAvailable
+                      onPressed:
+                      isAvailable
                           ? () {
-                        Navigator.push(
+                        Navigator
+                            .push(
                           context,
                           MaterialPageRoute(
                             builder:
@@ -3351,7 +3613,7 @@ class _FindStationsState extends State<FindStations> {
                       icon: const Icon(
                         Icons
                             .bookmark_add_rounded,
-                        size: 18,
+                        size: 17,
                       ),
                       label: Text(
                         isAvailable
@@ -3360,8 +3622,9 @@ class _FindStationsState extends State<FindStations> {
                         style:
                         const TextStyle(
                           fontWeight:
-                          FontWeight.bold,
-                          fontSize: 14,
+                          FontWeight
+                              .bold,
+                          fontSize: 13,
                         ),
                       ),
                       style:
@@ -3388,7 +3651,7 @@ class _FindStationsState extends State<FindStations> {
                           borderRadius:
                           BorderRadius
                               .circular(
-                            14,
+                            12,
                           ),
                         ),
                       ),
@@ -3397,12 +3660,12 @@ class _FindStationsState extends State<FindStations> {
                 ),
 
                 const SizedBox(
-                  width: AppSpacing.md,
+                  width: AppSpacing.sm,
                 ),
 
                 Expanded(
                   child: SizedBox(
-                    height: 48,
+                    height: 42,
                     child:
                     OutlinedButton.icon(
                       onPressed:
@@ -3428,37 +3691,39 @@ class _FindStationsState extends State<FindStations> {
                       icon: const Icon(
                         Icons
                             .directions_rounded,
-                        size: 18,
+                        size: 17,
                       ),
-                      label:
-                      const Text(
+                      label: const Text(
                         'Route',
                         style: TextStyle(
                           fontWeight:
-                          FontWeight.bold,
-                          fontSize: 14,
+                          FontWeight
+                              .bold,
+                          fontSize: 13,
                         ),
                       ),
                       style:
                       OutlinedButton
                           .styleFrom(
                         foregroundColor:
-                        AppColors.primary,
+                        AppColors
+                            .primary,
                         disabledForegroundColor:
                         AppColors
                             .textSecondary,
                         side:
                         const BorderSide(
                           color:
-                          AppColors.primary,
-                          width: 1.4,
+                          AppColors
+                              .primary,
+                          width: 1.3,
                         ),
                         shape:
                         RoundedRectangleBorder(
                           borderRadius:
                           BorderRadius
                               .circular(
-                            14,
+                            12,
                           ),
                         ),
                       ),
@@ -3473,20 +3738,29 @@ class _FindStationsState extends State<FindStations> {
     );
   }
 
+  // ===========================================================================
+  // STATUS BADGE
+  // ===========================================================================
+
   Widget _buildStatusBadge(
       Color color,
       String text,
       ) {
     return Container(
       padding:
-      const EdgeInsets.symmetric(
-        horizontal: 10,
+      const EdgeInsets
+          .symmetric(
+        horizontal: 11,
         vertical: 6,
       ),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.10),
+        color: color.withValues(
+          alpha: 0.10,
+        ),
         borderRadius:
-        BorderRadius.circular(20),
+        BorderRadius.circular(
+          20,
+        ),
       ),
       child: Row(
         mainAxisSize:
@@ -3495,14 +3769,16 @@ class _FindStationsState extends State<FindStations> {
           Container(
             width: 7,
             height: 7,
-            decoration: BoxDecoration(
+            decoration:
+            BoxDecoration(
               color: color,
-              shape: BoxShape.circle,
+              shape:
+              BoxShape.circle,
             ),
           ),
-
-          const SizedBox(width: 5),
-
+          const SizedBox(
+            width: 5,
+          ),
           Text(
             text,
             style: TextStyle(
@@ -3516,6 +3792,10 @@ class _FindStationsState extends State<FindStations> {
       ),
     );
   }
+
+  // ===========================================================================
+  // OPTIONAL SMALL INFO
+  // ===========================================================================
 
   Widget _buildSmallInfo({
     required IconData icon,
@@ -3531,9 +3811,9 @@ class _FindStationsState extends State<FindStations> {
           size: 15,
           color: iconColor,
         ),
-
-        const SizedBox(width: 5),
-
+        const SizedBox(
+          width: 5,
+        ),
         Text(
           text,
           style:
@@ -3549,6 +3829,10 @@ class _FindStationsState extends State<FindStations> {
     );
   }
 
+  // ===========================================================================
+  // OPTIONAL INFO BOX
+  // ===========================================================================
+
   Widget _buildInfoBox({
     required IconData icon,
     required String value,
@@ -3561,10 +3845,13 @@ class _FindStationsState extends State<FindStations> {
         AppSpacing.md,
       ),
       decoration: BoxDecoration(
-        color:
-        color.withOpacity(0.07),
+        color: color.withValues(
+          alpha: 0.07,
+        ),
         borderRadius:
-        BorderRadius.circular(14),
+        BorderRadius.circular(
+          14,
+        ),
       ),
       child: Row(
         children: [
@@ -3573,10 +3860,13 @@ class _FindStationsState extends State<FindStations> {
             height: 34,
             decoration:
             BoxDecoration(
-              color:
-              color.withOpacity(0.12),
+              color: color.withValues(
+                alpha: 0.12,
+              ),
               borderRadius:
-              BorderRadius.circular(10),
+              BorderRadius.circular(
+                10,
+              ),
             ),
             child: Icon(
               icon,
@@ -3584,15 +3874,14 @@ class _FindStationsState extends State<FindStations> {
               color: color,
             ),
           ),
-
           const SizedBox(
             width: AppSpacing.sm,
           ),
-
           Expanded(
             child: Column(
               crossAxisAlignment:
-              CrossAxisAlignment.start,
+              CrossAxisAlignment
+                  .start,
               children: [
                 Text(
                   value,
@@ -3606,13 +3895,12 @@ class _FindStationsState extends State<FindStations> {
                   ),
                   maxLines: 1,
                   overflow:
-                  TextOverflow.ellipsis,
+                  TextOverflow
+                      .ellipsis,
                 ),
-
                 const SizedBox(
                   height: 2,
                 ),
-
                 Text(
                   label,
                   style:

@@ -282,106 +282,133 @@ class _MainScreenState
   Widget _buildNavigationRail({
     required bool compact,
   }) {
-    return NavigationRail(
-      selectedIndex:
-      _selectedIndex,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // On short landscape screens, hide the labels.
+        // This prevents the NavigationRail from overflowing vertically.
+        final bool shortHeight =
+            constraints.maxHeight < 300;
 
-      onDestinationSelected:
-      _changePage,
+        return NavigationRail(
+          selectedIndex: _selectedIndex,
 
-      backgroundColor:
-      Colors.transparent,
+          onDestinationSelected: _changePage,
 
-      labelType:
-      NavigationRailLabelType.all,
+          backgroundColor: Colors.transparent,
 
-      groupAlignment: 0,
+          /*
+         * Important:
+         * When the available rail height is small,
+         * remove labels completely.
+         */
+          labelType: shortHeight
+              ? NavigationRailLabelType.none
+              : NavigationRailLabelType.all,
 
-      useIndicator: true,
+          groupAlignment: 0,
 
-      indicatorColor:
-      Colors.white.withOpacity(
-        0.18,
-      ),
+          useIndicator: true,
 
-      minWidth:
-      compact ? 64 : 72,
-
-      minExtendedWidth:
-      compact ? 64 : 72,
-
-      selectedIconTheme:
-      IconThemeData(
-        color: Colors.white,
-        size: compact ? 22 : 26,
-      ),
-
-      unselectedIconTheme:
-      IconThemeData(
-        color:
-        Colors.white.withOpacity(
-          0.50,
-        ),
-        size: compact ? 20 : 23,
-      ),
-
-      selectedLabelTextStyle:
-      TextStyle(
-        color: Colors.white,
-        fontSize:
-        compact ? 9 : 11,
-        fontWeight:
-        FontWeight.bold,
-      ),
-
-      unselectedLabelTextStyle:
-      TextStyle(
-        color:
-        Colors.white.withOpacity(
-          0.50,
-        ),
-        fontSize:
-        compact ? 8 : 10,
-      ),
-
-      destinations: const [
-        NavigationRailDestination(
-          icon: Icon(
-            Icons.home_rounded,
+          indicatorColor: Colors.white.withOpacity(
+            0.18,
           ),
-          label: Text(
-            'Home',
-          ),
-        ),
 
-        NavigationRailDestination(
-          icon: Icon(
-            Icons.ev_station_rounded,
-          ),
-          label: Text(
-            'Stations',
-          ),
-        ),
+          minWidth: shortHeight
+              ? 58
+              : compact
+              ? 64
+              : 72,
 
-        NavigationRailDestination(
-          icon: Icon(
-            Icons
-                .location_on_rounded,
-          ),
-          label: Text(
-            'Planner',
-          ),
-        ),
+          minExtendedWidth: shortHeight
+              ? 58
+              : compact
+              ? 64
+              : 72,
 
-        NavigationRailDestination(
-          icon: Icon(
-            Icons.person_rounded,
+          selectedIconTheme: IconThemeData(
+            color: Colors.white,
+            size: shortHeight
+                ? 20
+                : compact
+                ? 22
+                : 26,
           ),
-          label: Text(
-            'Profile',
+
+          unselectedIconTheme: IconThemeData(
+            color: Colors.white.withOpacity(
+              0.50,
+            ),
+            size: shortHeight
+                ? 18
+                : compact
+                ? 20
+                : 23,
           ),
-        ),
-      ],
+
+          selectedLabelTextStyle: TextStyle(
+            color: Colors.white,
+            fontSize: compact ? 9 : 11,
+            fontWeight: FontWeight.bold,
+          ),
+
+          unselectedLabelTextStyle: TextStyle(
+            color: Colors.white.withOpacity(
+              0.50,
+            ),
+            fontSize: compact ? 8 : 10,
+          ),
+
+          destinations: const [
+            NavigationRailDestination(
+              icon: Icon(
+                Icons.home_rounded,
+              ),
+              selectedIcon: Icon(
+                Icons.home_rounded,
+              ),
+              label: Text(
+                'Home',
+              ),
+            ),
+
+            NavigationRailDestination(
+              icon: Icon(
+                Icons.ev_station_rounded,
+              ),
+              selectedIcon: Icon(
+                Icons.ev_station_rounded,
+              ),
+              label: Text(
+                'Stations',
+              ),
+            ),
+
+            NavigationRailDestination(
+              icon: Icon(
+                Icons.location_on_rounded,
+              ),
+              selectedIcon: Icon(
+                Icons.location_on_rounded,
+              ),
+              label: Text(
+                'Planner',
+              ),
+            ),
+
+            NavigationRailDestination(
+              icon: Icon(
+                Icons.person_rounded,
+              ),
+              selectedIcon: Icon(
+                Icons.person_rounded,
+              ),
+              label: Text(
+                'Profile',
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 

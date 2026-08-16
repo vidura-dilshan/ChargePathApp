@@ -444,116 +444,7 @@ class _ChargingRouteState extends State<ChargingRoute> {
     }
   }
 
-  // ── 4. COST POPUP ─────────────────────────────────────────────────────────
-  void _showCostPopup() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return Dialog(
-          backgroundColor: Colors.transparent,
-          insetPadding: const EdgeInsets.all(20),
-          child: Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: AppColors.white,
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.15),
-                  blurRadius: 20,
-                  offset: const Offset(0, 8),
-                ),
-              ],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: AppColors.primary.withOpacity(0.1),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(Icons.flash_on,
-                              color: AppColors.primary, size: 18),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Estimated Cost',
-                          style: TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                    GestureDetector(
-                      onTap: () => Navigator.pop(context),
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade100,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.close,
-                            size: 18, color: Colors.black54),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                const Text(
-                  'Rs. 24.50',
-                  style: TextStyle(
-                    fontSize: 36,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textPrimary,
-                    letterSpacing: -0.5,
-                  ),
-                ),
-                const SizedBox(height: 14),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 14, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.electric_bolt,
-                          color: AppColors.white, size: 16),
-                      const SizedBox(width: 6),
-                      Text(
-                        '${_totalDistance != "--" ? _totalDistance : "?"} to $_destinationName',
-                        style: const TextStyle(
-                          color: AppColors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-
-  // ── 5. BUILD ──────────────────────────────────────────────────────────────
+  // ── 4. BUILD ──────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
@@ -592,13 +483,6 @@ class _ChargingRouteState extends State<ChargingRoute> {
             ),
           ),
           Positioned(
-            top: 60,
-            right: 16,
-            child: SafeArea(
-              child: _buildViewCostButton(),
-            ),
-          ),
-          Positioned(
             top: mapHeight - 140,
             right: 16,
             child: _buildMapControls(),
@@ -632,11 +516,6 @@ class _ChargingRouteState extends State<ChargingRoute> {
                     top: 18,
                     left: 18,
                     child: _buildBackButton(),
-                  ),
-                  Positioned(
-                    top: 18,
-                    right: 18,
-                    child: _buildViewCostButton(),
                   ),
                   Positioned(
                     right: 18,
@@ -738,54 +617,6 @@ class _ChargingRouteState extends State<ChargingRoute> {
           Icons.arrow_back_ios_new_rounded,
           size: 18,
           color: AppColors.textPrimary,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildViewCostButton() {
-    return GestureDetector(
-      onTap: _showCostPopup,
-      child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 11,
-        ),
-        decoration: BoxDecoration(
-          color: AppColors.white,
-          borderRadius: BorderRadius.circular(30),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.12),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(5),
-              decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.monetization_on_rounded,
-                color: AppColors.primary,
-                size: 18,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              'View Cost',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 13,
-                color: Colors.grey.shade800,
-              ),
-            ),
-          ],
         ),
       ),
     );
@@ -1018,13 +849,6 @@ class _ChargingRouteState extends State<ChargingRoute> {
             'Duration',
             Icons.access_time_rounded,
             AppColors.textPrimary,
-          ),
-          _buildDivider(),
-          _buildStatItem(
-            'Rs.24.50',
-            'Cost',
-            Icons.electric_bolt_rounded,
-            AppColors.primary,
           ),
         ],
       ),

@@ -29,6 +29,10 @@ class _HomePageState extends State<HomePage> {
   List<Map<String, dynamic>> _favorites = [];
   bool _isLoadingFavs = true;
 
+  // ---------------------------------------------------------------------------
+  // DISPLAY NAME
+  // ---------------------------------------------------------------------------
+
   String get _displayName {
     final User? user = FirebaseAuth.instance.currentUser;
 
@@ -56,6 +60,10 @@ class _HomePageState extends State<HomePage> {
     return 'User';
   }
 
+  // ---------------------------------------------------------------------------
+  // LIFE CYCLE
+  // ---------------------------------------------------------------------------
+
   @override
   void initState() {
     super.initState();
@@ -67,12 +75,17 @@ class _HomePageState extends State<HomePage> {
   @override
   void dispose() {
     FavoritesDb.favoritesChanged.removeListener(_onFavoritesChanged);
+
     super.dispose();
   }
 
   void _onFavoritesChanged() {
     _loadFavorites();
   }
+
+  // ---------------------------------------------------------------------------
+  // LOAD FAVOURITES
+  // ---------------------------------------------------------------------------
 
   Future<void> _loadFavorites() async {
     if (mounted) {
@@ -107,7 +120,9 @@ class _HomePageState extends State<HomePage> {
       });
     } catch (error, stackTrace) {
       debugPrint('Failed to load favourites: $error');
-      debugPrintStack(stackTrace: stackTrace);
+      debugPrintStack(
+        stackTrace: stackTrace,
+      );
 
       if (!mounted) {
         return;
@@ -124,6 +139,10 @@ class _HomePageState extends State<HomePage> {
       }
     }
   }
+
+  // ---------------------------------------------------------------------------
+  // REMOVE FAVOURITE
+  // ---------------------------------------------------------------------------
 
   Future<void> _confirmRemove(
       String stationId,
@@ -152,7 +171,10 @@ class _HomePageState extends State<HomePage> {
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.pop(dialogContext, false);
+                Navigator.pop(
+                  dialogContext,
+                  false,
+                );
               },
               child: const Text(
                 'Cancel',
@@ -163,7 +185,10 @@ class _HomePageState extends State<HomePage> {
             ),
             ElevatedButton(
               onPressed: () {
-                Navigator.pop(dialogContext, true);
+                Navigator.pop(
+                  dialogContext,
+                  true,
+                );
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.danger,
@@ -173,7 +198,9 @@ class _HomePageState extends State<HomePage> {
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              child: const Text('Remove'),
+              child: const Text(
+                'Remove',
+              ),
             ),
           ],
         );
@@ -181,11 +208,19 @@ class _HomePageState extends State<HomePage> {
     );
 
     if (confirmed == true) {
-      await FavoritesDb.instance.removeFavorite(stationId);
+      await FavoritesDb.instance.removeFavorite(
+        stationId,
+      );
     }
   }
 
-  void _openRoute(Map<String, dynamic> favourite) {
+  // ---------------------------------------------------------------------------
+  // OPEN ROUTE
+  // ---------------------------------------------------------------------------
+
+  void _openRoute(
+      Map<String, dynamic> favourite,
+      ) {
     final double? latitude = double.tryParse(
       favourite['latitude']?.toString() ?? '',
     );
@@ -231,60 +266,205 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  // ---------------------------------------------------------------------------
+  // RESPONSIVE BUILD
+  // ---------------------------------------------------------------------------
+
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final bool useTabletLayout =
-            constraints.maxWidth >= 700;
+    final Size screenSize = MediaQuery.sizeOf(context);
 
-        if (useTabletLayout) {
-          return _buildTabletLayout();
-        }
+    /*
+     * IMPORTANT:
+     *
+     * Do not use screen width alone to determine tablet mode.
+     *
+     * A phone rotated to landscape can easily have a width above 700px.
+     * That caused landscape phones to incorrectly use the tablet layout.
+     *
+     * shortestSide remains small on a phone regardless of orientation.
+     */
+    final bool useTabletLayout =
+        screenSize.shortestSide >= 600;
 
-        return _buildMobileLayout();
-      },
-    );
+    if (useTabletLayout) {
+      return _buildTabletLayout();
+    }
+
+    return _buildMobileLayout();
   }
 
-  // ---------------------------------------------------------------------------
+  // ===========================================================================
   // MOBILE
-  // ---------------------------------------------------------------------------
+  // ===========================================================================
 
   Widget _buildMobileLayout() {
+    final bool isLandscape =
+        MediaQuery.orientationOf(context) ==
+            Orientation.landscape;
+
+    /*
+     * Portrait keeps the original large hero.
+     *
+     * Landscape uses a smaller hero because the screen has
+     * much less vertical space.
+     */
+    final double heroHeight =
+    isLandscape ? 165 : 225;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
         bottom: false,
-        child: Column(
-          children: [
-            // Full-width square hero.
-            _buildHeroSection(
-              compact: true,
+        child: RefreshIndicator(
+          onRefresh: _loadFavorites,
+          color: AppColors.primary,
+
+          /*
+           * CustomScrollView makes the ENTIRE mobile home page scroll.
+           *
+           * Previously only the favourites ListView was scrollable.
+           * The hero and favourites header stayed fixed and caused
+           * overflow when the phone was rotated to landscape.
+           */
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(
+              parent: BouncingScrollPhysics(),
             ),
+            slivers: [
+              // ---------------------------------------------------------------
+              // HERO
+              // ---------------------------------------------------------------
 
-            const SizedBox(height: AppSpacing.xxl),
+              SliverToBoxAdapter(
+                child: _buildHeroSection(
+                  compact: true,
+                  mobileHeight: heroHeight,
+                  mobileLandscape: isLandscape,
+                ),
+              ),
 
-            Expanded(
-              child: Padding(
+              // ---------------------------------------------------------------
+              // SPACE AFTER HERO
+              // ---------------------------------------------------------------
+
+              SliverToBoxAdapter(
+                child: SizedBox(
+                  height: isLandscape
+                      ? AppSpacing.md
+                      : AppSpacing.xxl,
+                ),
+              ),
+
+              // ---------------------------------------------------------------
+              // FAVOURITES HEADER
+              // ---------------------------------------------------------------
+
+              SliverPadding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: AppSpacing.lg,
                 ),
-                child: _buildFavouriteSection(
-                  useGrid: false,
-                  bottomPadding: 110,
+                sliver: SliverToBoxAdapter(
+                  child: AppSectionHeader(
+                    icon: Icons.star_rounded,
+                    title: 'Favourite Stations',
+                    subtitle: 'Your saved charging locations',
+                    trailing:
+                    !_isLoadingFavs &&
+                        _favorites.isNotEmpty
+                        ? _buildCountBadge()
+                        : null,
+                  ),
                 ),
               ),
-            ),
-          ],
+
+              SliverToBoxAdapter(
+                child: SizedBox(
+                  height: isLandscape
+                      ? AppSpacing.md
+                      : AppSpacing.lg,
+                ),
+              ),
+
+              // ---------------------------------------------------------------
+              // LOADING
+              // ---------------------------------------------------------------
+
+              if (_isLoadingFavs)
+                const SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(
+                      vertical: 50,
+                    ),
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ),
+                )
+
+              // ---------------------------------------------------------------
+              // EMPTY FAVOURITES
+              // ---------------------------------------------------------------
+
+              else if (_favorites.isEmpty)
+                SliverPadding(
+                  padding: EdgeInsets.fromLTRB(
+                    AppSpacing.lg,
+                    0,
+                    AppSpacing.lg,
+                    isLandscape ? 80 : 120,
+                  ),
+                  sliver: SliverToBoxAdapter(
+                    child: _buildMobileEmptyFavourites(
+                      compact: isLandscape,
+                    ),
+                  ),
+                )
+
+              // ---------------------------------------------------------------
+              // FAVOURITE CARDS
+              // ---------------------------------------------------------------
+
+              else
+                SliverPadding(
+                  padding: EdgeInsets.fromLTRB(
+                    AppSpacing.lg,
+                    0,
+                    AppSpacing.lg,
+                    isLandscape ? 80 : 120,
+                  ),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                          (context, index) {
+                        return Padding(
+                          padding: EdgeInsets.only(
+                            bottom:
+                            index ==
+                                _favorites.length - 1
+                                ? 0
+                                : AppSpacing.lg,
+                          ),
+                          child: _buildFavouriteCard(
+                            _favorites[index],
+                          ),
+                        );
+                      },
+                      childCount: _favorites.length,
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  // ---------------------------------------------------------------------------
+  // ===========================================================================
   // TABLET
-  // ---------------------------------------------------------------------------
+  // ===========================================================================
 
   Widget _buildTabletLayout() {
     return Scaffold(
@@ -292,20 +472,21 @@ class _HomePageState extends State<HomePage> {
       body: SafeArea(
         child: Row(
           children: [
-            // Hero sits flush with the navigation rail
-            // and fills the full available height.
+            // Hero section.
             Expanded(
-              flex: 4,
+              flex: 3,
               child: _buildHeroSection(
                 compact: false,
               ),
             ),
 
-            const SizedBox(width: AppSpacing.lg),
+            const SizedBox(
+              width: AppSpacing.lg,
+            ),
 
-            // Only the favourites panel gets outer padding.
+            // Favourite stations.
             Expanded(
-              flex: 6,
+              flex: 7,
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(
                   0,
@@ -325,20 +506,64 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // SHARED HERO
-  // ---------------------------------------------------------------------------
+  // ===========================================================================
+  // HERO SECTION
+  // ===========================================================================
 
   Widget _buildHeroSection({
     required bool compact,
+    double? mobileHeight,
+    bool mobileLandscape = false,
   }) {
+    /*
+     * Landscape mobile values are deliberately smaller to ensure
+     * everything comfortably fits inside the hero.
+     */
+
+    final double heroPadding;
+
+    if (mobileLandscape) {
+      heroPadding = 12;
+    } else if (compact) {
+      heroPadding = 18;
+    } else {
+      heroPadding = 28;
+    }
+
+    final double welcomeFontSize =
+    mobileLandscape
+        ? 11
+        : compact
+        ? 14
+        : 18;
+
+    final double nameFontSize =
+    mobileLandscape
+        ? 22
+        : compact
+        ? 28
+        : 38;
+
+    final double descriptionFontSize =
+    mobileLandscape
+        ? 11
+        : compact
+        ? 13
+        : 15;
+
     return ClipRRect(
       borderRadius: BorderRadius.zero,
       child: SizedBox(
-        height: compact ? 285 : double.infinity,
+        height: compact
+            ? (mobileHeight ?? 285)
+            : double.infinity,
         child: Stack(
           fit: StackFit.expand,
           children: [
+            // ---------------------------------------------------------------
+            // BACKGROUND IMAGE
+            // ---------------------------------------------------------------
+
             Image.asset(
               'lib/Assets/homeimage.jpeg',
               fit: BoxFit.cover,
@@ -353,12 +578,18 @@ class _HomePageState extends State<HomePage> {
               },
             ),
 
+            // ---------------------------------------------------------------
+            // BLUE OVERLAY
+            // ---------------------------------------------------------------
+
             Container(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
-                    const Color(0xFF012B55).withOpacity(0.92),
-                    AppColors.primary.withOpacity(0.70),
+                    const Color(0xFF012B55)
+                        .withOpacity(0.92),
+                    AppColors.primary
+                        .withOpacity(0.70),
                   ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
@@ -366,98 +597,116 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
 
+            // ---------------------------------------------------------------
+            // HERO CONTENT
+            // ---------------------------------------------------------------
+
             Padding(
               padding: EdgeInsets.all(
-                compact ? 22 : 34,
+                heroPadding,
               ),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment:
+                CrossAxisAlignment.start,
                 children: [
+                  // ---------------------------------------------------------
+                  // NOTIFICATION BUTTON
+                  // ---------------------------------------------------------
+
                   Align(
                     alignment: Alignment.topRight,
                     child: _buildGlassIconButton(
                       Icons.notifications_outlined,
                       compact: compact,
+                      extraCompact: mobileLandscape,
                     ),
                   ),
 
                   const Spacer(),
 
+                  // ---------------------------------------------------------
+                  // WELCOME TEXT
+                  // ---------------------------------------------------------
+
                   Text(
                     'Welcome back,',
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.82),
-                      fontSize: compact ? 14 : 18,
+                      color: Colors.white
+                          .withOpacity(0.82),
+                      fontSize: welcomeFontSize,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
 
                   SizedBox(
-                    height: compact ? 5 : 8,
+                    height: mobileLandscape
+                        ? 2
+                        : compact
+                        ? 5
+                        : 8,
                   ),
+
+                  // ---------------------------------------------------------
+                  // USER NAME
+                  // ---------------------------------------------------------
 
                   Text(
                     _displayName,
                     style: TextStyle(
                       color: Colors.white,
-                      fontSize: compact ? 28 : 38,
+                      fontSize: nameFontSize,
                       height: 1.1,
                       fontWeight: FontWeight.bold,
                     ),
-                    maxLines: compact ? 1 : 2,
+                    maxLines:
+                    compact ? 1 : 2,
                     overflow: TextOverflow.ellipsis,
                   ),
 
                   SizedBox(
-                    height: compact ? 10 : 18,
+                    height: mobileLandscape
+                        ? 3
+                        : compact
+                        ? 7
+                        : 12,
                   ),
+
+                  // ---------------------------------------------------------
+                  // DESCRIPTION
+                  // ---------------------------------------------------------
 
                   Text(
                     'Find charging stations, plan your journey, '
                         'and continue driving with confidence.',
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.82),
-                      fontSize: compact ? 13 : 15,
-                      height: 1.45,
+                      color: Colors.white
+                          .withOpacity(0.82),
+                      fontSize:
+                      descriptionFontSize,
+                      height:
+                      mobileLandscape
+                          ? 1.2
+                          : 1.45,
                     ),
-                    maxLines: compact ? 2 : 3,
-                    overflow: TextOverflow.ellipsis,
+                    maxLines:
+                    mobileLandscape
+                        ? 1
+                        : compact
+                        ? 2
+                        : 3,
+                    overflow:
+                    TextOverflow.ellipsis,
                   ),
 
                   SizedBox(
-                    height: compact ? 18 : 28,
+                    height: mobileLandscape
+                        ? 4
+                        : compact
+                        ? 8
+                        : 12,
                   ),
 
-                  SizedBox(
-                    height: compact ? 48 : 54,
-                    child: ElevatedButton.icon(
-                      onPressed: widget.onNavigateToStations,
-                      icon: Icon(
-                        Icons.ev_station_rounded,
-                        size: compact ? 19 : 22,
-                      ),
-                      label: Text(
-                        compact
-                            ? 'Find Stations'
-                            : 'Find Charging Stations',
-                        style: TextStyle(
-                          fontSize: compact ? 13 : 15,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: AppColors.primary,
-                        elevation: 0,
-                        padding: EdgeInsets.symmetric(
-                          horizontal: compact ? 18 : 24,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(15),
-                        ),
-                      ),
-                    ),
-                  ),
+
                 ],
               ),
             ),
@@ -467,27 +716,32 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // FAVOURITES SECTION
-  // ---------------------------------------------------------------------------
+  // ===========================================================================
+  // TABLET FAVOURITES SECTION
+  // ===========================================================================
 
   Widget _buildFavouriteSection({
     required bool useGrid,
     required double bottomPadding,
   }) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment:
+      CrossAxisAlignment.start,
       children: [
         AppSectionHeader(
           icon: Icons.star_rounded,
           title: 'Favourite Stations',
           subtitle: 'Your saved charging locations',
-          trailing: !_isLoadingFavs && _favorites.isNotEmpty
+          trailing:
+          !_isLoadingFavs &&
+              _favorites.isNotEmpty
               ? _buildCountBadge()
               : null,
         ),
 
-        const SizedBox(height: AppSpacing.lg),
+        const SizedBox(
+          height: AppSpacing.lg,
+        ),
 
         Expanded(
           child: _buildFavouriteContent(
@@ -498,6 +752,10 @@ class _HomePageState extends State<HomePage> {
       ],
     );
   }
+
+  // ---------------------------------------------------------------------------
+  // COUNT BADGE
+  // ---------------------------------------------------------------------------
 
   Widget _buildCountBadge() {
     return Container(
@@ -519,6 +777,10 @@ class _HomePageState extends State<HomePage> {
       ),
     );
   }
+
+  // ===========================================================================
+  // TABLET FAVOURITE CONTENT
+  // ===========================================================================
 
   Widget _buildFavouriteContent({
     required bool useGrid,
@@ -543,7 +805,8 @@ class _HomePageState extends State<HomePage> {
         onRefresh: _loadFavorites,
         color: AppColors.primary,
         child: ListView.separated(
-          physics: const AlwaysScrollableScrollPhysics(
+          physics:
+          const AlwaysScrollableScrollPhysics(
             parent: BouncingScrollPhysics(),
           ),
           padding: EdgeInsets.only(
@@ -567,13 +830,16 @@ class _HomePageState extends State<HomePage> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final int columnCount =
-        constraints.maxWidth >= 850 ? 2 : 1;
+        constraints.maxWidth >= 850
+            ? 2
+            : 1;
 
         return RefreshIndicator(
           onRefresh: _loadFavorites,
           color: AppColors.primary,
           child: GridView.builder(
-            physics: const AlwaysScrollableScrollPhysics(),
+            physics:
+            const AlwaysScrollableScrollPhysics(),
             padding: EdgeInsets.only(
               bottom: bottomPadding,
             ),
@@ -581,11 +847,16 @@ class _HomePageState extends State<HomePage> {
             gridDelegate:
             SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: columnCount,
-              crossAxisSpacing: AppSpacing.lg,
-              mainAxisSpacing: AppSpacing.lg,
+              crossAxisSpacing:
+              AppSpacing.lg,
+              mainAxisSpacing:
+              AppSpacing.lg,
               mainAxisExtent: 335,
             ),
-            itemBuilder: (context, index) {
+            itemBuilder: (
+                context,
+                index,
+                ) {
               return _buildFavouriteCard(
                 _favorites[index],
               );
@@ -596,106 +867,181 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // EMPTY STATE
-  // ---------------------------------------------------------------------------
+  // ===========================================================================
+  // MOBILE EMPTY FAVOURITES
+  // ===========================================================================
+
+  Widget _buildMobileEmptyFavourites({
+    required bool compact,
+  }) {
+    return Align(
+      alignment: Alignment.topCenter,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(
+          maxWidth: 620,
+        ),
+        child: AppCard(
+          padding: EdgeInsets.symmetric(
+            horizontal: compact ? 20 : 24,
+            vertical: compact ? 18 : 28,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: compact ? 54 : 72,
+                height: compact ? 54 : 72,
+                decoration:
+                const BoxDecoration(
+                  color: AppColors.lightFill,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.star_outline_rounded,
+                  size: compact ? 28 : 36,
+                  color: AppColors.primary,
+                ),
+              ),
+
+              SizedBox(
+                height: compact
+                    ? AppSpacing.md
+                    : AppSpacing.xl,
+              ),
+
+              Text(
+                'No Favourites Yet',
+                style: TextStyle(
+                  fontSize:
+                  compact ? 16 : 18,
+                  fontWeight:
+                  FontWeight.bold,
+                  color:
+                  AppColors.textPrimary,
+                ),
+              ),
+
+              SizedBox(
+                height: compact
+                    ? 4
+                    : AppSpacing.sm,
+              ),
+
+              Text(
+                'Save charging stations you use frequently '
+                    'and they will appear here.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color:
+                  AppColors.textSecondary,
+                  fontSize:
+                  compact ? 11 : 13,
+                  height: 1.5,
+                ),
+              ),
+
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ===========================================================================
+  // TABLET EMPTY STATE
+  // ===========================================================================
 
   Widget _buildEmptyFavourites({
     required double bottomPadding,
   }) {
     return LayoutBuilder(
-      builder: (context, constraints) {
+      builder: (
+          context,
+          constraints,
+          ) {
         return SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
+          physics:
+          const AlwaysScrollableScrollPhysics(),
           child: ConstrainedBox(
             constraints: BoxConstraints(
-              minHeight: constraints.maxHeight,
+              minHeight:
+              constraints.maxHeight,
             ),
             child: Padding(
               padding: EdgeInsets.only(
                 bottom: bottomPadding,
               ),
               child: Align(
-                alignment: Alignment.topCenter,
+                alignment:
+                Alignment.topCenter,
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(
+                  constraints:
+                  const BoxConstraints(
                     maxWidth: 620,
                   ),
                   child: AppCard(
-                    padding: const EdgeInsets.symmetric(
+                    padding:
+                    const EdgeInsets.symmetric(
                       horizontal: 24,
                       vertical: 28,
                     ),
                     child: Column(
-                      mainAxisSize: MainAxisSize.min,
+                      mainAxisSize:
+                      MainAxisSize.min,
                       children: [
                         Container(
                           width: 72,
                           height: 72,
-                          decoration: const BoxDecoration(
-                            color: AppColors.lightFill,
-                            shape: BoxShape.circle,
+                          decoration:
+                          const BoxDecoration(
+                            color:
+                            AppColors.lightFill,
+                            shape:
+                            BoxShape.circle,
                           ),
                           child: const Icon(
-                            Icons.star_outline_rounded,
+                            Icons
+                                .star_outline_rounded,
                             size: 36,
-                            color: AppColors.primary,
+                            color:
+                            AppColors.primary,
                           ),
                         ),
 
-                        const SizedBox(height: AppSpacing.xl),
+                        const SizedBox(
+                          height:
+                          AppSpacing.xl,
+                        ),
 
                         const Text(
                           'No Favourites Yet',
                           style: TextStyle(
                             fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.textPrimary,
+                            fontWeight:
+                            FontWeight.bold,
+                            color: AppColors
+                                .textPrimary,
                           ),
                         ),
 
-                        const SizedBox(height: AppSpacing.sm),
+                        const SizedBox(
+                          height:
+                          AppSpacing.sm,
+                        ),
 
                         const Text(
                           'Save charging stations you use frequently '
                               'and they will appear here.',
-                          textAlign: TextAlign.center,
+                          textAlign:
+                          TextAlign.center,
                           style: TextStyle(
-                            color: AppColors.textSecondary,
+                            color: AppColors
+                                .textSecondary,
                             fontSize: 13,
                             height: 1.5,
                           ),
                         ),
 
-                        const SizedBox(height: AppSpacing.xl),
-
-                        SizedBox(
-                          height: 46,
-                          child: ElevatedButton.icon(
-                            onPressed: widget.onNavigateToStations,
-                            icon: const Icon(
-                              Icons.ev_station_rounded,
-                              size: 19,
-                            ),
-                            label: const Text(
-                              'Find Stations',
-                              style: TextStyle(
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor:
-                              AppColors.lightFill,
-                              foregroundColor:
-                              AppColors.primary,
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(
-                                borderRadius:
-                                BorderRadius.circular(14),
-                              ),
-                            ),
-                          ),
-                        ),
                       ],
                     ),
                   ),
@@ -708,9 +1054,9 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // ---------------------------------------------------------------------------
+  // ===========================================================================
   // FAVOURITE CARD
-  // ---------------------------------------------------------------------------
+  // ===========================================================================
 
   Widget _buildFavouriteCard(
       Map<String, dynamic> favourite,
@@ -724,64 +1070,96 @@ class _HomePageState extends State<HomePage> {
             'Address not available';
 
     final String chargingPower =
-        favourite['charging_power']?.toString() ?? '0';
+        favourite['charging_power']?.toString() ??
+            '0';
 
-    final int availablePlugs = int.tryParse(
-      favourite['available_plugs']?.toString() ?? '0',
-    ) ??
-        0;
+    final int availablePlugs =
+        int.tryParse(
+          favourite['available_plugs']
+              ?.toString() ??
+              '0',
+        ) ??
+            0;
 
-    final int totalSlots = int.tryParse(
-      favourite['connector_slots']?.toString() ?? '0',
-    ) ??
-        0;
+    final int totalSlots =
+        int.tryParse(
+          favourite['connector_slots']
+              ?.toString() ??
+              '0',
+        ) ??
+            0;
 
-    final bool isAvailable = availablePlugs > 0;
+    final bool isAvailable =
+        availablePlugs > 0;
 
     final String rawConnectors =
         favourite['supported_connector_types']
             ?.toString() ??
             '';
 
-    final List<String> connectors = rawConnectors
+    final List<String> connectors =
+    rawConnectors
         .split(',')
-        .map((connector) => connector.trim())
-        .where((connector) => connector.isNotEmpty)
+        .map(
+          (connector) =>
+          connector.trim(),
+    )
+        .where(
+          (connector) =>
+      connector.isNotEmpty,
+    )
         .take(3)
         .toList();
 
-    final Color statusColor = isAvailable
+    final Color statusColor =
+    isAvailable
         ? AppColors.success
         : AppColors.danger;
 
     final String stationId =
-        favourite['station_id']?.toString() ?? '';
+        favourite['station_id']?.toString() ??
+            '';
 
-    final double? latitude = double.tryParse(
-      favourite['latitude']?.toString() ?? '',
+    final double? latitude =
+    double.tryParse(
+      favourite['latitude']?.toString() ??
+          '',
     );
 
-    final double? longitude = double.tryParse(
-      favourite['longitude']?.toString() ?? '',
+    final double? longitude =
+    double.tryParse(
+      favourite['longitude']?.toString() ??
+          '',
     );
 
     final bool hasLocation =
-        latitude != null && longitude != null;
+        latitude != null &&
+            longitude != null;
 
     return AppCard(
       padding: const EdgeInsets.all(18),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment:
+        CrossAxisAlignment.start,
         children: [
+          // -----------------------------------------------------------------
+          // STATION HEADER
+          // -----------------------------------------------------------------
+
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment:
+            CrossAxisAlignment.start,
             children: [
               Container(
                 width: 50,
                 height: 50,
                 decoration: BoxDecoration(
-                  color: AppColors.lightFill,
-                  borderRadius: BorderRadius.circular(14),
+                  color:
+                  AppColors.lightFill,
+                  borderRadius:
+                  BorderRadius.circular(
+                    14,
+                  ),
                 ),
                 child: const Icon(
                   Icons.ev_station_rounded,
@@ -790,45 +1168,64 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
 
-              const SizedBox(width: AppSpacing.md),
+              const SizedBox(
+                width: AppSpacing.md,
+              ),
 
               Expanded(
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment:
+                  CrossAxisAlignment
+                      .start,
                   children: [
                     Text(
                       stationName,
-                      style: const TextStyle(
+                      style:
+                      const TextStyle(
                         fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
+                        fontWeight:
+                        FontWeight.bold,
+                        color: AppColors
+                            .textPrimary,
                         height: 1.2,
                       ),
                       maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                      overflow:
+                      TextOverflow
+                          .ellipsis,
                     ),
 
-                    const SizedBox(height: 5),
+                    const SizedBox(
+                      height: 5,
+                    ),
 
                     Row(
                       children: [
                         const Icon(
-                          Icons.location_on_outlined,
+                          Icons
+                              .location_on_outlined,
                           size: 14,
-                          color: AppColors.textSecondary,
+                          color: AppColors
+                              .textSecondary,
                         ),
 
-                        const SizedBox(width: 4),
+                        const SizedBox(
+                          width: 4,
+                        ),
 
                         Expanded(
                           child: Text(
                             address,
-                            style: const TextStyle(
-                              color: AppColors.textSecondary,
+                            style:
+                            const TextStyle(
+                              color: AppColors
+                                  .textSecondary,
                               fontSize: 12,
                             ),
                             maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                            overflow:
+                            TextOverflow
+                                .ellipsis,
                           ),
                         ),
                       ],
@@ -837,11 +1234,15 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
 
-              const SizedBox(width: AppSpacing.sm),
+              const SizedBox(
+                width: AppSpacing.sm,
+              ),
 
               Material(
-                color: const Color(0xFFFFEEEE),
-                shape: const CircleBorder(),
+                color:
+                const Color(0xFFFFEEEE),
+                shape:
+                const CircleBorder(),
                 child: InkWell(
                   onTap: () {
                     _confirmRemove(
@@ -849,12 +1250,18 @@ class _HomePageState extends State<HomePage> {
                       stationName,
                     );
                   },
-                  customBorder: const CircleBorder(),
+                  customBorder:
+                  const CircleBorder(),
                   child: const Padding(
-                    padding: EdgeInsets.all(9),
+                    padding:
+                    EdgeInsets.all(
+                      9,
+                    ),
                     child: Icon(
-                      Icons.delete_outline_rounded,
-                      color: AppColors.danger,
+                      Icons
+                          .delete_outline_rounded,
+                      color:
+                      AppColors.danger,
                       size: 19,
                     ),
                   ),
@@ -863,84 +1270,133 @@ class _HomePageState extends State<HomePage> {
             ],
           ),
 
-          const SizedBox(height: AppSpacing.lg),
+          const SizedBox(
+            height: AppSpacing.lg,
+          ),
 
           const Divider(
             height: 1,
             color: Color(0xFFF0F1F3),
           ),
 
-          const SizedBox(height: AppSpacing.lg),
+          const SizedBox(
+            height: AppSpacing.lg,
+          ),
+
+          // -----------------------------------------------------------------
+          // POWER / PLUGS / STATUS
+          // -----------------------------------------------------------------
 
           Row(
             children: [
               Expanded(
                 child: _buildInfoItem(
-                  icon: Icons.flash_on_rounded,
-                  value: '$chargingPower kW',
+                  icon:
+                  Icons.flash_on_rounded,
+                  value:
+                  '$chargingPower kW',
                   label: 'Power',
-                  iconColor: AppColors.warning,
+                  iconColor:
+                  AppColors.warning,
                 ),
               ),
 
-              const SizedBox(width: AppSpacing.sm),
+              const SizedBox(
+                width: AppSpacing.sm,
+              ),
 
               Expanded(
                 child: _buildInfoItem(
-                  icon: Icons.power_rounded,
-                  value: '$availablePlugs/$totalSlots',
+                  icon:
+                  Icons.power_rounded,
+                  value:
+                  '$availablePlugs/$totalSlots',
                   label: 'Plugs',
-                  iconColor: statusColor,
+                  iconColor:
+                  statusColor,
                 ),
               ),
 
-              const SizedBox(width: AppSpacing.sm),
+              const SizedBox(
+                width: AppSpacing.sm,
+              ),
 
               _buildStatusBadge(
-                available: isAvailable,
+                available:
+                isAvailable,
                 color: statusColor,
               ),
             ],
           ),
 
+          // -----------------------------------------------------------------
+          // CONNECTORS
+          // -----------------------------------------------------------------
+
           if (connectors.isNotEmpty) ...[
-            const SizedBox(height: AppSpacing.lg),
+            const SizedBox(
+              height: AppSpacing.lg,
+            ),
 
             Wrap(
               spacing: AppSpacing.sm,
-              runSpacing: AppSpacing.sm,
-              children: connectors.map((connector) {
-                return Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.lightFill,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    connector,
-                    style: const TextStyle(
-                      color: AppColors.primary,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                );
-              }).toList(),
+              runSpacing:
+              AppSpacing.sm,
+              children: connectors
+                  .map(
+                      (connector) {
+                    return Container(
+                      padding:
+                      const EdgeInsets
+                          .symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration:
+                      BoxDecoration(
+                        color: AppColors
+                            .lightFill,
+                        borderRadius:
+                        BorderRadius
+                            .circular(
+                          10,
+                        ),
+                      ),
+                      child: Text(
+                        connector,
+                        style:
+                        const TextStyle(
+                          color: AppColors
+                              .primary,
+                          fontSize: 11,
+                          fontWeight:
+                          FontWeight.w700,
+                        ),
+                      ),
+                    );
+                  }).toList(),
             ),
           ],
 
-          const SizedBox(height: AppSpacing.xl),
+          const SizedBox(
+            height: AppSpacing.xl,
+          ),
+
+          // -----------------------------------------------------------------
+          // ROUTE BUTTON
+          // -----------------------------------------------------------------
 
           SizedBox(
             width: double.infinity,
             height: 46,
-            child: OutlinedButton.icon(
-              onPressed: hasLocation
+            child:
+            OutlinedButton.icon(
+              onPressed:
+              hasLocation
                   ? () {
-                _openRoute(favourite);
+                _openRoute(
+                  favourite,
+                );
               }
                   : null,
               icon: const Icon(
@@ -951,23 +1407,34 @@ class _HomePageState extends State<HomePage> {
                 hasLocation
                     ? 'Get Route'
                     : 'Location Unavailable',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
+                style:
+                const TextStyle(
+                  fontWeight:
+                  FontWeight.bold,
                   fontSize: 13,
                 ),
               ),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.primary,
+              style:
+              OutlinedButton.styleFrom(
+                foregroundColor:
+                AppColors.primary,
                 disabledForegroundColor:
-                AppColors.textSecondary,
+                AppColors
+                    .textSecondary,
                 side: BorderSide(
                   color: hasLocation
                       ? AppColors.primary
-                      : const Color(0xFFD1D5DB),
+                      : const Color(
+                    0xFFD1D5DB,
+                  ),
                   width: 1.4,
                 ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
+                shape:
+                RoundedRectangleBorder(
+                  borderRadius:
+                  BorderRadius.circular(
+                    14,
+                  ),
                 ),
               ),
             ),
@@ -976,6 +1443,10 @@ class _HomePageState extends State<HomePage> {
       ),
     );
   }
+
+  // ===========================================================================
+  // INFO ITEM
+  // ===========================================================================
 
   Widget _buildInfoItem({
     required IconData icon,
@@ -989,8 +1460,14 @@ class _HomePageState extends State<HomePage> {
           width: 34,
           height: 34,
           decoration: BoxDecoration(
-            color: iconColor.withOpacity(0.10),
-            borderRadius: BorderRadius.circular(10),
+            color:
+            iconColor.withOpacity(
+              0.10,
+            ),
+            borderRadius:
+            BorderRadius.circular(
+              10,
+            ),
           ),
           child: Icon(
             icon,
@@ -999,27 +1476,36 @@ class _HomePageState extends State<HomePage> {
           ),
         ),
 
-        const SizedBox(width: 7),
+        const SizedBox(
+          width: 7,
+        ),
 
         Flexible(
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment:
+            CrossAxisAlignment.start,
             children: [
               Text(
                 value,
-                style: const TextStyle(
-                  color: AppColors.textPrimary,
+                style:
+                const TextStyle(
+                  color:
+                  AppColors.textPrimary,
                   fontSize: 12,
-                  fontWeight: FontWeight.w700,
+                  fontWeight:
+                  FontWeight.w700,
                 ),
                 maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                overflow:
+                TextOverflow.ellipsis,
               ),
 
               Text(
                 label,
-                style: const TextStyle(
-                  color: AppColors.textSecondary,
+                style:
+                const TextStyle(
+                  color: AppColors
+                      .textSecondary,
                   fontSize: 10,
                 ),
               ),
@@ -1030,39 +1516,56 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  // ===========================================================================
+  // STATUS BADGE
+  // ===========================================================================
+
   Widget _buildStatusBadge({
     required bool available,
     required Color color,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(
+      padding:
+      const EdgeInsets.symmetric(
         horizontal: 9,
         vertical: 6,
       ),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.10),
-        borderRadius: BorderRadius.circular(20),
+        color: color.withOpacity(
+          0.10,
+        ),
+        borderRadius:
+        BorderRadius.circular(
+          20,
+        ),
       ),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
+        mainAxisSize:
+        MainAxisSize.min,
         children: [
           Container(
             width: 6,
             height: 6,
             decoration: BoxDecoration(
               color: color,
-              shape: BoxShape.circle,
+              shape:
+              BoxShape.circle,
             ),
           ),
 
-          const SizedBox(width: 5),
+          const SizedBox(
+            width: 5,
+          ),
 
           Text(
-            available ? 'Available' : 'Full',
+            available
+                ? 'Available'
+                : 'Full',
             style: TextStyle(
               color: color,
               fontSize: 10,
-              fontWeight: FontWeight.w700,
+              fontWeight:
+              FontWeight.w700,
             ),
           ),
         ],
@@ -1070,16 +1573,40 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // GLASS BUTTON
-  // ---------------------------------------------------------------------------
+  // ===========================================================================
+  // GLASS NOTIFICATION BUTTON
+  // ===========================================================================
 
   Widget _buildGlassIconButton(
       IconData icon, {
         required bool compact,
+        bool extraCompact = false,
       }) {
+    final double padding;
+
+    if (extraCompact) {
+      padding = 7;
+    } else if (compact) {
+      padding = 10;
+    } else {
+      padding = 12;
+    }
+
+    final double iconSize;
+
+    if (extraCompact) {
+      iconSize = 18;
+    } else if (compact) {
+      iconSize = 21;
+    } else {
+      iconSize = 24;
+    }
+
     return ClipRRect(
-      borderRadius: BorderRadius.circular(14),
+      borderRadius:
+      BorderRadius.circular(
+        14,
+      ),
       child: BackdropFilter(
         filter: ImageFilter.blur(
           sigmaX: 10,
@@ -1087,19 +1614,28 @@ class _HomePageState extends State<HomePage> {
         ),
         child: Container(
           padding: EdgeInsets.all(
-            compact ? 10 : 12,
+            padding,
           ),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.15),
-            border: Border.all(
-              color: Colors.white.withOpacity(0.20),
+            color:
+            Colors.white.withOpacity(
+              0.15,
             ),
-            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color:
+              Colors.white.withOpacity(
+                0.20,
+              ),
+            ),
+            borderRadius:
+            BorderRadius.circular(
+              14,
+            ),
           ),
           child: Icon(
             icon,
             color: Colors.white,
-            size: compact ? 21 : 24,
+            size: iconSize,
           ),
         ),
       ),

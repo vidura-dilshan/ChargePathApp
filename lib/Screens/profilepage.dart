@@ -72,11 +72,33 @@ class _ProfilePageState extends State<ProfilePage> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
           ),
-          title: const Text(
-            'Sign Out',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-            ),
+          titlePadding: const EdgeInsets.fromLTRB(
+            24,
+            18,
+            14,
+            0,
+          ),
+          title: Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Sign Out',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              IconButton(
+                tooltip: 'Close',
+                onPressed: () {
+                  Navigator.pop(dialogContext, false);
+                },
+                icon: const Icon(
+                  Icons.close_rounded,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ],
           ),
           content: const Text(
             'Are you sure you want to sign out of your account?',
@@ -86,23 +108,12 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
           ),
           actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(dialogContext, false);
-              },
-              child: Text(
-                'Cancel',
-                style: TextStyle(
-                  color: AppColors.textSecondary,
-                ),
-              ),
-            ),
             ElevatedButton(
               onPressed: () {
                 Navigator.pop(dialogContext, true);
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red.shade400,
+                backgroundColor: Colors.red,
                 foregroundColor: Colors.white,
                 elevation: 0,
                 shape: RoundedRectangleBorder(
@@ -121,8 +132,6 @@ class _ProfilePageState extends State<ProfilePage> {
     }
 
     try {
-      // On Android and iOS, disconnecting forces Google to show the account
-      // chooser during the next sign-in. Web uses Firebase's popup flow.
       if (!kIsWeb) {
         final GoogleSignIn googleSignIn = GoogleSignIn();
 
