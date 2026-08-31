@@ -1,11 +1,18 @@
 import 'dart:convert';
-import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
-import 'chargingroute.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:http/http.dart' as http;
+
+import 'package:chargepath/Theme/app_colors.dart';
+import 'package:chargepath/Theme/app_spacing.dart';
+import 'package:chargepath/Widgets/app_card.dart';
+
 import 'bookstation.dart';
+import 'chargingroute.dart';
 import 'favorites_db.dart';
 
 class FindStations extends StatefulWidget {
@@ -16,39 +23,56 @@ class FindStations extends StatefulWidget {
 }
 
 class _FindStationsState extends State<FindStations> {
-  // --- THEME COLORS ---
-  final Color _primaryColor = const Color(0xFF0253A4);
-  final Color _lightFillColor = const Color(0xFFE6EFF8);
-  final Color _backgroundColor = const Color(0xFFF5F7FA);
-  final Color _greyText = Colors.grey.shade600;
+  // Google Maps API key.
+  static const String _googleApiKey =
+      'AIzaSyALER_NJqGFdwseum4UGUk_wTTYZbGK-es';
 
-  // 🔑 Replace with your Google Maps API key (Geocoding API must be enabled).
-  static const String _googleApiKey = 'AIzaSyALER_NJqGFdwseum4UGUk_wTTYZbGK-es';
-
-  // Stations with charging_power >= this (kW) are treated as "Fast". Adjust if needed.
+  // Stations with charging_power >= this are treated as Fast.
   static const double _fastChargingThreshold = 50.0;
 
-  // --- STATE ---
+  // ---------------------------------------------------------------------------
+  // STATE
+  // ---------------------------------------------------------------------------
+
   bool _isNearbySelected = true;
+
   double _distanceValue = 5.0;
+
   String _selectedConnectorType = 'All';
   String _selectedChargingType = 'All';
+
   LatLng? _currentUserPosition;
+
   bool _isLoadingLocation = false;
 
-  // --- SEARCH STATE ---
-  final TextEditingController _searchController = TextEditingController();
-  final FocusNode _searchFocusNode = FocusNode();
+  // ---------------------------------------------------------------------------
+  // SEARCH
+  // ---------------------------------------------------------------------------
+
+  final TextEditingController _searchController =
+  TextEditingController();
+
+  final FocusNode _searchFocusNode =
+  FocusNode();
+
   LatLng? _searchedTownPosition;
   String? _searchedTownName;
+
   bool _isSearchActive = false;
   bool _isSearching = false;
 
-  /// Favourite station IDs persisted in SQLite
-  final Set<String> _favoriteIds = {};
-  late final Stream<QuerySnapshot> _stationsStream; // ADD THI
+  // ---------------------------------------------------------------------------
+  // FAVOURITES
+  // ---------------------------------------------------------------------------
 
-  // --- FILTER OPTIONS ---
+  final Set<String> _favoriteIds = {};
+
+  late final Stream<QuerySnapshot> _stationsStream;
+
+  // ---------------------------------------------------------------------------
+  // FILTER OPTIONS
+  // ---------------------------------------------------------------------------
+
   static const List<String> _connectorTypes = [
     'All',
     'Type 1',
@@ -58,85 +82,201 @@ class _FindStationsState extends State<FindStations> {
     'CHAdeMO',
     'GBT',
   ];
-  static const List<String> _chargingTypes = ['All', 'Fast', 'Normal'];
 
-  /// The Distance Radius slider is shown when the Nearby tab is selected,
-  /// OR when the search bar is focused, OR when a town has been searched.
+  static const List<String> _chargingTypes = [
+    'All',
+    'Fast',
+    'Normal',
+  ];
+
   bool get _showDistanceSlider =>
-      _isNearbySelected || _isSearchActive || _searchedTownPosition != null;
+      _isNearbySelected ||
+          _isSearchActive ||
+          _searchedTownPosition != null;
 
-@override
+  // ---------------------------------------------------------------------------
+  // LIFECYCLE
+  // ---------------------------------------------------------------------------
+
+  @override
   void initState() {
     super.initState();
+
     _getUserLocation();
     _loadFavorites();
-    FavoritesDb.favoritesChanged.addListener(_onFavoritesChanged); // ADD THIS
-    _stationsStream = FirebaseFirestore.instance.collection('users').snapshots(); // ADD THIS
+
+    FavoritesDb.favoritesChanged.addListener(
+      _onFavoritesChanged,
+    );
+
+    _stationsStream =
+        FirebaseFirestore.instance
+            .collection('users')
+            .snapshots();
+
     _searchFocusNode.addListener(() {
-      if (mounted) setState(() => _isSearchActive = _searchFocusNode.hasFocus);
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _isSearchActive =
+            _searchFocusNode.hasFocus;
+      });
     });
   }
 
-
-@override
+  @override
   void dispose() {
-    FavoritesDb.favoritesChanged.removeListener(_onFavoritesChanged); // ADD THIS
+    FavoritesDb.favoritesChanged.removeListener(
+      _onFavoritesChanged,
+    );
+
     _searchController.dispose();
     _searchFocusNode.dispose();
+
     super.dispose();
   }
 
-  // ── LOAD FAVOURITES FROM SQLITE ───────────────────────────────────────────
+  // ---------------------------------------------------------------------------
+  // FAVOURITES
+  // ---------------------------------------------------------------------------
+
   Future<void> _loadFavorites() async {
-    final rows = await FavoritesDb.instance.getAllFavorites();
-    if (mounted) {
+    try {
+      if (kIsWeb) {
+        if (!mounted) {
+          return;
+        }
+
+        setState(() {
+          _favoriteIds.clear();
+        });
+
+        return;
+      }
+
+      final List<Map<String, dynamic>> rows =
+      await FavoritesDb.instance
+          .getAllFavorites();
+
+      if (!mounted) {
+        return;
+      }
+
       setState(() {
         _favoriteIds
           ..clear()
-          ..addAll(rows.map((r) => r['station_id'] as String));
+          ..addAll(
+            rows.map(
+                  (row) =>
+                  row['station_id'].toString(),
+            ),
+          );
+      });
+    } catch (error, stackTrace) {
+      debugPrint(
+        'Failed to load favourites: $error',
+      );
+
+      debugPrintStack(
+        stackTrace: stackTrace,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _favoriteIds.clear();
       });
     }
   }
 
-  // ADD THIS — keeps _favoriteIds in sync whenever a favourite changes elsewhere (e.g. Home page)
-  void _onFavoritesChanged() => _loadFavorites();
-  
-  // ── TOGGLE FAVOURITE ──────────────────────────────────────────────────────
+  void _onFavoritesChanged() {
+    _loadFavorites();
+  }
+
   Future<void> _toggleFavorite(
-    String stationId,
-    Map<String, dynamic> data,
-  ) async {
-    final isFav = _favoriteIds.contains(stationId);
-    if (isFav) {
-      await FavoritesDb.instance.removeFavorite(stationId);
-      if (mounted) setState(() => _favoriteIds.remove(stationId));
-      _showTopSnack('Removed from favourites');
-    } else {
-      await FavoritesDb.instance.addFavorite(stationId, data);
-      if (mounted) setState(() => _favoriteIds.add(stationId));
-      _showTopSnack('Added to favourites ⭐');
+      String stationId,
+      Map<String, dynamic> data,
+      ) async {
+    final bool isFavourite =
+    _favoriteIds.contains(stationId);
+
+    try {
+      if (!kIsWeb) {
+        if (isFavourite) {
+          await FavoritesDb.instance
+              .removeFavorite(stationId);
+        } else {
+          await FavoritesDb.instance
+              .addFavorite(
+            stationId,
+            data,
+          );
+        }
+      }
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        if (isFavourite) {
+          _favoriteIds.remove(stationId);
+        } else {
+          _favoriteIds.add(stationId);
+        }
+      });
+
+      _showTopSnack(
+        isFavourite
+            ? 'Removed from favourites'
+            : 'Added to favourites',
+      );
+    } catch (error, stackTrace) {
+      debugPrint(
+        'Failed to update favourite: $error',
+      );
+
+      debugPrintStack(
+        stackTrace: stackTrace,
+      );
+
+      _showInfoSnack(
+        'Unable to update favourites.',
+      );
     }
   }
 
-  // ── SNACK AT THE TOP OF THE SCREEN ───────────────────────────────────────
-  void _showTopSnack(String msg) {
-    final messenger = ScaffoldMessenger.of(context);
+  // ---------------------------------------------------------------------------
+  // SNACKBARS
+  // ---------------------------------------------------------------------------
+
+  void _showTopSnack(String message) {
+    final ScaffoldMessengerState messenger =
+    ScaffoldMessenger.of(context);
+
     messenger.clearSnackBars();
+
     messenger.showSnackBar(
       SnackBar(
         content: Row(
           children: [
             Icon(
-              msg.contains('Added')
+              message.contains('Added')
                   ? Icons.star_rounded
                   : Icons.star_outline_rounded,
               color: Colors.white,
               size: 18,
             ),
-            const SizedBox(width: 10),
+            const SizedBox(
+              width: AppSpacing.sm,
+            ),
             Expanded(
               child: Text(
-                msg,
+                message,
                 style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
@@ -145,127 +285,263 @@ class _FindStationsState extends State<FindStations> {
             ),
           ],
         ),
-        duration: const Duration(seconds: 2),
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: _primaryColor,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        duration:
+        const Duration(seconds: 2),
+        behavior:
+        SnackBarBehavior.floating,
+        backgroundColor:
+        AppColors.primary,
+        shape: RoundedRectangleBorder(
+          borderRadius:
+          BorderRadius.circular(14),
+        ),
         margin: EdgeInsets.only(
-          bottom: MediaQuery.of(context).size.height - 130,
-          left: 16,
-          right: 16,
+          bottom:
+          MediaQuery.of(context)
+              .size
+              .height -
+              130,
+          left: AppSpacing.lg,
+          right: AppSpacing.lg,
         ),
       ),
     );
   }
 
-  // ── GENERIC INFO SNACK (used for search feedback) ────────────────────────
-  void _showInfoSnack(String msg) {
-    final messenger = ScaffoldMessenger.of(context);
+  void _showInfoSnack(String message) {
+    final ScaffoldMessengerState messenger =
+    ScaffoldMessenger.of(context);
+
     messenger.clearSnackBars();
+
     messenger.showSnackBar(
       SnackBar(
         content: Text(
-          msg,
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+          message,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
         ),
-        duration: const Duration(seconds: 2),
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: _primaryColor,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        duration:
+        const Duration(seconds: 2),
+        behavior:
+        SnackBarBehavior.floating,
+        backgroundColor:
+        AppColors.primary,
+        shape: RoundedRectangleBorder(
+          borderRadius:
+          BorderRadius.circular(14),
+        ),
         margin: EdgeInsets.only(
-          bottom: MediaQuery.of(context).size.height - 130,
-          left: 16,
-          right: 16,
+          bottom:
+          MediaQuery.of(context)
+              .size
+              .height -
+              130,
+          left: AppSpacing.lg,
+          right: AppSpacing.lg,
         ),
       ),
     );
   }
 
-  // ── GET USER LOCATION ─────────────────────────────────────────────────────
+  // ---------------------------------------------------------------------------
+  // LOCATION
+  // ---------------------------------------------------------------------------
+
   Future<void> _getUserLocation() async {
-    setState(() => _isLoadingLocation = true);
+    setState(() {
+      _isLoadingLocation = true;
+    });
+
     try {
-      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      final bool serviceEnabled =
+      await Geolocator
+          .isLocationServiceEnabled();
+
       if (!serviceEnabled) {
-        if (mounted) setState(() => _isLoadingLocation = false);
+        if (mounted) {
+          setState(() {
+            _isLoadingLocation = false;
+          });
+        }
+
         return;
       }
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied) {
-          if (mounted) setState(() => _isLoadingLocation = false);
+
+      LocationPermission permission =
+      await Geolocator
+          .checkPermission();
+
+      if (permission ==
+          LocationPermission.denied) {
+        permission =
+        await Geolocator
+            .requestPermission();
+
+        if (permission ==
+            LocationPermission.denied) {
+          if (mounted) {
+            setState(() {
+              _isLoadingLocation = false;
+            });
+          }
+
           return;
         }
       }
-      if (permission == LocationPermission.deniedForever) {
-        if (mounted) setState(() => _isLoadingLocation = false);
+
+      if (permission ==
+          LocationPermission.deniedForever) {
+        if (mounted) {
+          setState(() {
+            _isLoadingLocation = false;
+          });
+        }
+
         return;
       }
-      final Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
+
+      final Position position =
+      await Geolocator
+          .getCurrentPosition(
+        desiredAccuracy:
+        LocationAccuracy.high,
       );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _currentUserPosition = LatLng(
+          position.latitude,
+          position.longitude,
+        );
+
+        _isLoadingLocation = false;
+      });
+    } catch (error) {
+      debugPrint(
+        'Location error: $error',
+      );
+
       if (mounted) {
         setState(() {
-          _currentUserPosition = LatLng(position.latitude, position.longitude);
           _isLoadingLocation = false;
         });
       }
-    } catch (e) {
-      debugPrint('Location error: $e');
-      if (mounted) setState(() => _isLoadingLocation = false);
     }
   }
 
-  // ── SEARCH A TOWN VIA GOOGLE GEOCODING API ───────────────────────────────
-  Future<void> _searchTown(String query) async {
-    final q = query.trim();
-    if (q.isEmpty) {
+  // ---------------------------------------------------------------------------
+  // SEARCH
+  // ---------------------------------------------------------------------------
+
+  Future<void> _searchTown(
+      String query,
+      ) async {
+    final String cleanQuery =
+    query.trim();
+
+    if (cleanQuery.isEmpty) {
       _clearSearch();
       return;
     }
-    FocusScope.of(context).unfocus();
-    setState(() => _isSearching = true);
-    try {
-      final url = Uri.parse(
-        'https://maps.googleapis.com/maps/api/geocode/json'
-        '?address=${Uri.encodeComponent(q)}&key=$_googleApiKey',
-      );
-      final response = await http.get(url);
-      final body = json.decode(response.body) as Map<String, dynamic>;
-      final results = (body['results'] as List?) ?? [];
 
-      if (body['status'] == 'OK' && results.isNotEmpty) {
-        final loc = results[0]['geometry']['location'];
-        final lat = (loc['lat'] as num).toDouble();
-        final lng = (loc['lng'] as num).toDouble();
-        final name = results[0]['formatted_address']?.toString() ?? q;
-        if (mounted) {
-          setState(() {
-            _searchedTownPosition = LatLng(lat, lng);
-            _searchedTownName = name;
-            _isSearching = false;
-          });
+    FocusScope.of(context).unfocus();
+
+    setState(() {
+      _isSearching = true;
+    });
+
+    try {
+      final Uri url = Uri.parse(
+        'https://maps.googleapis.com/maps/api/geocode/json'
+            '?address=${Uri.encodeComponent(cleanQuery)}'
+            '&key=$_googleApiKey',
+      );
+
+      final http.Response response =
+      await http.get(url);
+
+      final Map<String, dynamic> body =
+      json.decode(response.body)
+      as Map<String, dynamic>;
+
+      final List results =
+          (body['results'] as List?) ?? [];
+
+      if (body['status'] == 'OK' &&
+          results.isNotEmpty) {
+        final dynamic location =
+        results[0]['geometry']
+        ['location'];
+
+        final double latitude =
+        (location['lat'] as num)
+            .toDouble();
+
+        final double longitude =
+        (location['lng'] as num)
+            .toDouble();
+
+        final String name =
+            results[0]['formatted_address']
+                ?.toString() ??
+                cleanQuery;
+
+        if (!mounted) {
+          return;
         }
+
+        setState(() {
+          _searchedTownPosition =
+              LatLng(
+                latitude,
+                longitude,
+              );
+
+          _searchedTownName = name;
+          _isSearching = false;
+        });
       } else {
-        if (mounted) {
-          setState(() => _isSearching = false);
-          _showInfoSnack('No location found for "$q"');
+        if (!mounted) {
+          return;
         }
+
+        setState(() {
+          _isSearching = false;
+        });
+
+        _showInfoSnack(
+          'No location found for "$cleanQuery"',
+        );
       }
-    } catch (e) {
-      debugPrint('Geocoding error: $e');
-      if (mounted) {
-        setState(() => _isSearching = false);
-        _showInfoSnack('Search failed. Check your connection.');
+    } catch (error) {
+      debugPrint(
+        'Geocoding error: $error',
+      );
+
+      if (!mounted) {
+        return;
       }
+
+      setState(() {
+        _isSearching = false;
+      });
+
+      _showInfoSnack(
+        'Search failed. Check your connection.',
+      );
     }
   }
 
-  // ── CLEAR THE TOWN SEARCH ─────────────────────────────────────────────────
   void _clearSearch() {
     _searchController.clear();
     _searchFocusNode.unfocus();
+
     setState(() {
       _searchedTownPosition = null;
       _searchedTownName = null;
@@ -273,176 +549,335 @@ class _FindStationsState extends State<FindStations> {
     });
   }
 
-  // ── PARSE CHARGING POWER ROBUSTLY (handles "60", "60 kW", etc.) ───────────
+  // ---------------------------------------------------------------------------
+  // HELPERS
+  // ---------------------------------------------------------------------------
+
   double _parsePower(dynamic raw) {
-    final match = RegExp(r'[\d.]+').firstMatch(raw?.toString() ?? '');
-    return match != null ? (double.tryParse(match.group(0)!) ?? 0) : 0;
+    final RegExpMatch? match =
+    RegExp(
+      r'[\d.]+',
+    ).firstMatch(
+      raw?.toString() ?? '',
+    );
+
+    if (match == null) {
+      return 0;
+    }
+
+    return double.tryParse(
+      match.group(0)!,
+    ) ??
+        0;
   }
 
-  // ── DISTANCE CALCULATION ──────────────────────────────────────────────────
   double _calculateDistanceKm(
-    double lat1,
-    double lng1,
-    double lat2,
-    double lng2,
-  ) {
-    return Geolocator.distanceBetween(lat1, lng1, lat2, lng2) / 1000.0;
+      double lat1,
+      double lng1,
+      double lat2,
+      double lng2,
+      ) {
+    return Geolocator.distanceBetween(
+      lat1,
+      lng1,
+      lat2,
+      lng2,
+    ) /
+        1000;
   }
 
-  // ── FILTER STATIONS ───────────────────────────────────────────────────────
   List<QueryDocumentSnapshot> _filterStations(
-    List<QueryDocumentSnapshot> docs,
-  ) {
-    // Center used for the radius filter.
-    // Priority: searched town > current location (only when Nearby tab is active).
+      List<QueryDocumentSnapshot> docs,
+      ) {
     final LatLng? filterCenter =
         _searchedTownPosition ??
-        (_isNearbySelected ? _currentUserPosition : null);
+            (_isNearbySelected
+                ? _currentUserPosition
+                : null);
 
     return docs.where((doc) {
-      final data = doc.data() as Map<String, dynamic>;
+      final Map<String, dynamic> data =
+      doc.data()
+      as Map<String, dynamic>;
 
-      // ── Charging type filter (Fast / Normal) ──
-      if (_selectedChargingType != 'All') {
-        final double power = _parsePower(data['charging_power']);
-        final bool isFast = power >= _fastChargingThreshold;
-        if (_selectedChargingType == 'Fast' && !isFast) return false;
-        if (_selectedChargingType == 'Normal' && isFast) return false;
-      }
-
-      // ── Connector type filter ──
-      if (_selectedConnectorType != 'All') {
-        String rawConnectors =
-            data['supported_connector_types']?.toString() ?? '';
-        List<String> parts = rawConnectors
-            .split(',')
-            .map((e) => e.trim())
-            .toList();
-        bool hasConnector = parts.any(
-          (part) => part.toLowerCase() == _selectedConnectorType.toLowerCase(),
+      if (_selectedChargingType !=
+          'All') {
+        final double power =
+        _parsePower(
+          data['charging_power'],
         );
-        if (!hasConnector) return false;
+
+        final bool isFast =
+            power >=
+                _fastChargingThreshold;
+
+        if (_selectedChargingType ==
+            'Fast' &&
+            !isFast) {
+          return false;
+        }
+
+        if (_selectedChargingType ==
+            'Normal' &&
+            isFast) {
+          return false;
+        }
       }
 
-      // ── Distance / radius filter ──
+      if (_selectedConnectorType !=
+          'All') {
+        final String rawConnectors =
+            data['supported_connector_types']
+                ?.toString() ??
+                '';
+
+        final List<String> parts =
+        rawConnectors
+            .split(',')
+            .map(
+              (connector) =>
+              connector.trim(),
+        )
+            .toList();
+
+        final bool hasConnector =
+        parts.any(
+              (part) =>
+          part.toLowerCase() ==
+              _selectedConnectorType
+                  .toLowerCase(),
+        );
+
+        if (!hasConnector) {
+          return false;
+        }
+      }
+
       if (filterCenter != null) {
-        double? lat = double.tryParse(data['latitude']?.toString() ?? '');
-        double? lng = double.tryParse(data['longitude']?.toString() ?? '');
-        if (lat == null || lng == null) return false;
-        double distKm = _calculateDistanceKm(
+        final double? latitude =
+        double.tryParse(
+          data['latitude']?.toString() ??
+              '',
+        );
+
+        final double? longitude =
+        double.tryParse(
+          data['longitude']
+              ?.toString() ??
+              '',
+        );
+
+        if (latitude == null ||
+            longitude == null) {
+          return false;
+        }
+
+        final double distanceKm =
+        _calculateDistanceKm(
           filterCenter.latitude,
           filterCenter.longitude,
-          lat,
-          lng,
+          latitude,
+          longitude,
         );
-        if (distKm > _distanceValue) return false;
+
+        if (distanceKm >
+            _distanceValue) {
+          return false;
+        }
       }
+
       return true;
     }).toList();
   }
 
-  // ── FILTER BOTTOM SHEET ───────────────────────────────────────────────────
+  // ---------------------------------------------------------------------------
+  // FILTER SHEET
+  // ---------------------------------------------------------------------------
+
   void _showFilterSheet(
-    String title,
-    List<String> options,
-    String selected,
-    ValueChanged<String> onSelected,
-  ) {
+      String title,
+      List<String> options,
+      String selected,
+      ValueChanged<String> onSelected,
+      ) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      backgroundColor:
+      AppColors.white,
+      shape:
+      const RoundedRectangleBorder(
+        borderRadius:
+        BorderRadius.vertical(
+          top: Radius.circular(24),
+        ),
       ),
       builder: (_) {
         return StatefulBuilder(
-          builder: (ctx, setSheetState) {
+          builder: (
+              context,
+              setSheetState,
+              ) {
             return SafeArea(
               top: false,
               child: Column(
-                mainAxisSize: MainAxisSize.min,
+                mainAxisSize:
+                MainAxisSize.min,
                 children: [
                   Container(
-                    margin: const EdgeInsets.only(top: 12, bottom: 4),
+                    margin:
+                    const EdgeInsets.only(
+                      top: 12,
+                      bottom: 4,
+                    ),
                     width: 40,
                     height: 4,
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade300,
-                      borderRadius: BorderRadius.circular(2),
+                    decoration:
+                    BoxDecoration(
+                      color:
+                      Colors.grey.shade300,
+                      borderRadius:
+                      BorderRadius.circular(
+                        2,
+                      ),
                     ),
                   ),
                   Padding(
-                    padding: const EdgeInsets.symmetric(
+                    padding:
+                    const EdgeInsets
+                        .symmetric(
                       horizontal: 20,
                       vertical: 12,
                     ),
                     child: Row(
                       children: [
-                        Text(
-                          title,
-                          style: const TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black87,
+                        Expanded(
+                          child: Text(
+                            title,
+                            style:
+                            const TextStyle(
+                              fontSize: 17,
+                              fontWeight:
+                              FontWeight
+                                  .bold,
+                              color: AppColors
+                                  .textPrimary,
+                            ),
                           ),
                         ),
-                        const Spacer(),
-                        if (selected != 'All')
+                        if (selected !=
+                            'All')
                           TextButton(
                             onPressed: () {
-                              onSelected('All');
-                              Navigator.pop(ctx);
+                              onSelected(
+                                'All',
+                              );
+
+                              Navigator.pop(
+                                context,
+                              );
                             },
-                            child: Text(
+                            child:
+                            const Text(
                               'Clear',
-                              style: TextStyle(color: _primaryColor),
+                              style:
+                              TextStyle(
+                                color:
+                                AppColors
+                                    .primary,
+                              ),
                             ),
                           ),
                       ],
                     ),
                   ),
-                  const Divider(height: 1),
+                  const Divider(
+                    height: 1,
+                  ),
                   ConstrainedBox(
-                    constraints: BoxConstraints(
+                    constraints:
+                    BoxConstraints(
                       maxHeight:
-                          MediaQuery.of(context).size.height * 0.45 -
-                          MediaQuery.of(context).viewPadding.bottom -
+                      MediaQuery.of(
+                        context,
+                      )
+                          .size
+                          .height *
+                          0.45 -
+                          MediaQuery.of(
+                            context,
+                          )
+                              .viewPadding
+                              .bottom -
                           21,
                     ),
-                    child: ListView.builder(
+                    child:
+                    ListView.builder(
                       shrinkWrap: true,
-                      physics: const BouncingScrollPhysics(),
-                      itemCount: options.length,
-                      itemBuilder: (_, i) {
-                        final opt = options[i];
-                        final bool isSelected = selected == opt;
+                      physics:
+                      const ClampingScrollPhysics(),
+                      itemCount:
+                      options.length,
+                      itemBuilder: (
+                          context,
+                          index,
+                          ) {
+                        final String option =
+                        options[index];
+
+                        final bool
+                        isSelected =
+                            selected ==
+                                option;
+
                         return ListTile(
                           title: Text(
-                            opt,
-                            style: TextStyle(
+                            option,
+                            style:
+                            TextStyle(
                               color: isSelected
-                                  ? _primaryColor
-                                  : Colors.black87,
+                                  ? AppColors
+                                  .primary
+                                  : AppColors
+                                  .textPrimary,
                               fontWeight: isSelected
-                                  ? FontWeight.w700
-                                  : FontWeight.normal,
+                                  ? FontWeight
+                                  .w700
+                                  : FontWeight
+                                  .normal,
                             ),
                           ),
-                          trailing: isSelected
-                              ? Icon(Icons.check_circle, color: _primaryColor)
+                          trailing:
+                          isSelected
+                              ? const Icon(
+                            Icons
+                                .check_circle,
+                            color:
+                            AppColors
+                                .primary,
+                          )
                               : const Icon(
-                                  Icons.radio_button_unchecked,
-                                  color: Colors.grey,
-                                ),
+                            Icons
+                                .radio_button_unchecked,
+                            color:
+                            Colors
+                                .grey,
+                          ),
                           onTap: () {
-                            onSelected(opt);
-                            Navigator.pop(ctx);
+                            onSelected(
+                              option,
+                            );
+
+                            Navigator.pop(
+                              context,
+                            );
                           },
                         );
                       },
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(
+                    height: 20,
+                  ),
                 ],
               ),
             );
@@ -452,531 +887,75 @@ class _FindStationsState extends State<FindStations> {
     );
   }
 
+  // ===========================================================================
+  // RESPONSIVE BUILD
+  // ===========================================================================
+
   @override
   Widget build(BuildContext context) {
+    return _buildMobileLayout();
+  }
+
+  // ===========================================================================
+  // MOBILE
+  // ===========================================================================
+
+  Widget _buildMobileLayout() {
+    final bool isLandscape =
+        MediaQuery.orientationOf(
+          context,
+        ) ==
+            Orientation.landscape;
+
     return Scaffold(
-      backgroundColor: _backgroundColor,
+      backgroundColor:
+      AppColors.background,
       body: SafeArea(
         bottom: false,
         child: Column(
           children: [
-            // ── HEADER + SEARCH BAR ─────────────────────────────────────────
+            _buildMobileHeader(
+              compact: isLandscape,
+            ),
+            
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 6, 20, 10),
-              child: Column(
-                children: [
-                  const Text(
-                    'Find Charging Stations',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 19,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                      letterSpacing: 0.2,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Container(
-                    height: 44,
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: _isSearchActive
-                            ? _primaryColor.withOpacity(0.5)
-                            : Colors.grey.shade200,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.grey.withOpacity(0.06),
-                          blurRadius: 8,
-                          offset: const Offset(0, 3),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.search,
-                          color: _isSearchActive ? _primaryColor : _greyText,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: TextField(
-                            controller: _searchController,
-                            focusNode: _searchFocusNode,
-                            textInputAction: TextInputAction.search,
-                            onSubmitted: _searchTown,
-                            onChanged: (_) => setState(() {}),
-                            style: const TextStyle(fontSize: 14),
-                            decoration: const InputDecoration(
-                              hintText: 'Search a town or city...',
-                              border: InputBorder.none,
-                              isCollapsed: true,
-                            ),
-                          ),
-                        ),
-                        if (_isSearching)
-                          SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: _primaryColor,
-                            ),
-                          )
-                        else if (_searchController.text.isNotEmpty) ...[
-                          // CHANGED: now yields a list of widgets
-                          GestureDetector(
-                            onTap: _clearSearch,
-                            child: Icon(
-                              Icons.close,
-                              color: _greyText,
-                              size: 20,
-                            ),
-                          ),
-                          const SizedBox(width: 10), // ADD THIS
-                          GestureDetector(
-                            // ADD THIS
-                            onTap: () => _searchTown(
-                              _searchController.text,
-                            ), // ADD THIS — same trigger as keyboard search, no extra loading state
-                            child: Icon(
-                              // ADD THIS
-                              Icons.arrow_circle_right_rounded, // ADD THIS
-                              color: _primaryColor, // ADD THIS (blue)
-                              size: 26, // ADD THIS
-                            ), // ADD THIS
-                          ), // ADD THIS
-                        ],
-                      ],
-                    ),
-                  ),
-                ],
+              padding: EdgeInsets.fromLTRB(
+                AppSpacing.md,
+                isLandscape ? 6 : AppSpacing.sm,
+                AppSpacing.md,
+                0,
+              ),
+              child: AppCard(
+                padding: EdgeInsets.all(
+                  isLandscape ? 8 : 10,
+                ),
+                child:
+                _buildControlsPanel(
+                  horizontalPadding: 0,
+                  isWideLayout: false,
+                  compactMobile:
+                  isLandscape,
+                ),
               ),
             ),
-
-            // ── FIXED CONTROLS ───────────────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Divider(height: 1, thickness: 1, color: Colors.black12),
-                  const SizedBox(height: 14),
-
-                  // Toggle
-                  Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey.shade200),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: _buildToggleButton(
-                            'Nearby',
-                            _isNearbySelected,
-                          ),
-                        ),
-                        Expanded(
-                          child: _buildToggleButton(
-                            'All Stations',
-                            !_isNearbySelected,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // Location / search status
-                  if (_searchedTownPosition != null) ...[
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Icon(Icons.place, color: _primaryColor, size: 16),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            'Within ${_distanceValue.toInt()} km of ${_searchedTownName ?? 'searched area'}',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: _primaryColor,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ] else if (_isNearbySelected) ...[
-                    const SizedBox(height: 8),
-                    if (_isLoadingLocation)
-                      Row(
-                        children: [
-                          SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: _primaryColor,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Getting your location...',
-                            style: TextStyle(color: _greyText, fontSize: 12),
-                          ),
-                        ],
-                      )
-                    else if (_currentUserPosition == null)
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.location_off,
-                            color: Colors.orange,
-                            size: 16,
-                          ),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              'Location unavailable — showing all stations.',
-                              style: TextStyle(
-                                color: Colors.orange.shade700,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ),
-                          GestureDetector(
-                            onTap: _getUserLocation,
-                            child: Text(
-                              'Retry',
-                              style: TextStyle(
-                                color: _primaryColor,
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ],
-                      )
-                    else
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.location_on,
-                            color: Colors.green.shade600,
-                            size: 16,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            'Showing stations within ${_distanceValue.toInt()} km',
-                            style: TextStyle(
-                              color: Colors.green.shade700,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                  ],
-
-                  const SizedBox(height: 12),
-
-                  // Filter dropdowns
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildFilterDropdown(
-                          label: _selectedConnectorType == 'All'
-                              ? 'Connector Type'
-                              : _selectedConnectorType,
-                          isActive: _selectedConnectorType != 'All',
-                          onTap: () => _showFilterSheet(
-                            'Connector Type',
-                            _connectorTypes,
-                            _selectedConnectorType,
-                            (val) =>
-                                setState(() => _selectedConnectorType = val),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _buildFilterDropdown(
-                          label: _selectedChargingType == 'All'
-                              ? 'Charging Type'
-                              : '$_selectedChargingType Charging',
-                          isActive: _selectedChargingType != 'All',
-                          onTap: () => _showFilterSheet(
-                            'Charging Type',
-                            _chargingTypes,
-                            _selectedChargingType,
-                            (val) =>
-                                setState(() => _selectedChargingType = val),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  // Active filter chips
-                  if (_selectedConnectorType != 'All' ||
-                      _selectedChargingType != 'All') ...[
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      children: [
-                        if (_selectedConnectorType != 'All')
-                          _buildActiveFilterChip(
-                            _selectedConnectorType,
-                            () =>
-                                setState(() => _selectedConnectorType = 'All'),
-                          ),
-                        if (_selectedChargingType != 'All')
-                          _buildActiveFilterChip(
-                            '$_selectedChargingType Charging',
-                            () => setState(() => _selectedChargingType = 'All'),
-                          ),
-                      ],
-                    ),
-                  ],
-
-                  // Distance slider
-                  if (_showDistanceSlider) ...[
-                    const SizedBox(height: 14),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Distance Radius',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.black87,
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: _lightFillColor,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            '${_distanceValue.toInt()} km',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                              color: _primaryColor,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    SizedBox(
-                      height: 32,
-                      child: SliderTheme(
-                        data: SliderTheme.of(context).copyWith(
-                          activeTrackColor: _primaryColor,
-                          inactiveTrackColor: Colors.grey.shade300,
-                          thumbColor: _primaryColor,
-                          overlayColor: _primaryColor.withOpacity(0.1),
-                          trackHeight: 5,
-                          thumbShape: const RoundSliderThumbShape(
-                            enabledThumbRadius: 9,
-                          ),
-                          overlayShape: const RoundSliderOverlayShape(
-                            overlayRadius: 16,
-                          ),
-                          trackShape: const RoundedRectSliderTrackShape(),
-                        ),
-                        child: Slider(
-                          value: _distanceValue,
-                          min: 1,
-                          max: 50,
-                          divisions: 49,
-                          onChanged: (val) =>
-                              setState(() => _distanceValue = val),
-                        ),
-                      ),
-                    ),
-                  ],
-
-                  const SizedBox(height: 10),
-                ],
-              ),
+            
+            SizedBox(
+              height: isLandscape ? 4 : 6,
             ),
-
-            // ── SCROLLABLE STATION LIST ──────────────────────────────────────
+            
             Expanded(
-child: StreamBuilder<QuerySnapshot>(
-                stream: _stationsStream, // CHANGED — was FirebaseFirestore.instance.collection('users').snapshots()
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  if (snapshot.hasError) {
-                    return Center(child: Text('Error: ${snapshot.error}'));
-                  }
-                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                    return const Center(child: Text('No stations found.'));
-                  }
-
-                  final List<QueryDocumentSnapshot> filtered = _filterStations(
-                    snapshot.data!.docs,
-                  );
-
-                  if (filtered.isEmpty) {
-                    final bool radiusActive =
-                        _searchedTownPosition != null ||
-                        (_isNearbySelected && _currentUserPosition != null);
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 40),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.ev_station_outlined,
-                            size: 56,
-                            color: Colors.grey.shade400,
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            _searchedTownPosition != null
-                                ? 'No stations within ${_distanceValue.toInt()} km\nof ${_searchedTownName ?? 'that location'}'
-                                : (_isNearbySelected &&
-                                      _currentUserPosition != null)
-                                ? 'No stations within ${_distanceValue.toInt()} km\nof your location'
-                                : 'No stations match the selected filters',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: _greyText,
-                              fontSize: 14,
-                              height: 1.5,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          if (radiusActive)
-                            TextButton.icon(
-                              onPressed: () => setState(
-                                () => _distanceValue = (_distanceValue + 10)
-                                    .clamp(1, 50),
-                              ),
-                              icon: Icon(Icons.add, color: _primaryColor),
-                              label: Text(
-                                'Increase radius',
-                                style: TextStyle(color: _primaryColor),
-                              ),
-                            ),
-                        ],
-                      ),
-                    );
-                  }
-
-                  return ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 100),
-                    physics: const BouncingScrollPhysics(),
-                    itemCount: filtered.length + 1,
-                    itemBuilder: (context, index) {
-                      if (index == 0) {
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: Text(
-                            '${filtered.length} station${filtered.length == 1 ? '' : 's'} found',
-                            style: TextStyle(
-                              color: _greyText,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        );
-                      }
-
-                      final doc = filtered[index - 1];
-                      final data = doc.data() as Map<String, dynamic>;
-
-                      int availablePlugs =
-                          int.tryParse(
-                            data['available_plugs']?.toString() ?? '0',
-                          ) ??
-                          0;
-                      int totalSlots =
-                          int.tryParse(
-                            data['connector_slots']?.toString() ?? '0',
-                          ) ??
-                          0;
-                      bool isAvailable = availablePlugs > 0;
-
-                      String rawConnectors =
-                          data['supported_connector_types']?.toString() ??
-                          'Unknown';
-                      List<String> connectorList = rawConnectors
-                          .split(',')
-                          .map((e) => e.trim())
-                          .where((e) => e.isNotEmpty)
-                          .toList();
-
-                      double? lat = double.tryParse(
-                        data['latitude']?.toString() ?? '',
-                      );
-                      double? lng = double.tryParse(
-                        data['longitude']?.toString() ?? '',
-                      );
-                      String stationName =
-                          data['station_name']?.toString() ?? 'Unknown Station';
-
-                      // Distance is measured from the searched town if present,
-                      // otherwise from the user's current location.
-                      final LatLng? distanceCenter =
-                          _searchedTownPosition ?? _currentUserPosition;
-
-                      String distanceText = 'N/A';
-                      if (distanceCenter != null &&
-                          lat != null &&
-                          lng != null) {
-                        double distKm = _calculateDistanceKm(
-                          distanceCenter.latitude,
-                          distanceCenter.longitude,
-                          lat,
-                          lng,
-                        );
-                        distanceText = distKm < 1
-                            ? '${(distKm * 1000).toInt()} m away'
-                            : '${distKm.toStringAsFixed(1)} km away';
-                      }
-
-                      return _buildStationCard(
-                        doc: doc,
-                        name: stationName,
-                        address:
-                            data['address']?.toString() ??
-                            ((lat != null && lng != null)
-                                ? 'Lat: ${lat.toStringAsFixed(4)}, Lng: ${lng.toStringAsFixed(4)}'
-                                : 'Location unavailable'),
-                        distance: distanceText,
-                        availabilityText:
-                            '$availablePlugs/$totalSlots Available',
-                        power:
-                            '${data['charging_power']?.toString() ?? '0'} kW',
-                        connectors: connectorList,
-                        statusColor: isAvailable ? Colors.green : Colors.red,
-                        isAvailable: isAvailable,
-                        stationLatLng: (lat != null && lng != null)
-                            ? LatLng(lat, lng)
-                            : null,
-                        stationName: stationName,
-                      );
-                    },
-                  );
-                },
+              child: CustomScrollView(
+                cacheExtent: 500,
+                physics:
+                const ClampingScrollPhysics(),
+                slivers: [
+                  _buildMobileStationResultsSliver(
+                    bottomPadding:
+                    isLandscape
+                        ? 80
+                        : 110,
+                  ),
+                ],
               ),
             ),
           ],
@@ -985,44 +964,2137 @@ child: StreamBuilder<QuerySnapshot>(
     );
   }
 
-  // ── WIDGET HELPERS ─────────────────────────────────────────────────────────
+  // ===========================================================================
+  // TABLET / CAR
+  // ===========================================================================
 
-  Widget _buildToggleButton(String text, bool isSelected) {
-    return GestureDetector(
-      onTap: () {
-        setState(() => _isNearbySelected = (text == 'Nearby'));
-        if (text == 'Nearby' && _currentUserPosition == null) {
-          _getUserLocation();
-        }
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        decoration: BoxDecoration(
-          color: isSelected ? _primaryColor : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: _primaryColor.withOpacity(0.3),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
+  Widget _buildWideLayout() {
+    return Scaffold(
+      backgroundColor:
+      AppColors.background,
+      body: SafeArea(
+        child: Row(
+          children: [
+            Container(
+              width: 340,
+              decoration:
+              const BoxDecoration(
+                color: AppColors.white,
+                border: Border(
+                  right: BorderSide(
+                    color:
+                    Color(0xFFE5E7EB),
                   ),
-                ]
-              : [],
+                ),
+              ),
+              child: Column(
+                children: [
+                  _buildWideHeader(),
+
+                  Expanded(
+                    child:
+                    SingleChildScrollView(
+                      physics:
+                      const ClampingScrollPhysics(),
+                      padding:
+                      const EdgeInsets
+                          .only(
+                        bottom:
+                        AppSpacing.xxl,
+                      ),
+                      child:
+                      _buildControlsPanel(
+                        horizontalPadding:
+                        AppSpacing.xxl,
+                        isWideLayout: true,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            Expanded(
+              child: Column(
+                children: [
+                  _buildWideResultsHeader(),
+
+                  Expanded(
+                    child:
+                    _buildStationResults(
+                      useGrid: true,
+                      horizontalPadding:
+                      AppSpacing.xxl,
+                      bottomPadding:
+                      AppSpacing.xxl,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
-        child: Text(
-          text,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: isSelected ? Colors.white : _greyText,
-            fontWeight: FontWeight.w600,
-            fontSize: 14,
+      ),
+    );
+  }
+
+  // ===========================================================================
+  // HEADERS
+  // ===========================================================================
+
+  Widget _buildMobileHeader({
+    bool compact = false,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        compact ? 6 : AppSpacing.md,
+        AppSpacing.lg,
+        compact ? AppSpacing.sm : AppSpacing.md,
+      ),
+      decoration:
+      const BoxDecoration(
+        gradient:
+        AppColors.primaryGradient,
+      ),
+      child: Column(
+        crossAxisAlignment:
+        CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.ev_station_rounded,
+                color: Colors.white,
+                size: compact ? 22 : 28,
+              ),
+              const SizedBox(
+                width: AppSpacing.sm,
+              ),
+              Expanded(
+                child: Text(
+                  'Find Stations',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize:
+                    compact ? 18 : 22,
+                    fontWeight:
+                    FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          if (!compact) ...[
+            const SizedBox(height: 4),
+            Text(
+              'Search and filter available charging stations.',
+              style: TextStyle(
+                color: Colors.white
+                    .withValues(
+                  alpha: 0.78,
+                ),
+                fontSize: 13,
+                height: 1.4,
+              ),
+            ),
+          ],
+
+          SizedBox(
+            height: compact ? 6 : AppSpacing.sm,
+          ),
+
+          _buildSearchBar(
+            useDarkBackground: true,
+            compact: compact,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWideHeader() {
+    return Container(
+      width: double.infinity,
+      padding:
+      const EdgeInsets.fromLTRB(
+        AppSpacing.xxl,
+        AppSpacing.xxl,
+        AppSpacing.xxl,
+        AppSpacing.xl,
+      ),
+      decoration:
+      const BoxDecoration(
+        gradient:
+        AppColors.primaryGradient,
+      ),
+      child: Column(
+        crossAxisAlignment:
+        CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(
+                Icons.ev_station_rounded,
+                color: Colors.white,
+                size: 30,
+              ),
+              SizedBox(
+                width: AppSpacing.sm,
+              ),
+              Expanded(
+                child: Text(
+                  'Find Stations',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 23,
+                    fontWeight:
+                    FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(
+            height: AppSpacing.sm,
+          ),
+          Text(
+            'Search and filter available charging stations.',
+            style: TextStyle(
+              color: Colors.white
+                  .withValues(
+                alpha: 0.78,
+              ),
+              fontSize: 13,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(
+            height: AppSpacing.lg,
+          ),
+          _buildSearchBar(
+            useDarkBackground: true,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWideResultsHeader() {
+    return Padding(
+      padding:
+      const EdgeInsets.fromLTRB(
+        AppSpacing.xxl,
+        AppSpacing.xxl,
+        AppSpacing.xxl,
+        AppSpacing.sm,
+      ),
+      child: Row(
+        children: [
+          const Expanded(
+            child: Column(
+              crossAxisAlignment:
+              CrossAxisAlignment
+                  .start,
+              children: [
+                Text(
+                  'Available Stations',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight:
+                    FontWeight.bold,
+                    color: AppColors
+                        .textPrimary,
+                  ),
+                ),
+                SizedBox(
+                  height: 4,
+                ),
+                Text(
+                  'Select a station to book or begin route navigation.',
+                  style: TextStyle(
+                    color: AppColors
+                        .textSecondary,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip:
+            'Refresh location',
+            onPressed:
+            _getUserLocation,
+            icon: const Icon(
+              Icons.my_location_rounded,
+              color:
+              AppColors.primary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ===========================================================================
+  // SEARCH BAR
+  // ===========================================================================
+
+  Widget _buildSearchBar({
+    bool useDarkBackground = false,
+    bool compact = false,
+  }) {
+    return Container(
+      height: compact
+          ? 30
+          : useDarkBackground
+          ? 34
+          : 34,
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 8 : 10,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(
+          compact ? 7 : 8,
+        ),
+        border: Border.all(
+          color: const Color(
+            0xFFE5E7EB,
+          ),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black
+                .withValues(
+              alpha: useDarkBackground
+                  ? 0.12
+                  : 0.04,
+            ),
+            blurRadius: 10,
+            offset:
+            const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.search,
+            color: _isSearchActive
+                ? AppColors.primary
+                : AppColors
+                .textSecondary,
+            size: compact ? 16 : 18,
+          ),
+
+          SizedBox(
+            width: compact
+                ? 6
+                : AppSpacing.sm,
+          ),
+
+          Expanded(
+            child: TextField(
+              controller:
+              _searchController,
+              focusNode:
+              _searchFocusNode,
+              textInputAction:
+              TextInputAction.search,
+              onSubmitted:
+              _searchTown,
+              onChanged: (_) {
+                setState(() {});
+              },
+              style: TextStyle(
+                fontSize:
+                compact ? 12 : 14,
+                color: AppColors
+                    .textPrimary,
+              ),
+              decoration:
+              const InputDecoration(
+                hintText:
+                'Search a town or city...',
+                border:
+                InputBorder.none,
+                isCollapsed: true,
+                filled: false,
+                contentPadding:
+                EdgeInsets.zero,
+              ),
+            ),
+          ),
+
+          if (_isSearching)
+            SizedBox(
+              width: compact ? 15 : 18,
+              height: compact ? 15 : 18,
+              child:
+              const CircularProgressIndicator(
+                strokeWidth: 2,
+                color:
+                AppColors.primary,
+              ),
+            )
+          else if (_searchController
+              .text.isNotEmpty) ...[
+            GestureDetector(
+              onTap: _clearSearch,
+              child: Icon(
+                Icons.close,
+                color: AppColors
+                    .textSecondary,
+                size: compact ? 18 : 20,
+              ),
+            ),
+
+            SizedBox(
+              width: compact ? 4 : 6,
+            ),
+
+            GestureDetector(
+              onTap: () {
+                _searchTown(
+                  _searchController.text,
+                );
+              },
+              child: Icon(
+                Icons
+                    .arrow_circle_right_rounded,
+                color:
+                AppColors.primary,
+                size: compact ? 22 : 26,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // ===========================================================================
+  // CONTROLS
+  // ===========================================================================
+
+  Widget _buildControlsPanel({
+    required double horizontalPadding,
+    required bool isWideLayout,
+    bool compactMobile = false,
+  }) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        horizontalPadding,
+        isWideLayout
+            ? AppSpacing.xl
+            : 0,
+        horizontalPadding,
+        0,
+      ),
+      child: Column(
+        crossAxisAlignment:
+        CrossAxisAlignment.start,
+        children: [
+          if (isWideLayout) ...[
+            const Text(
+              'Station visibility',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight:
+                FontWeight.bold,
+                color:
+                AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(
+              height: AppSpacing.sm,
+            ),
+          ],
+
+          Row(
+            children: [
+              Expanded(
+                child: Container(
+                  padding: EdgeInsets.all(
+                    compactMobile ? 2 : 3,
+                  ),
+                  decoration:
+                  BoxDecoration(
+                    color: AppColors
+                        .background,
+                    borderRadius:
+                    BorderRadius.circular(
+                      12,
+                    ),
+                    border: Border.all(
+                      color: const Color(
+                        0xFFE5E7EB,
+                      ),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child:
+                        _buildToggleButton(
+                          'Nearby',
+                          _isNearbySelected,
+                          compact:
+                          compactMobile,
+                        ),
+                      ),
+                      Expanded(
+                        child:
+                        _buildToggleButton(
+                          'All Stations',
+                          !_isNearbySelected,
+                          compact:
+                          compactMobile,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              if (!isWideLayout) ...[
+                SizedBox(
+                  width: compactMobile
+                      ? 6
+                      : AppSpacing.sm,
+                ),
+                _buildMobileFilterButton(
+                  compact:
+                  compactMobile,
+                ),
+              ],
+            ],
+          ),
+
+          if (_showDistanceSlider) ...[
+            SizedBox(
+              height: compactMobile ? 4 : 6,
+            ),
+            _buildDistanceRadiusControl(
+              compact:
+              compactMobile,
+            ),
+          ],
+
+          _buildLocationStatus(
+            compact:
+            compactMobile,
+          ),
+
+          if (isWideLayout) ...[
+            const SizedBox(
+              height: AppSpacing.lg,
+            ),
+            const Text(
+              'Filters',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight:
+                FontWeight.bold,
+                color:
+                AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(
+              height: AppSpacing.sm,
+            ),
+
+            _buildFilterDropdown(
+              label:
+              _selectedConnectorType ==
+                  'All'
+                  ? 'Connector Type'
+                  : _selectedConnectorType,
+              isActive:
+              _selectedConnectorType !=
+                  'All',
+              onTap: () {
+                _showFilterSheet(
+                  'Connector Type',
+                  _connectorTypes,
+                  _selectedConnectorType,
+                      (value) {
+                    setState(() {
+                      _selectedConnectorType =
+                          value;
+                    });
+                  },
+                );
+              },
+            ),
+
+            const SizedBox(
+              height: AppSpacing.md,
+            ),
+
+            _buildFilterDropdown(
+              label:
+              _selectedChargingType ==
+                  'All'
+                  ? 'Charging Type'
+                  : '$_selectedChargingType Charging',
+              isActive:
+              _selectedChargingType !=
+                  'All',
+              onTap: () {
+                _showFilterSheet(
+                  'Charging Type',
+                  _chargingTypes,
+                  _selectedChargingType,
+                      (value) {
+                    setState(() {
+                      _selectedChargingType =
+                          value;
+                    });
+                  },
+                );
+              },
+            ),
+          ],
+
+          if (_selectedConnectorType !=
+              'All' ||
+              _selectedChargingType !=
+                  'All') ...[
+            SizedBox(
+              height: compactMobile
+                  ? 6
+                  : AppSpacing.sm,
+            ),
+
+            Wrap(
+              spacing: AppSpacing.sm,
+              runSpacing:
+              AppSpacing.sm,
+              children: [
+                if (_selectedConnectorType !=
+                    'All')
+                  _buildActiveFilterChip(
+                    _selectedConnectorType,
+                        () {
+                      setState(() {
+                        _selectedConnectorType =
+                        'All';
+                      });
+                    },
+                  ),
+
+                if (_selectedChargingType !=
+                    'All')
+                  _buildActiveFilterChip(
+                    '$_selectedChargingType Charging',
+                        () {
+                      setState(() {
+                        _selectedChargingType =
+                        'All';
+                      });
+                    },
+                  ),
+              ],
+            ),
+          ],
+
+          SizedBox(
+            height: compactMobile ? 2 : 4,
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ===========================================================================
+  // MOBILE FILTER BUTTON
+  // ===========================================================================
+
+  Widget _buildMobileFilterButton({
+    bool compact = false,
+  }) {
+    final bool hasActiveFilter =
+        _selectedConnectorType != 'All' ||
+            _selectedChargingType != 'All';
+
+    final double buttonSize =
+    compact ? 34 : 40;
+
+    return Material(
+      color: AppColors.white,
+      borderRadius:
+      BorderRadius.circular(12),
+      child: InkWell(
+        onTap:
+        _showMobileFilters,
+        borderRadius:
+        BorderRadius.circular(12),
+        child: Container(
+          width: buttonSize,
+          height: buttonSize,
+          decoration:
+          BoxDecoration(
+            color: hasActiveFilter
+                ? AppColors.lightFill
+                : AppColors.white,
+            borderRadius:
+            BorderRadius.circular(
+              12,
+            ),
+            border: Border.all(
+              color: hasActiveFilter
+                  ? AppColors.primary
+                  .withValues(
+                alpha: 0.35,
+              )
+                  : const Color(
+                0xFFE5E7EB,
+              ),
+            ),
+          ),
+          child: Stack(
+            alignment:
+            Alignment.center,
+            children: [
+              Icon(
+                Icons.tune_rounded,
+                color: hasActiveFilter
+                    ? AppColors.primary
+                    : AppColors
+                    .textSecondary,
+                size:
+                compact ? 19 : 22,
+              ),
+
+              if (hasActiveFilter)
+                Positioned(
+                  top: compact ? 6 : 8,
+                  right: compact ? 6 : 8,
+                  child: Container(
+                    width: 7,
+                    height: 7,
+                    decoration:
+                    const BoxDecoration(
+                      color:
+                      AppColors.primary,
+                      shape:
+                      BoxShape.circle,
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
       ),
     );
   }
+
+  // ===========================================================================
+  // MOBILE FILTER SHEET
+  // ===========================================================================
+
+  void _showMobileFilters() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor:
+      AppColors.white,
+      shape:
+      const RoundedRectangleBorder(
+        borderRadius:
+        BorderRadius.vertical(
+          top: Radius.circular(24),
+        ),
+      ),
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (
+              context,
+              setSheetState,
+              ) {
+            void updateSheet(
+                VoidCallback update,
+                ) {
+              setState(update);
+              setSheetState(() {});
+            }
+
+            final double maxHeight =
+                MediaQuery.of(context)
+                    .size
+                    .height *
+                    0.78;
+
+            return SafeArea(
+              top: false,
+              child: ConstrainedBox(
+                constraints:
+                BoxConstraints(
+                  maxHeight: maxHeight,
+                ),
+                child:
+                SingleChildScrollView(
+                  physics:
+                  const ClampingScrollPhysics(),
+                  padding:
+                  const EdgeInsets
+                      .fromLTRB(
+                    AppSpacing.xl,
+                    AppSpacing.md,
+                    AppSpacing.xl,
+                    AppSpacing.xxl,
+                  ),
+                  child: Column(
+                    crossAxisAlignment:
+                    CrossAxisAlignment
+                        .start,
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 40,
+                          height: 4,
+                          decoration:
+                          BoxDecoration(
+                            color:
+                            const Color(
+                              0xFFD1D5DB,
+                            ),
+                            borderRadius:
+                            BorderRadius
+                                .circular(
+                              2,
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(
+                        height:
+                        AppSpacing.lg,
+                      ),
+
+                      Row(
+                        children: [
+                          const Expanded(
+                            child: Text(
+                              'Filters',
+                              style:
+                              TextStyle(
+                                fontSize: 20,
+                                fontWeight:
+                                FontWeight
+                                    .bold,
+                                color: AppColors
+                                    .textPrimary,
+                              ),
+                            ),
+                          ),
+
+                          if (_selectedConnectorType !=
+                              'All' ||
+                              _selectedChargingType !=
+                                  'All')
+                            TextButton(
+                              onPressed: () {
+                                updateSheet(
+                                      () {
+                                    _selectedConnectorType =
+                                    'All';
+
+                                    _selectedChargingType =
+                                    'All';
+                                  },
+                                );
+                              },
+                              child:
+                              const Text(
+                                'Clear all',
+                                style:
+                                TextStyle(
+                                  color:
+                                  AppColors
+                                      .primary,
+                                  fontWeight:
+                                  FontWeight
+                                      .w700,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+
+                      const SizedBox(
+                        height:
+                        AppSpacing.xl,
+                      ),
+
+                      const Text(
+                        'Connector Type',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight:
+                          FontWeight.bold,
+                          color: AppColors
+                              .textPrimary,
+                        ),
+                      ),
+
+                      const SizedBox(
+                        height:
+                        AppSpacing.sm,
+                      ),
+
+                      Wrap(
+                        spacing:
+                        AppSpacing.sm,
+                        runSpacing:
+                        AppSpacing.sm,
+                        children:
+                        _connectorTypes
+                            .map(
+                              (option) {
+                            final bool selected =
+                                _selectedConnectorType ==
+                                    option;
+
+                            return ChoiceChip(
+                              label:
+                              Text(option),
+                              selected:
+                              selected,
+                              showCheckmark:
+                              false,
+                              selectedColor:
+                              AppColors
+                                  .lightFill,
+                              backgroundColor:
+                              AppColors
+                                  .background,
+                              side:
+                              BorderSide(
+                                color: selected
+                                    ? AppColors
+                                    .primary
+                                    .withValues(
+                                  alpha:
+                                  0.45,
+                                )
+                                    : const Color(
+                                  0xFFE5E7EB,
+                                ),
+                              ),
+                              labelStyle:
+                              TextStyle(
+                                color: selected
+                                    ? AppColors
+                                    .primary
+                                    : AppColors
+                                    .textPrimary,
+                                fontWeight: selected
+                                    ? FontWeight
+                                    .w700
+                                    : FontWeight
+                                    .w500,
+                              ),
+                              onSelected: (_) {
+                                updateSheet(
+                                      () {
+                                    _selectedConnectorType =
+                                        option;
+                                  },
+                                );
+                              },
+                            );
+                          },
+                        ).toList(),
+                      ),
+
+                      const SizedBox(
+                        height:
+                        AppSpacing.xl,
+                      ),
+
+                      const Text(
+                        'Charging Type',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight:
+                          FontWeight.bold,
+                          color: AppColors
+                              .textPrimary,
+                        ),
+                      ),
+
+                      const SizedBox(
+                        height:
+                        AppSpacing.sm,
+                      ),
+
+                      Wrap(
+                        spacing:
+                        AppSpacing.sm,
+                        runSpacing:
+                        AppSpacing.sm,
+                        children:
+                        _chargingTypes
+                            .map(
+                              (option) {
+                            final bool selected =
+                                _selectedChargingType ==
+                                    option;
+
+                            return ChoiceChip(
+                              label: Text(
+                                option == 'All'
+                                    ? 'All'
+                                    : '$option Charging',
+                              ),
+                              selected:
+                              selected,
+                              showCheckmark:
+                              false,
+                              selectedColor:
+                              AppColors
+                                  .lightFill,
+                              backgroundColor:
+                              AppColors
+                                  .background,
+                              side:
+                              BorderSide(
+                                color: selected
+                                    ? AppColors
+                                    .primary
+                                    .withValues(
+                                  alpha:
+                                  0.45,
+                                )
+                                    : const Color(
+                                  0xFFE5E7EB,
+                                ),
+                              ),
+                              labelStyle:
+                              TextStyle(
+                                color: selected
+                                    ? AppColors
+                                    .primary
+                                    : AppColors
+                                    .textPrimary,
+                                fontWeight: selected
+                                    ? FontWeight
+                                    .w700
+                                    : FontWeight
+                                    .w500,
+                              ),
+                              onSelected: (_) {
+                                updateSheet(
+                                      () {
+                                    _selectedChargingType =
+                                        option;
+                                  },
+                                );
+                              },
+                            );
+                          },
+                        ).toList(),
+                      ),
+
+                      const SizedBox(
+                        height:
+                        AppSpacing.xxl,
+                      ),
+
+                      SizedBox(
+                        width:
+                        double.infinity,
+                        height: 48,
+                        child:
+                        ElevatedButton(
+                          onPressed: () {
+                            Navigator.pop(
+                              sheetContext,
+                            );
+                          },
+                          style:
+                          ElevatedButton
+                              .styleFrom(
+                            backgroundColor:
+                            AppColors
+                                .primary,
+                            foregroundColor:
+                            Colors.white,
+                            elevation: 0,
+                            shape:
+                            RoundedRectangleBorder(
+                              borderRadius:
+                              BorderRadius
+                                  .circular(
+                                14,
+                              ),
+                            ),
+                          ),
+                          child:
+                          const Text(
+                            'Apply Filters',
+                            style:
+                            TextStyle(
+                              fontWeight:
+                              FontWeight
+                                  .bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // ===========================================================================
+  // DISTANCE RADIUS
+  // ===========================================================================
+
+  Widget _buildDistanceRadiusControl({
+    bool compact = false,
+  }) {
+    return Column(
+      crossAxisAlignment:
+      CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(
+              Icons.radar_rounded,
+              color: AppColors.primary,
+              size: compact ? 15 : 17,
+            ),
+
+            const SizedBox(
+              width: 6,
+            ),
+
+            Expanded(
+              child: Text(
+                'Distance Radius',
+                style: TextStyle(
+                  fontSize:
+                  compact ? 11 : 13,
+                  fontWeight:
+                  FontWeight.w700,
+                  color:
+                  AppColors.textPrimary,
+                ),
+              ),
+            ),
+
+            Container(
+              padding:
+              EdgeInsets.symmetric(
+                horizontal:
+                compact ? 8 : 10,
+                vertical:
+                compact ? 2 : 4,
+              ),
+              decoration:
+              BoxDecoration(
+                color:
+                AppColors.lightFill,
+                borderRadius:
+                BorderRadius.circular(
+                  8,
+                ),
+              ),
+              child: Text(
+                '${_distanceValue.toInt()} km',
+                style: TextStyle(
+                  fontSize:
+                  compact ? 10 : 12,
+                  fontWeight:
+                  FontWeight.bold,
+                  color:
+                  AppColors.primary,
+                ),
+              ),
+            ),
+          ],
+        ),
+
+        SizedBox(
+          height: compact ? 18 : 22,
+          child: SliderTheme(
+            data:
+            SliderTheme.of(context)
+                .copyWith(
+              activeTrackColor:
+              AppColors.primary,
+              inactiveTrackColor:
+              const Color(
+                0xFFD1D5DB,
+              ),
+              thumbColor:
+              AppColors.primary,
+              overlayColor:
+              AppColors.primary
+                  .withValues(
+                alpha: 0.10,
+              ),
+              trackHeight:
+              compact ? 3 : 4,
+              thumbShape:
+              RoundSliderThumbShape(
+                enabledThumbRadius:
+                compact ? 6 : 8,
+              ),
+              overlayShape:
+              RoundSliderOverlayShape(
+                overlayRadius:
+                compact ? 11 : 14,
+              ),
+            ),
+            child: Slider(
+              value: _distanceValue,
+              min: 1,
+              max: 50,
+              onChanged: (value) {
+                setState(() {
+                  _distanceValue =
+                      value;
+                });
+              },
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ===========================================================================
+  // LOCATION STATUS
+  // ===========================================================================
+
+  Widget _buildLocationStatus({
+    bool compact = false,
+  }) {
+    if (_searchedTownPosition !=
+        null) {
+      return Padding(
+        padding:
+        EdgeInsets.only(
+          top: compact
+              ? 4
+              : AppSpacing.sm,
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.place,
+              color:
+              AppColors.primary,
+              size: compact ? 14 : 16,
+            ),
+            const SizedBox(
+              width: 6,
+            ),
+            Expanded(
+              child: Text(
+                'Within ${_distanceValue.toInt()} km of '
+                    '${_searchedTownName ?? 'searched area'}',
+                maxLines:
+                compact ? 1 : 2,
+                overflow:
+                TextOverflow.ellipsis,
+                style: TextStyle(
+                  color:
+                  AppColors.primary,
+                  fontSize:
+                  compact ? 10 : 12,
+                  fontWeight:
+                  FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (!_isNearbySelected) {
+      return const SizedBox.shrink();
+    }
+
+    if (_isLoadingLocation) {
+      return Padding(
+        padding: EdgeInsets.only(
+          top: compact
+              ? 4
+              : AppSpacing.sm,
+        ),
+        child: Row(
+          children: [
+            SizedBox(
+              width:
+              compact ? 12 : 14,
+              height:
+              compact ? 12 : 14,
+              child:
+              const CircularProgressIndicator(
+                strokeWidth: 2,
+                color:
+                AppColors.primary,
+              ),
+            ),
+            const SizedBox(
+              width: 8,
+            ),
+            Text(
+              'Getting your location...',
+              style: TextStyle(
+                color: AppColors
+                    .textSecondary,
+                fontSize:
+                compact ? 10 : 12,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_currentUserPosition == null) {
+      return Padding(
+        padding:
+        EdgeInsets.only(
+          top: compact
+              ? 4
+              : AppSpacing.sm,
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.location_off,
+              color:
+              AppColors.warning,
+              size: compact ? 14 : 16,
+            ),
+            const SizedBox(
+              width: 6,
+            ),
+            Expanded(
+              child: Text(
+                'Location unavailable — showing all stations.',
+                maxLines: 1,
+                overflow:
+                TextOverflow.ellipsis,
+                style: TextStyle(
+                  color:
+                  AppColors.warning,
+                  fontSize:
+                  compact ? 10 : 12,
+                ),
+              ),
+            ),
+
+            if (!compact)
+              TextButton(
+                onPressed:
+                _getUserLocation,
+                child: const Text(
+                  'Retry',
+                  style: TextStyle(
+                    color:
+                    AppColors.primary,
+                    fontSize: 12,
+                    fontWeight:
+                    FontWeight.bold,
+                  ),
+                ),
+              )
+            else
+              GestureDetector(
+                onTap:
+                _getUserLocation,
+                child: const Icon(
+                  Icons.refresh_rounded,
+                  color:
+                  AppColors.primary,
+                  size: 18,
+                ),
+              ),
+          ],
+        ),
+      );
+    }
+
+    return Padding(
+      padding: EdgeInsets.only(
+        top: compact
+            ? 4
+            : AppSpacing.sm,
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.location_on,
+            color:
+            AppColors.success,
+            size: compact ? 14 : 16,
+          ),
+          const SizedBox(
+            width: 6,
+          ),
+          Expanded(
+            child: Text(
+              'Showing stations within ${_distanceValue.toInt()} km',
+              maxLines: 1,
+              overflow:
+              TextOverflow.ellipsis,
+              style: TextStyle(
+                color:
+                AppColors.success,
+                fontSize:
+                compact ? 10 : 12,
+                fontWeight:
+                FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ===========================================================================
+  // MOBILE STATION RESULTS
+  // ===========================================================================
+
+  Widget _buildMobileStationResultsSliver({
+    required double bottomPadding,
+  }) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: _stationsStream,
+      builder: (
+          context,
+          snapshot,
+          ) {
+        if (snapshot.connectionState ==
+            ConnectionState.waiting) {
+          return const SliverToBoxAdapter(
+            child: Padding(
+              padding:
+              EdgeInsets.symmetric(
+                vertical: 50,
+              ),
+              child: Center(
+                child:
+                CircularProgressIndicator(
+                  color:
+                  AppColors.primary,
+                ),
+              ),
+            ),
+          );
+        }
+
+        if (snapshot.hasError) {
+          return SliverToBoxAdapter(
+            child: Padding(
+              padding:
+              const EdgeInsets.all(
+                AppSpacing.xxl,
+              ),
+              child: Center(
+                child: Text(
+                  'Unable to load stations.\n${snapshot.error}',
+                  textAlign:
+                  TextAlign.center,
+                ),
+              ),
+            ),
+          );
+        }
+
+        if (!snapshot.hasData ||
+            snapshot
+                .data!.docs.isEmpty) {
+          return const SliverToBoxAdapter(
+            child: Padding(
+              padding:
+              EdgeInsets.symmetric(
+                vertical: 50,
+              ),
+              child: Center(
+                child: Text(
+                  'No stations found.',
+                ),
+              ),
+            ),
+          );
+        }
+
+        final List<
+            QueryDocumentSnapshot>
+        filtered =
+        _filterStations(
+          snapshot.data!.docs,
+        );
+
+        if (filtered.isEmpty) {
+          return SliverPadding(
+            padding:
+            EdgeInsets.fromLTRB(
+              AppSpacing.lg,
+              AppSpacing.sm,
+              AppSpacing.lg,
+              bottomPadding,
+            ),
+            sliver:
+            SliverToBoxAdapter(
+              child:
+              _buildMobileNoStationsState(),
+            ),
+          );
+        }
+
+        return SliverPadding(
+          padding:
+          EdgeInsets.fromLTRB(
+            AppSpacing.lg,
+            AppSpacing.sm,
+            AppSpacing.lg,
+            bottomPadding,
+          ),
+          sliver: SliverList(
+            delegate:
+            SliverChildBuilderDelegate(
+                  (
+                  context,
+                  index,
+                  ) {
+                if (index == 0) {
+                  return Padding(
+                    padding:
+                    const EdgeInsets
+                        .only(
+                      bottom:
+                      AppSpacing.md,
+                    ),
+                    child: Text(
+                      '${filtered.length} station'
+                          '${filtered.length == 1 ? '' : 's'} found',
+                      style:
+                      const TextStyle(
+                        color: AppColors
+                            .textSecondary,
+                        fontSize: 13,
+                        fontWeight:
+                        FontWeight
+                            .w600,
+                      ),
+                    ),
+                  );
+                }
+
+                return _buildStationFromDocument(
+                  filtered[index - 1],
+                );
+              },
+              childCount:
+              filtered.length + 1,
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // ===========================================================================
+  // WIDE RESULTS
+  // ===========================================================================
+
+  Widget _buildStationResults({
+    required bool useGrid,
+    required double horizontalPadding,
+    required double bottomPadding,
+  }) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: _stationsStream,
+      builder: (
+          context,
+          snapshot,
+          ) {
+        if (snapshot.connectionState ==
+            ConnectionState.waiting) {
+          return const Center(
+            child:
+            CircularProgressIndicator(
+              color:
+              AppColors.primary,
+            ),
+          );
+        }
+
+        if (snapshot.hasError) {
+          return Center(
+            child: Padding(
+              padding:
+              const EdgeInsets.all(
+                AppSpacing.xxl,
+              ),
+              child: Text(
+                'Unable to load stations.\n${snapshot.error}',
+                textAlign:
+                TextAlign.center,
+              ),
+            ),
+          );
+        }
+
+        if (!snapshot.hasData ||
+            snapshot
+                .data!.docs.isEmpty) {
+          return const Center(
+            child: Text(
+              'No stations found.',
+            ),
+          );
+        }
+
+        final List<
+            QueryDocumentSnapshot>
+        filtered =
+        _filterStations(
+          snapshot.data!.docs,
+        );
+
+        if (filtered.isEmpty) {
+          return _buildNoStationsState();
+        }
+
+        if (!useGrid) {
+          return ListView.builder(
+            padding:
+            EdgeInsets.fromLTRB(
+              horizontalPadding,
+              AppSpacing.md,
+              horizontalPadding,
+              bottomPadding,
+            ),
+            physics:
+            const ClampingScrollPhysics(),
+            itemCount:
+            filtered.length + 1,
+            itemBuilder: (
+                context,
+                index,
+                ) {
+              if (index == 0) {
+                return Padding(
+                  padding:
+                  const EdgeInsets
+                      .only(
+                    bottom:
+                    AppSpacing.md,
+                  ),
+                  child: Text(
+                    '${filtered.length} station'
+                        '${filtered.length == 1 ? '' : 's'} found',
+                    style:
+                    const TextStyle(
+                      color: AppColors
+                          .textSecondary,
+                      fontSize: 13,
+                      fontWeight:
+                      FontWeight.w600,
+                    ),
+                  ),
+                );
+              }
+
+              return _buildStationFromDocument(
+                filtered[index - 1],
+              );
+            },
+          );
+        }
+
+        return LayoutBuilder(
+          builder: (
+              context,
+              constraints,
+              ) {
+            final int columnCount =
+            constraints.maxWidth >=
+                800
+                ? 2
+                : 1;
+
+            return GridView.builder(
+              padding:
+              EdgeInsets.fromLTRB(
+                horizontalPadding,
+                AppSpacing.md,
+                horizontalPadding,
+                bottomPadding,
+              ),
+              physics:
+              const AlwaysScrollableScrollPhysics(),
+              itemCount:
+              filtered.length,
+              gridDelegate:
+              SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount:
+                columnCount,
+                crossAxisSpacing: 18,
+                mainAxisSpacing: 18,
+                mainAxisExtent: 340,
+              ),
+              itemBuilder: (
+                  context,
+                  index,
+                  ) {
+                return _buildStationFromDocument(
+                  filtered[index],
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // ===========================================================================
+  // STATION DOCUMENT
+  // ===========================================================================
+
+  Widget _buildStationFromDocument(
+      QueryDocumentSnapshot document,
+      ) {
+    final Map<String, dynamic> data =
+    document.data()
+    as Map<String, dynamic>;
+
+    final int availablePlugs =
+        int.tryParse(
+          data['available_plugs']
+              ?.toString() ??
+              '0',
+        ) ??
+            0;
+
+    final int totalSlots =
+        int.tryParse(
+          data['connector_slots']
+              ?.toString() ??
+              '0',
+        ) ??
+            0;
+
+    final bool isAvailable =
+        availablePlugs > 0;
+
+    final String rawConnectors =
+        data['supported_connector_types']
+            ?.toString() ??
+            'Unknown';
+
+    final List<String> connectorList =
+    rawConnectors
+        .split(',')
+        .map(
+          (connector) =>
+          connector.trim(),
+    )
+        .where(
+          (connector) =>
+      connector.isNotEmpty,
+    )
+        .toList();
+
+    final double? latitude =
+    double.tryParse(
+      data['latitude']?.toString() ??
+          '',
+    );
+
+    final double? longitude =
+    double.tryParse(
+      data['longitude']?.toString() ??
+          '',
+    );
+
+    final String stationName =
+        data['station_name']
+            ?.toString() ??
+            'Unknown Station';
+
+    final LatLng? distanceCenter =
+        _searchedTownPosition ??
+            _currentUserPosition;
+
+    String distanceText = 'N/A';
+
+    if (distanceCenter != null &&
+        latitude != null &&
+        longitude != null) {
+      final double distanceKm =
+      _calculateDistanceKm(
+        distanceCenter.latitude,
+        distanceCenter.longitude,
+        latitude,
+        longitude,
+      );
+
+      distanceText = distanceKm < 1
+          ? '${(distanceKm * 1000).toInt()} m away'
+          : '${distanceKm.toStringAsFixed(1)} km away';
+    }
+
+    return _buildStationCard(
+      doc: document,
+      name: stationName,
+      address:
+      data['address']?.toString() ??
+          ((latitude != null &&
+              longitude != null)
+              ? 'Lat: ${latitude.toStringAsFixed(4)}, '
+              'Lng: ${longitude.toStringAsFixed(4)}'
+              : 'Location unavailable'),
+      distance: distanceText,
+      availabilityText:
+      '$availablePlugs/$totalSlots Available',
+      power:
+      '${data['charging_power']?.toString() ?? '0'} kW',
+      connectors: connectorList,
+      statusColor: isAvailable
+          ? AppColors.success
+          : AppColors.danger,
+      isAvailable: isAvailable,
+      stationLatLng:
+      latitude != null &&
+          longitude != null
+          ? LatLng(
+        latitude,
+        longitude,
+      )
+          : null,
+      stationName: stationName,
+    );
+  }
+
+  // ===========================================================================
+  // MOBILE NO RESULTS
+  // ===========================================================================
+
+  Widget _buildMobileNoStationsState() {
+    final bool radiusActive =
+        _searchedTownPosition != null ||
+            (_isNearbySelected &&
+                _currentUserPosition !=
+                    null);
+
+    late final String message;
+
+    if (_searchedTownPosition !=
+        null) {
+      message =
+      'No stations within ${_distanceValue.toInt()} km of '
+          '${_searchedTownName ?? 'that location'}';
+    } else if (_isNearbySelected &&
+        _currentUserPosition != null) {
+      message =
+      'No stations within ${_distanceValue.toInt()} km '
+          'of your location';
+    } else {
+      message =
+      'No stations match the selected filters';
+    }
+
+    return AppCard(
+      padding:
+      const EdgeInsets.all(
+        AppSpacing.xl,
+      ),
+      child: Column(
+        mainAxisSize:
+        MainAxisSize.min,
+        children: [
+          Container(
+            width: 64,
+            height: 64,
+            decoration:
+            const BoxDecoration(
+              color:
+              AppColors.lightFill,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons
+                  .ev_station_outlined,
+              size: 34,
+              color:
+              AppColors.primary,
+            ),
+          ),
+          const SizedBox(
+            height: AppSpacing.lg,
+          ),
+          Text(
+            message,
+            textAlign:
+            TextAlign.center,
+            style: const TextStyle(
+              color: AppColors
+                  .textSecondary,
+              fontSize: 14,
+              height: 1.5,
+            ),
+          ),
+
+          if (radiusActive) ...[
+            const SizedBox(
+              height: AppSpacing.md,
+            ),
+            TextButton.icon(
+              onPressed: () {
+                setState(() {
+                  _distanceValue =
+                      (_distanceValue +
+                          10)
+                          .clamp(
+                        1,
+                        50,
+                      );
+                });
+              },
+              icon: const Icon(
+                Icons.add,
+                color:
+                AppColors.primary,
+              ),
+              label: const Text(
+                'Increase radius',
+                style: TextStyle(
+                  color:
+                  AppColors.primary,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // ===========================================================================
+  // WIDE NO RESULTS
+  // ===========================================================================
+
+  Widget _buildNoStationsState() {
+    final bool radiusActive =
+        _searchedTownPosition != null ||
+            (_isNearbySelected &&
+                _currentUserPosition !=
+                    null);
+
+    late final String message;
+
+    if (_searchedTownPosition !=
+        null) {
+      message =
+      'No stations within ${_distanceValue.toInt()} km of '
+          '${_searchedTownName ?? 'that location'}';
+    } else if (_isNearbySelected &&
+        _currentUserPosition != null) {
+      message =
+      'No stations within ${_distanceValue.toInt()} km '
+          'of your location';
+    } else {
+      message =
+      'No stations match the selected filters';
+    }
+
+    return Center(
+      child:
+      SingleChildScrollView(
+        padding:
+        const EdgeInsets.all(
+          AppSpacing.xxxl,
+        ),
+        child: AppCard(
+          padding:
+          const EdgeInsets.all(
+            AppSpacing.xxl,
+          ),
+          child: Column(
+            mainAxisSize:
+            MainAxisSize.min,
+            children: [
+              Container(
+                width: 72,
+                height: 72,
+                decoration:
+                const BoxDecoration(
+                  color:
+                  AppColors.lightFill,
+                  shape:
+                  BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons
+                      .ev_station_outlined,
+                  size: 38,
+                  color:
+                  AppColors.primary,
+                ),
+              ),
+              const SizedBox(
+                height:
+                AppSpacing.lg,
+              ),
+              Text(
+                message,
+                textAlign:
+                TextAlign.center,
+                style:
+                const TextStyle(
+                  color: AppColors
+                      .textSecondary,
+                  fontSize: 14,
+                  height: 1.5,
+                ),
+              ),
+
+              if (radiusActive) ...[
+                const SizedBox(
+                  height:
+                  AppSpacing.lg,
+                ),
+                TextButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      _distanceValue =
+                          (_distanceValue +
+                              10)
+                              .clamp(
+                            1,
+                            50,
+                          );
+                    });
+                  },
+                  icon: const Icon(
+                    Icons.add,
+                    color:
+                    AppColors.primary,
+                  ),
+                  label: const Text(
+                    'Increase radius',
+                    style: TextStyle(
+                      color:
+                      AppColors.primary,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ===========================================================================
+  // TOGGLE BUTTON
+  // ===========================================================================
+
+  Widget _buildToggleButton(
+      String text,
+      bool isSelected, {
+        bool compact = false,
+      }) {
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _isNearbySelected =
+              text == 'Nearby';
+        });
+
+        if (text == 'Nearby' &&
+            _currentUserPosition ==
+                null) {
+          _getUserLocation();
+        }
+      },
+      child: AnimatedContainer(
+        duration:
+        const Duration(
+          milliseconds: 180,
+        ),
+        padding:
+        EdgeInsets.symmetric(
+          vertical: compact ? 5 : 7,
+        ),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? AppColors.primary
+              : Colors.transparent,
+          borderRadius:
+          BorderRadius.circular(
+            10,
+          ),
+          boxShadow: isSelected
+              ? [
+            BoxShadow(
+              color: AppColors
+                  .primary
+                  .withValues(
+                alpha: 0.20,
+              ),
+              blurRadius: 8,
+              offset:
+              const Offset(
+                0,
+                4,
+              ),
+            ),
+          ]
+              : [],
+        ),
+        child: Text(
+          text,
+          textAlign:
+          TextAlign.center,
+          maxLines: 1,
+          overflow:
+          TextOverflow.ellipsis,
+          style: TextStyle(
+            color: isSelected
+                ? Colors.white
+                : AppColors
+                .textSecondary,
+            fontWeight:
+            FontWeight.w600,
+            fontSize: compact ? 10 : 12,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ===========================================================================
+  // FILTER DROPDOWN
+  // ===========================================================================
 
   Widget _buildFilterDropdown({
     required String label,
@@ -1032,40 +3104,61 @@ child: StreamBuilder<QuerySnapshot>(
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        padding:
+        const EdgeInsets
+            .symmetric(
+          horizontal: 14,
+          vertical: 12,
+        ),
         decoration: BoxDecoration(
-          color: isActive ? _lightFillColor : Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          color: isActive
+              ? AppColors.lightFill
+              : AppColors.background,
+          borderRadius:
+          BorderRadius.circular(
+            12,
+          ),
           border: Border.all(
             color: isActive
-                ? _primaryColor.withOpacity(0.5)
-                : Colors.transparent,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.grey.withOpacity(0.08),
-              blurRadius: 8,
-              offset: const Offset(0, 3),
+                ? AppColors.primary
+                .withValues(
+              alpha: 0.50,
+            )
+                : const Color(
+              0xFFE5E7EB,
             ),
-          ],
+          ),
         ),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          mainAxisAlignment:
+          MainAxisAlignment
+              .spaceBetween,
           children: [
             Expanded(
               child: Text(
                 label,
                 style: TextStyle(
-                  color: isActive ? _primaryColor : Colors.black87,
+                  color: isActive
+                      ? AppColors.primary
+                      : AppColors
+                      .textPrimary,
                   fontSize: 13,
-                  fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                  fontWeight:
+                  isActive
+                      ? FontWeight.w700
+                      : FontWeight.w500,
                 ),
-                overflow: TextOverflow.ellipsis,
+                overflow:
+                TextOverflow.ellipsis,
               ),
             ),
             Icon(
-              Icons.keyboard_arrow_down,
-              color: isActive ? _primaryColor : _greyText,
+              Icons
+                  .keyboard_arrow_down,
+              color: isActive
+                  ? AppColors.primary
+                  : AppColors
+                  .textSecondary,
               size: 20,
             ),
           ],
@@ -1074,33 +3167,61 @@ child: StreamBuilder<QuerySnapshot>(
     );
   }
 
-  Widget _buildActiveFilterChip(String label, VoidCallback onRemove) {
+  // ===========================================================================
+  // ACTIVE FILTER CHIP
+  // ===========================================================================
+
+  Widget _buildActiveFilterChip(
+      String label,
+      VoidCallback onRemove,
+      ) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding:
+      const EdgeInsets
+          .symmetric(
+        horizontal: 12,
+        vertical: 6,
+      ),
       decoration: BoxDecoration(
-        color: _primaryColor,
-        borderRadius: BorderRadius.circular(20),
+        color: AppColors.primary,
+        borderRadius:
+        BorderRadius.circular(
+          20,
+        ),
       ),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
+        mainAxisSize:
+        MainAxisSize.min,
         children: [
           Text(
             label,
-            style: const TextStyle(
+            style:
+            const TextStyle(
               color: Colors.white,
               fontSize: 12,
-              fontWeight: FontWeight.w600,
+              fontWeight:
+              FontWeight.w600,
             ),
           ),
-          const SizedBox(width: 6),
+          const SizedBox(
+            width: 6,
+          ),
           GestureDetector(
             onTap: onRemove,
-            child: const Icon(Icons.close, color: Colors.white, size: 14),
+            child: const Icon(
+              Icons.close,
+              color: Colors.white,
+              size: 14,
+            ),
           ),
         ],
       ),
     );
   }
+
+  // ===========================================================================
+  // STATION CARD
+  // ===========================================================================
 
   Widget _buildStationCard({
     required QueryDocumentSnapshot doc,
@@ -1115,266 +3236,662 @@ child: StreamBuilder<QuerySnapshot>(
     required LatLng? stationLatLng,
     required String stationName,
   }) {
-    final data = doc.data() as Map<String, dynamic>;
-    final bool isFav = _favoriteIds.contains(doc.id);
+    final Map<String, dynamic> data =
+    doc.data()
+    as Map<String, dynamic>;
 
+    final bool isFavourite =
+    _favoriteIds.contains(doc.id);
+
+    return Padding(
+      padding:
+      const EdgeInsets.only(
+        bottom: AppSpacing.md,
+      ),
+      child: AppCard(
+        padding:
+        const EdgeInsets.all(
+          14,
+        ),
+        child: Column(
+          crossAxisAlignment:
+          CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment:
+              CrossAxisAlignment
+                  .start,
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration:
+                  BoxDecoration(
+                    color: AppColors
+                        .lightFill,
+                    borderRadius:
+                    BorderRadius
+                        .circular(
+                      12,
+                    ),
+                  ),
+                  child: const Icon(
+                    Icons
+                        .ev_station_rounded,
+                    color:
+                    AppColors.primary,
+                    size: 24,
+                  ),
+                ),
+
+                const SizedBox(
+                  width: AppSpacing.sm,
+                ),
+
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment:
+                    CrossAxisAlignment
+                        .start,
+                    children: [
+                      Text(
+                        name,
+                        style:
+                        const TextStyle(
+                          fontSize: 15,
+                          fontWeight:
+                          FontWeight.bold,
+                          color: AppColors
+                              .textPrimary,
+                          height: 1.2,
+                        ),
+                        maxLines: 1,
+                        overflow:
+                        TextOverflow
+                            .ellipsis,
+                      ),
+
+                      const SizedBox(
+                        height: 4,
+                      ),
+
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons
+                                .location_on_outlined,
+                            size: 13,
+                            color: AppColors
+                                .textSecondary,
+                          ),
+                          const SizedBox(
+                            width: 3,
+                          ),
+                          Expanded(
+                            child: Text(
+                              address,
+                              style:
+                              const TextStyle(
+                                color: AppColors
+                                    .textSecondary,
+                                fontSize: 11,
+                              ),
+                              maxLines: 1,
+                              overflow:
+                              TextOverflow
+                                  .ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(
+                        height: 4,
+                      ),
+
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons
+                                .near_me_rounded,
+                            size: 12,
+                            color: AppColors
+                                .primary,
+                          ),
+                          const SizedBox(
+                            width: 4,
+                          ),
+                          Expanded(
+                            child: Text(
+                              distance,
+                              style:
+                              const TextStyle(
+                                color: AppColors
+                                    .textSecondary,
+                                fontSize: 11,
+                                fontWeight:
+                                FontWeight
+                                    .w500,
+                              ),
+                              maxLines: 1,
+                              overflow:
+                              TextOverflow
+                                  .ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(
+                  width: AppSpacing.sm,
+                ),
+
+                GestureDetector(
+                  onTap: () {
+                    _toggleFavorite(
+                      doc.id,
+                      data,
+                    );
+                  },
+                  child:
+                  AnimatedContainer(
+                    duration:
+                    const Duration(
+                      milliseconds: 200,
+                    ),
+                    width: 36,
+                    height: 36,
+                    decoration:
+                    BoxDecoration(
+                      color: isFavourite
+                          ? Colors
+                          .amber.shade50
+                          : AppColors
+                          .background,
+                      shape:
+                      BoxShape.circle,
+                      border: Border.all(
+                        color: isFavourite
+                            ? Colors
+                            .amber
+                            .shade300
+                            : const Color(
+                          0xFFE5E7EB,
+                        ),
+                      ),
+                    ),
+                    child: Icon(
+                      isFavourite
+                          ? Icons
+                          .star_rounded
+                          : Icons
+                          .star_outline_rounded,
+                      color: isFavourite
+                          ? Colors
+                          .amber.shade600
+                          : AppColors
+                          .textSecondary,
+                      size: 20,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(
+              height: AppSpacing.md,
+            ),
+
+            Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              crossAxisAlignment:
+              WrapCrossAlignment
+                  .center,
+              children: [
+                _buildStatusBadge(
+                  statusColor,
+                  availabilityText,
+                ),
+
+                Container(
+                  padding:
+                  const EdgeInsets
+                      .symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration:
+                  BoxDecoration(
+                    color: AppColors
+                        .warning
+                        .withValues(
+                      alpha: 0.10,
+                    ),
+                    borderRadius:
+                    BorderRadius
+                        .circular(
+                      20,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize:
+                    MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons
+                            .bolt_rounded,
+                        color: AppColors
+                            .warning,
+                        size: 14,
+                      ),
+                      const SizedBox(
+                        width: 4,
+                      ),
+                      Text(
+                        power,
+                        style:
+                        const TextStyle(
+                          color: AppColors
+                              .warning,
+                          fontSize: 12,
+                          fontWeight:
+                          FontWeight
+                              .w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+
+            if (connectors
+                .isNotEmpty) ...[
+              const SizedBox(
+                height: AppSpacing.md,
+              ),
+
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: connectors
+                    .map(
+                      (connector) {
+                    return Container(
+                      padding:
+                      const EdgeInsets
+                          .symmetric(
+                        horizontal: 9,
+                        vertical: 5,
+                      ),
+                      decoration:
+                      BoxDecoration(
+                        color:
+                        AppColors
+                            .lightFill,
+                        borderRadius:
+                        BorderRadius
+                            .circular(
+                          9,
+                        ),
+                      ),
+                      child: Text(
+                        connector,
+                        style:
+                        const TextStyle(
+                          color:
+                          AppColors
+                              .primary,
+                          fontSize: 10,
+                          fontWeight:
+                          FontWeight
+                              .w700,
+                        ),
+                      ),
+                    );
+                  },
+                ).toList(),
+              ),
+            ],
+
+            const SizedBox(
+              height: AppSpacing.md,
+            ),
+
+            Row(
+              children: [
+                Expanded(
+                  child: SizedBox(
+                    height: 42,
+                    child:
+                    ElevatedButton.icon(
+                      onPressed:
+                      isAvailable
+                          ? () {
+                        Navigator
+                            .push(
+                          context,
+                          MaterialPageRoute(
+                            builder:
+                                (_) =>
+                                BookStation(
+                                  preSelectedStationId:
+                                  doc.id,
+                                  preSelectedStationName:
+                                  stationName,
+                                  stationData:
+                                  data,
+                                ),
+                          ),
+                        );
+                      }
+                          : null,
+                      icon: const Icon(
+                        Icons
+                            .bookmark_add_rounded,
+                        size: 17,
+                      ),
+                      label: Text(
+                        isAvailable
+                            ? 'Book'
+                            : 'Full',
+                        style:
+                        const TextStyle(
+                          fontWeight:
+                          FontWeight
+                              .bold,
+                          fontSize: 13,
+                        ),
+                      ),
+                      style:
+                      ElevatedButton
+                          .styleFrom(
+                        backgroundColor:
+                        isAvailable
+                            ? AppColors
+                            .primary
+                            : const Color(
+                          0xFFD1D5DB,
+                        ),
+                        foregroundColor:
+                        Colors.white,
+                        disabledBackgroundColor:
+                        const Color(
+                          0xFFD1D5DB,
+                        ),
+                        disabledForegroundColor:
+                        Colors.white,
+                        elevation: 0,
+                        shape:
+                        RoundedRectangleBorder(
+                          borderRadius:
+                          BorderRadius
+                              .circular(
+                            12,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(
+                  width: AppSpacing.sm,
+                ),
+
+                Expanded(
+                  child: SizedBox(
+                    height: 42,
+                    child:
+                    OutlinedButton.icon(
+                      onPressed:
+                      stationLatLng ==
+                          null
+                          ? null
+                          : () {
+                        Navigator
+                            .push(
+                          context,
+                          MaterialPageRoute(
+                            builder:
+                                (_) =>
+                                ChargingRoute(
+                                  destination:
+                                  stationLatLng,
+                                  destinationName:
+                                  stationName,
+                                ),
+                          ),
+                        );
+                      },
+                      icon: const Icon(
+                        Icons
+                            .directions_rounded,
+                        size: 17,
+                      ),
+                      label: const Text(
+                        'Route',
+                        style: TextStyle(
+                          fontWeight:
+                          FontWeight
+                              .bold,
+                          fontSize: 13,
+                        ),
+                      ),
+                      style:
+                      OutlinedButton
+                          .styleFrom(
+                        foregroundColor:
+                        AppColors
+                            .primary,
+                        disabledForegroundColor:
+                        AppColors
+                            .textSecondary,
+                        side:
+                        const BorderSide(
+                          color:
+                          AppColors
+                              .primary,
+                          width: 1.3,
+                        ),
+                        shape:
+                        RoundedRectangleBorder(
+                          borderRadius:
+                          BorderRadius
+                              .circular(
+                            12,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ===========================================================================
+  // STATUS BADGE
+  // ===========================================================================
+
+  Widget _buildStatusBadge(
+      Color color,
+      String text,
+      ) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(18),
+      padding:
+      const EdgeInsets
+          .symmetric(
+        horizontal: 11,
+        vertical: 6,
+      ),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF0253A4).withOpacity(0.06),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
+        color: color.withValues(
+          alpha: 0.10,
+        ),
+        borderRadius:
+        BorderRadius.circular(
+          20,
+        ),
+      ),
+      child: Row(
+        mainAxisSize:
+        MainAxisSize.min,
+        children: [
+          Container(
+            width: 7,
+            height: 7,
+            decoration:
+            BoxDecoration(
+              color: color,
+              shape:
+              BoxShape.circle,
+            ),
+          ),
+          const SizedBox(
+            width: 5,
+          ),
+          Text(
+            text,
+            style: TextStyle(
+              color: color,
+              fontSize: 11,
+              fontWeight:
+              FontWeight.w700,
+            ),
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    );
+  }
+
+  // ===========================================================================
+  // OPTIONAL SMALL INFO
+  // ===========================================================================
+
+  Widget _buildSmallInfo({
+    required IconData icon,
+    required String text,
+    required Color iconColor,
+  }) {
+    return Row(
+      mainAxisSize:
+      MainAxisSize.min,
+      children: [
+        Icon(
+          icon,
+          size: 15,
+          color: iconColor,
+        ),
+        const SizedBox(
+          width: 5,
+        ),
+        Text(
+          text,
+          style:
+          const TextStyle(
+            color:
+            AppColors.textSecondary,
+            fontSize: 12,
+            fontWeight:
+            FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ===========================================================================
+  // OPTIONAL INFO BOX
+  // ===========================================================================
+
+  Widget _buildInfoBox({
+    required IconData icon,
+    required String value,
+    required String label,
+    required Color color,
+  }) {
+    return Container(
+      padding:
+      const EdgeInsets.all(
+        AppSpacing.md,
+      ),
+      decoration: BoxDecoration(
+        color: color.withValues(
+          alpha: 0.07,
+        ),
+        borderRadius:
+        BorderRadius.circular(
+          14,
+        ),
+      ),
+      child: Row(
         children: [
-          // Header row
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      name,
-                      style: const TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                        height: 1.2,
-                      ),
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      address,
-                      style: TextStyle(
-                        color: Colors.grey.shade500,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
-                ),
+          Container(
+            width: 34,
+            height: 34,
+            decoration:
+            BoxDecoration(
+              color: color.withValues(
+                alpha: 0.12,
               ),
-              const SizedBox(width: 8),
-
-              // ── ⭐ FAVOURITE STAR BUTTON ──────────────────────────────────
-              GestureDetector(
-                onTap: () => _toggleFavorite(doc.id, data),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: isFav ? Colors.amber.shade50 : Colors.grey.shade50,
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: isFav
-                          ? Colors.amber.shade300
-                          : Colors.grey.shade200,
-                    ),
-                  ),
-                  child: Icon(
-                    isFav ? Icons.star_rounded : Icons.star_outline_rounded,
-                    color: isFav ? Colors.amber.shade600 : Colors.grey.shade400,
-                    size: 22,
-                  ),
-                ),
+              borderRadius:
+              BorderRadius.circular(
+                10,
               ),
-
-              const SizedBox(width: 8),
-
-              // Availability badge
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: statusColor,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      availabilityText,
-                      style: TextStyle(
-                        color: statusColor,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+            ),
+            child: Icon(
+              icon,
+              size: 18,
+              color: color,
+            ),
           ),
-
-          const SizedBox(height: 14),
-          const Divider(height: 1, color: Color(0xFFF0F0F0)),
-          const SizedBox(height: 14),
-
-          // Stats row
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Icon(Icons.near_me, size: 18, color: _primaryColor),
-                  const SizedBox(width: 6),
-                  Text(
-                    distance,
-                    style: TextStyle(
-                      color: _greyText,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-              Row(
-                children: [
-                  const Icon(Icons.flash_on, size: 18, color: Colors.orange),
-                  const SizedBox(width: 6),
-                  Text(
-                    power,
-                    style: TextStyle(
-                      color: _greyText,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ],
+          const SizedBox(
+            width: AppSpacing.sm,
           ),
-
-          const SizedBox(height: 14),
-
-          // Connector chips
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: connectors
-                .map(
-                  (c) => Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _lightFillColor,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      c,
-                      style: TextStyle(
-                        color: _primaryColor,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment:
+              CrossAxisAlignment
+                  .start,
+              children: [
+                Text(
+                  value,
+                  style:
+                  const TextStyle(
+                    color: AppColors
+                        .textPrimary,
+                    fontSize: 12,
+                    fontWeight:
+                    FontWeight.w700,
                   ),
-                )
-                .toList(),
-          ),
-
-          const SizedBox(height: 16),
-
-          // Action buttons
-          Row(
-            children: [
-              Expanded(
-                child: SizedBox(
-                  height: 48,
-                  child: ElevatedButton(
-                    onPressed: isAvailable
-                        ? () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => BookStation(
-                                preSelectedStationId: doc.id,
-                                preSelectedStationName: stationName,
-                                stationData: data,
-                              ),
-                            ),
-                          )
-                        : null,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: isAvailable
-                          ? _primaryColor
-                          : Colors.grey.shade300,
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    child: Text(
-                      isAvailable ? 'Book' : 'Full',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15,
-                      ),
-                    ),
+                  maxLines: 1,
+                  overflow:
+                  TextOverflow
+                      .ellipsis,
+                ),
+                const SizedBox(
+                  height: 2,
+                ),
+                Text(
+                  label,
+                  style:
+                  const TextStyle(
+                    color: AppColors
+                        .textSecondary,
+                    fontSize: 10,
                   ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: SizedBox(
-                  height: 48,
-                  child: OutlinedButton.icon(
-                    onPressed: stationLatLng == null
-                        ? null
-                        : () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => ChargingRoute(
-                                destination: stationLatLng,
-                                destinationName: stationName,
-                              ),
-                            ),
-                          ),
-                    icon: Icon(
-                      Icons.directions,
-                      size: 20,
-                      color: _primaryColor,
-                    ),
-                    label: Text(
-                      'Route',
-                      style: TextStyle(
-                        color: _primaryColor,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15,
-                      ),
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      side: BorderSide(color: _primaryColor, width: 1.5),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),

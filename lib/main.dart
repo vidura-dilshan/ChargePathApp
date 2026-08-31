@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+
+import 'Theme/app_theme.dart';
+import 'firebase_options.dart';
 import 'Screens/email_verification.dart';
 import 'Screens/login.dart';
 import 'Screens/mainscreen.dart';
 import 'Widgets/loadingscreen.dart';
 
-void main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(const MyApp());
 }
@@ -19,20 +22,19 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'ChargePath',
       debugShowCheckedModeBanner: false,
-      // scaffoldBackgroundColor matches LoadingScreen so any
-      // un-painted frame shows brand color, never white.
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF0253A4)),
-        scaffoldBackgroundColor: const Color(0xFFF0F6FF),
-        useMaterial3: true,
-      ),
+      theme: AppTheme.lightTheme,
       home: const _AppStartup(),
     );
   }
 }
 
-// ── STARTUP ──────────────────────────────────────────────────────────────────
-// Shown as the very first widget so LoadingScreen appears on frame 1.
+// -----------------------------------------------------------------------------
+// APPLICATION STARTUP
+// -----------------------------------------------------------------------------
+//
+// Firebase is initialized here so the loading screen can be shown
+// while Firebase is starting.
+//
 
 class _AppStartup extends StatefulWidget {
   const _AppStartup();
@@ -42,48 +44,66 @@ class _AppStartup extends StatefulWidget {
 }
 
 class _AppStartupState extends State<_AppStartup> {
-  late final Future<void> _init;
+  late final Future<void> _firebaseInitialization;
 
   @override
   void initState() {
     super.initState();
-    _init = Firebase.initializeApp();
+
+    _firebaseInitialization = Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<void>(
-      future: _init,
+      future: _firebaseInitialization,
       builder: (context, snapshot) {
+        // Firebase is still starting.
         if (snapshot.connectionState != ConnectionState.done) {
           return const LoadingScreen();
         }
+
+        // Firebase startup failed.
         if (snapshot.hasError) {
           return Scaffold(
             body: Center(
               child: Padding(
                 padding: const EdgeInsets.all(24),
                 child: Text(
-                  "Startup error:\n${snapshot.error}",
+                  'Startup error:\n${snapshot.error}',
                   textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.red),
+                  style: const TextStyle(
+                    color: Colors.red,
+                    fontSize: 16,
+                  ),
                 ),
               ),
             ),
           );
         }
+
+        // Firebase has started successfully.
         return const AuthWrapper();
       },
     );
   }
 }
 
-// ── AUTH WRAPPER ──────────────────────────────────────────────────────────────
-// AnimatedSwitcher with a FadeTransition eliminates the white frame that
-// appears when StreamBuilder rebuilds between LoadingScreen and MainScreen.
-// Without this, Flutter needs one unpainted frame to lay out the new widget —
-// AnimatedSwitcher keeps the old widget (LoadingScreen) visible until the
-// new one (MainScreen / LogIn) is fully ready to paint.
+// -----------------------------------------------------------------------------
+// AUTHENTICATION WRAPPER
+// -----------------------------------------------------------------------------
+//
+// This listens to Firebase authentication changes.
+//
+// It decides whether the user should see:
+//
+// Loading screen
+// Login screen
+// Email verification screen
+// Main application screen
+//
 
 class AuthWrapper extends StatefulWidget {
   const AuthWrapper({super.key});
@@ -93,56 +113,101 @@ class AuthWrapper extends StatefulWidget {
 }
 
 class _AuthWrapperState extends State<AuthWrapper> {
+  // ---------------------------------------------------------------------------
+  // CHECK EMAIL VERIFICATION
+  // ---------------------------------------------------------------------------
+
   bool _requiresEmailVerification(User user) {
-    final usesPasswordProvider = user.providerData.any(
-      (info) => info.providerId == 'password',
+    final bool usesPasswordProvider = user.providerData.any(
+          (providerInfo) => providerInfo.providerId == 'password',
     );
+
     return usesPasswordProvider && !user.emailVerified;
   }
 
-  void _handleEmailVerified() {
+  // ---------------------------------------------------------------------------
+  // HANDLE VERIFIED EMAIL
+  // ---------------------------------------------------------------------------
+
+  Future<void> _handleEmailVerified() async {
+    final User? currentUser = FirebaseAuth.instance.currentUser;
+
+    if (currentUser != null) {
+      await currentUser.reload();
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    // Rebuild AuthWrapper so the new email verification state
+    // can be checked.
     setState(() {});
   }
+
+  // ---------------------------------------------------------------------------
+  // BUILD
+  // ---------------------------------------------------------------------------
 
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
-        // Determine which child to show
-        final Widget child;
+        // ---------------------------------------------------------------------
+        // FIREBASE IS CHECKING THE CURRENT USER
+        // ---------------------------------------------------------------------
+
         if (snapshot.connectionState == ConnectionState.waiting) {
-          child = const LoadingScreen(key: ValueKey('loading'));
-        } else if (snapshot.hasError) {
-          child = const Scaffold(
-            key: ValueKey('error'),
-            body: Center(child: Text("Auth Error")),
+          return const LoadingScreen();
+        }
+
+        // ---------------------------------------------------------------------
+        // AUTHENTICATION ERROR
+        // ---------------------------------------------------------------------
+
+        if (snapshot.hasError) {
+          return Scaffold(
+            body: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text(
+                  'Authentication error:\n${snapshot.error}',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.red,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+            ),
           );
-        } else if (snapshot.hasData) {
-          final user = snapshot.data!;
+        }
+
+        // ---------------------------------------------------------------------
+        // USER IS LOGGED IN
+        // ---------------------------------------------------------------------
+
+        if (snapshot.hasData) {
+          final User user = snapshot.data!;
+
+          // Email/password accounts must verify their email.
           if (_requiresEmailVerification(user)) {
-            child = EmailVerificationScreen(
-              key: const ValueKey('verify-email'),
+            return EmailVerificationScreen(
               user: user,
               onVerified: _handleEmailVerified,
             );
-          } else {
-            child = const MainScreen(key: ValueKey('main'));
           }
-        } else {
-          child = const LogIn(key: ValueKey('login'));
+
+          // User is authenticated and ready to enter the app.
+          return const MainScreen();
         }
 
-        // AnimatedSwitcher fades between widgets instead of cutting,
-        // which hides the one-frame white gap on every state transition.
-        return AnimatedSwitcher(
-          duration: const Duration(milliseconds: 300),
-          switchInCurve: Curves.easeIn,
-          switchOutCurve: Curves.easeOut,
-          transitionBuilder: (child, animation) =>
-              FadeTransition(opacity: animation, child: child),
-          child: child,
-        );
+        // ---------------------------------------------------------------------
+        // USER IS NOT LOGGED IN
+        // ---------------------------------------------------------------------
+
+        return const LogIn();
       },
     );
   }
