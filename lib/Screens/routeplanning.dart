@@ -521,12 +521,7 @@ class _RoutePlanningPageState extends State<RoutePlanningPage> {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final bool useWideLayout = constraints.maxWidth >= 950;
-        return useWideLayout ? _buildWideLayout() : _buildMobileLayout();
-      },
-    );
+    return _buildMobileLayout();
   }
 
   Widget _buildMobileLayout() {
@@ -539,7 +534,7 @@ class _RoutePlanningPageState extends State<RoutePlanningPage> {
             _buildMobileHeader(),
             Expanded(
               child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
+                physics: const ClampingScrollPhysics(),
                 padding: const EdgeInsets.fromLTRB(
                   AppSpacing.lg,
                   AppSpacing.lg,
@@ -636,7 +631,7 @@ class _RoutePlanningPageState extends State<RoutePlanningPage> {
                   _buildWideHeader(),
                   Expanded(
                     child: SingleChildScrollView(
-                      physics: const BouncingScrollPhysics(),
+                      physics: const ClampingScrollPhysics(),
                       padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -668,7 +663,7 @@ class _RoutePlanningPageState extends State<RoutePlanningPage> {
                           Expanded(
                             flex: 2,
                             child: SingleChildScrollView(
-                              physics: const BouncingScrollPhysics(),
+                              physics: const ClampingScrollPhysics(),
                               child: Column(
                                 children: [
                                   _buildChargingStopsCard(),
@@ -688,7 +683,7 @@ class _RoutePlanningPageState extends State<RoutePlanningPage> {
                         Expanded(
                           flex: 2,
                           child: SingleChildScrollView(
-                            physics: const BouncingScrollPhysics(),
+                            physics: const ClampingScrollPhysics(),
                             child: Column(
                               children: [
                                 _buildChargingStopsCard(),
@@ -1596,7 +1591,7 @@ class _RoutePlanningPageState extends State<RoutePlanningPage> {
                     // independently when the available landscape height is low.
                     Expanded(
                       child: ListView.separated(
-                        physics: const BouncingScrollPhysics(),
+                        physics: const ClampingScrollPhysics(),
                         padding: EdgeInsets.symmetric(
                           horizontal: AppSpacing.xl,
                           vertical: isShortHeight ? 4 : AppSpacing.sm,

@@ -88,7 +88,11 @@ class _HomePageState extends State<HomePage> {
   // ---------------------------------------------------------------------------
 
   Future<void> _loadFavorites() async {
-    if (mounted) {
+    // Avoid showing the spinner on subsequent refreshes to prevent
+    // the UI from flashing between states.
+    final bool showSpinner = _favorites.isEmpty;
+
+    if (showSpinner && mounted) {
       setState(() {
         _isLoadingFavs = true;
       });
@@ -103,6 +107,7 @@ class _HomePageState extends State<HomePage> {
 
         setState(() {
           _favorites = [];
+          _isLoadingFavs = false;
         });
 
         return;
@@ -117,6 +122,7 @@ class _HomePageState extends State<HomePage> {
 
       setState(() {
         _favorites = rows;
+        _isLoadingFavs = false;
       });
     } catch (error, stackTrace) {
       debugPrint('Failed to load favourites: $error');
@@ -130,13 +136,8 @@ class _HomePageState extends State<HomePage> {
 
       setState(() {
         _favorites = [];
+        _isLoadingFavs = false;
       });
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoadingFavs = false;
-        });
-      }
     }
   }
 
@@ -272,25 +273,6 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final Size screenSize = MediaQuery.sizeOf(context);
-
-    /*
-     * IMPORTANT:
-     *
-     * Do not use screen width alone to determine tablet mode.
-     *
-     * A phone rotated to landscape can easily have a width above 700px.
-     * That caused landscape phones to incorrectly use the tablet layout.
-     *
-     * shortestSide remains small on a phone regardless of orientation.
-     */
-    final bool useTabletLayout =
-        screenSize.shortestSide >= 600;
-
-    if (useTabletLayout) {
-      return _buildTabletLayout();
-    }
-
     return _buildMobileLayout();
   }
 
@@ -316,147 +298,142 @@ class _HomePageState extends State<HomePage> {
       backgroundColor: AppColors.background,
       body: SafeArea(
         bottom: false,
-        child: RefreshIndicator(
-          onRefresh: _loadFavorites,
-          color: AppColors.primary,
+        child: Column(
+          children: [
+            // ---------------------------------------------------------------
+            // HERO (PINNED)
+            // ---------------------------------------------------------------
 
-          /*
-           * CustomScrollView makes the ENTIRE mobile home page scroll.
-           *
-           * Previously only the favourites ListView was scrollable.
-           * The hero and favourites header stayed fixed and caused
-           * overflow when the phone was rotated to landscape.
-           */
-          child: CustomScrollView(
-            physics: const AlwaysScrollableScrollPhysics(
-              parent: BouncingScrollPhysics(),
+            _buildHeroSection(
+              compact: true,
+              mobileHeight: heroHeight,
+              mobileLandscape: isLandscape,
             ),
-            slivers: [
-              // ---------------------------------------------------------------
-              // HERO
-              // ---------------------------------------------------------------
 
-              SliverToBoxAdapter(
-                child: _buildHeroSection(
-                  compact: true,
-                  mobileHeight: heroHeight,
-                  mobileLandscape: isLandscape,
-                ),
+            SizedBox(
+              height: isLandscape
+                  ? AppSpacing.md
+                  : AppSpacing.xxl,
+            ),
+
+            // ---------------------------------------------------------------
+            // FAVOURITES HEADER (PINNED)
+            // ---------------------------------------------------------------
+
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.lg,
               ),
-
-              // ---------------------------------------------------------------
-              // SPACE AFTER HERO
-              // ---------------------------------------------------------------
-
-              SliverToBoxAdapter(
-                child: SizedBox(
-                  height: isLandscape
-                      ? AppSpacing.md
-                      : AppSpacing.xxl,
-                ),
+              child: AppSectionHeader(
+                icon: Icons.star_rounded,
+                title: 'Favourite Stations',
+                subtitle: 'Your saved charging locations',
+                trailing:
+                !_isLoadingFavs &&
+                    _favorites.isNotEmpty
+                    ? _buildCountBadge()
+                    : null,
               ),
+            ),
 
-              // ---------------------------------------------------------------
-              // FAVOURITES HEADER
-              // ---------------------------------------------------------------
+            SizedBox(
+              height: isLandscape
+                  ? AppSpacing.md
+                  : AppSpacing.lg,
+            ),
 
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.lg,
-                ),
-                sliver: SliverToBoxAdapter(
-                  child: AppSectionHeader(
-                    icon: Icons.star_rounded,
-                    title: 'Favourite Stations',
-                    subtitle: 'Your saved charging locations',
-                    trailing:
-                    !_isLoadingFavs &&
-                        _favorites.isNotEmpty
-                        ? _buildCountBadge()
-                        : null,
+            // ---------------------------------------------------------------
+            // SCROLLABLE CARDS AREA
+            // ---------------------------------------------------------------
+
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: _loadFavorites,
+                color: AppColors.primary,
+                child: CustomScrollView(
+                  cacheExtent: 500,
+                  physics: const AlwaysScrollableScrollPhysics(
+                    parent: ClampingScrollPhysics(),
                   ),
-                ),
-              ),
+                  slivers: [
+                    // ---------------------------------------------------------------
+                    // LOADING
+                    // ---------------------------------------------------------------
 
-              SliverToBoxAdapter(
-                child: SizedBox(
-                  height: isLandscape
-                      ? AppSpacing.md
-                      : AppSpacing.lg,
-                ),
-              ),
+                    if (_isLoadingFavs)
+                      const SliverToBoxAdapter(
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(
+                            vertical: 50,
+                          ),
+                          child: Center(
+                            child: CircularProgressIndicator(
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        ),
+                      )
 
-              // ---------------------------------------------------------------
-              // LOADING
-              // ---------------------------------------------------------------
+                    // ---------------------------------------------------------------
+                    // EMPTY FAVOURITES
+                    // ---------------------------------------------------------------
 
-              if (_isLoadingFavs)
-                const SliverToBoxAdapter(
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(
-                      vertical: 50,
-                    ),
-                    child: Center(
-                      child: CircularProgressIndicator(
-                        color: AppColors.primary,
+                    else if (_favorites.isEmpty)
+                      SliverPadding(
+                        padding: EdgeInsets.fromLTRB(
+                          AppSpacing.lg,
+                          0,
+                          AppSpacing.lg,
+                          isLandscape ? 80 : 120,
+                        ),
+                        sliver: SliverToBoxAdapter(
+                          child: _buildMobileEmptyFavourites(
+                            compact: isLandscape,
+                          ),
+                        ),
+                      )
+
+                    // ---------------------------------------------------------------
+                    // FAVOURITE CARDS
+                    // ---------------------------------------------------------------
+
+                    else
+                      SliverPadding(
+                        padding: EdgeInsets.fromLTRB(
+                          AppSpacing.lg,
+                          0,
+                          AppSpacing.lg,
+                          isLandscape ? 80 : 120,
+                        ),
+                        sliver: SliverList(
+                          delegate: SliverChildBuilderDelegate(
+                                (context, index) {
+                              return RepaintBoundary(
+                                child: Padding(
+                                  padding: EdgeInsets.only(
+                                    bottom:
+                                    index ==
+                                        _favorites.length - 1
+                                        ? 0
+                                        : AppSpacing.lg,
+                                  ),
+                                  child: _buildFavouriteCard(
+                                    _favorites[index],
+                                  ),
+                                ),
+                              );
+                            },
+                            childCount: _favorites.length,
+                            addAutomaticKeepAlives: true,
+                            addRepaintBoundaries: true,
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                )
-
-              // ---------------------------------------------------------------
-              // EMPTY FAVOURITES
-              // ---------------------------------------------------------------
-
-              else if (_favorites.isEmpty)
-                SliverPadding(
-                  padding: EdgeInsets.fromLTRB(
-                    AppSpacing.lg,
-                    0,
-                    AppSpacing.lg,
-                    isLandscape ? 80 : 120,
-                  ),
-                  sliver: SliverToBoxAdapter(
-                    child: _buildMobileEmptyFavourites(
-                      compact: isLandscape,
-                    ),
-                  ),
-                )
-
-              // ---------------------------------------------------------------
-              // FAVOURITE CARDS
-              // ---------------------------------------------------------------
-
-              else
-                SliverPadding(
-                  padding: EdgeInsets.fromLTRB(
-                    AppSpacing.lg,
-                    0,
-                    AppSpacing.lg,
-                    isLandscape ? 80 : 120,
-                  ),
-                  sliver: SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                          (context, index) {
-                        return Padding(
-                          padding: EdgeInsets.only(
-                            bottom:
-                            index ==
-                                _favorites.length - 1
-                                ? 0
-                                : AppSpacing.lg,
-                          ),
-                          child: _buildFavouriteCard(
-                            _favorites[index],
-                          ),
-                        );
-                      },
-                      childCount: _favorites.length,
-                    ),
-                  ),
+                  ],
                 ),
-            ],
-          ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -551,15 +528,15 @@ class _HomePageState extends State<HomePage> {
         ? 13
         : 15;
 
-    return ClipRRect(
-      borderRadius: BorderRadius.zero,
-      child: SizedBox(
-        height: compact
-            ? (mobileHeight ?? 285)
-            : double.infinity,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
+    final bool useWave = compact && !mobileLandscape;
+
+    final Widget heroContent = SizedBox(
+      height: compact
+          ? (mobileHeight ?? 285)
+          : double.infinity,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
             // ---------------------------------------------------------------
             // BACKGROUND IMAGE
             // ---------------------------------------------------------------
@@ -609,93 +586,112 @@ class _HomePageState extends State<HomePage> {
                 crossAxisAlignment:
                 CrossAxisAlignment.start,
                 children: [
-                  // ---------------------------------------------------------
-                  // NOTIFICATION BUTTON
-                  // ---------------------------------------------------------
-
-                  Align(
-                    alignment: Alignment.topRight,
-                    child: _buildGlassIconButton(
-                      Icons.notifications_outlined,
-                      compact: compact,
-                      extraCompact: mobileLandscape,
+                  if (!useWave)
+                    Align(
+                      alignment: Alignment.topRight,
+                      child: _buildGlassIconButton(
+                        Icons.notifications_outlined,
+                        compact: compact,
+                        extraCompact: mobileLandscape,
+                      ),
                     ),
-                  ),
 
-                  const Spacer(),
+                  if (!useWave) const Spacer(),
 
-                  // ---------------------------------------------------------
-                  // WELCOME TEXT
-                  // ---------------------------------------------------------
-
-                  Text(
-                    'Welcome back,',
-                    style: TextStyle(
-                      color: Colors.white
-                          .withOpacity(0.82),
-                      fontSize: welcomeFontSize,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-
-                  SizedBox(
-                    height: mobileLandscape
-                        ? 2
-                        : compact
-                        ? 5
-                        : 8,
-                  ),
-
-                  // ---------------------------------------------------------
-                  // USER NAME
-                  // ---------------------------------------------------------
-
-                  Text(
-                    _displayName,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: nameFontSize,
-                      height: 1.1,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    maxLines:
-                    compact ? 1 : 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-
-                  SizedBox(
-                    height: mobileLandscape
-                        ? 3
-                        : compact
-                        ? 7
-                        : 12,
-                  ),
-
-                  // ---------------------------------------------------------
-                  // DESCRIPTION
-                  // ---------------------------------------------------------
-
-                  Text(
-                    'Find charging stations, plan your journey, '
-                        'and continue driving with confidence.',
-                    style: TextStyle(
-                      color: Colors.white
-                          .withOpacity(0.82),
-                      fontSize:
-                      descriptionFontSize,
-                      height:
-                      mobileLandscape
-                          ? 1.2
-                          : 1.45,
-                    ),
-                    maxLines:
-                    mobileLandscape
-                        ? 1
-                        : compact
-                        ? 2
-                        : 3,
-                    overflow:
-                    TextOverflow.ellipsis,
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // ---------------------------------------------------------
+                            // WELCOME TEXT
+                            // ---------------------------------------------------------
+          
+                            Text(
+                              'Welcome back,',
+                              style: TextStyle(
+                                color: Colors.white
+                                    .withOpacity(0.82),
+                                fontSize: welcomeFontSize,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+          
+                            SizedBox(
+                              height: mobileLandscape
+                                  ? 2
+                                  : compact
+                                  ? 5
+                                  : 8,
+                            ),
+          
+                            // ---------------------------------------------------------
+                            // USER NAME
+                            // ---------------------------------------------------------
+          
+                            Text(
+                              _displayName,
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: nameFontSize,
+                                height: 1.1,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              maxLines:
+                              compact ? 1 : 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+          
+                            SizedBox(
+                              height: mobileLandscape
+                                  ? 3
+                                  : compact
+                                  ? 7
+                                  : 12,
+                            ),
+          
+                            // ---------------------------------------------------------
+                            // DESCRIPTION
+                            // ---------------------------------------------------------
+          
+                            Text(
+                              'Find charging stations, plan your journey, '
+                                  'and continue driving with confidence.',
+                              style: TextStyle(
+                                color: Colors.white
+                                    .withOpacity(0.82),
+                                fontSize:
+                                descriptionFontSize,
+                                height:
+                                mobileLandscape
+                                    ? 1.2
+                                    : 1.45,
+                              ),
+                              maxLines:
+                              mobileLandscape
+                                  ? 1
+                                  : compact
+                                  ? 2
+                                  : 3,
+                              overflow:
+                              TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (useWave)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 8.0),
+                          child: _buildGlassIconButton(
+                            Icons.notifications_outlined,
+                            compact: compact,
+                            extraCompact: mobileLandscape,
+                          ),
+                        ),
+                    ],
                   ),
 
                   SizedBox(
@@ -706,14 +702,24 @@ class _HomePageState extends State<HomePage> {
                         : 12,
                   ),
 
+                  if (useWave) const Spacer(),
 
                 ],
               ),
             ),
           ],
         ),
-      ),
-    );
+      );
+
+    return useWave
+        ? ClipPath(
+            clipper: BottomWaveClipper(),
+            child: heroContent,
+          )
+        : ClipRRect(
+            borderRadius: BorderRadius.zero,
+            child: heroContent,
+          );
   }
 
   // ===========================================================================
@@ -940,6 +946,37 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
 
+              SizedBox(
+                height: compact
+                    ? AppSpacing.lg
+                    : AppSpacing.xl,
+              ),
+
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: () {
+                    widget.onNavigateToStations?.call();
+                  },
+                  icon: const Icon(Icons.search_rounded, size: 18),
+                  label: const Text(
+                    'Find stations',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                ),
+              ),
+
             ],
           ),
         ),
@@ -1039,6 +1076,36 @@ class _HomePageState extends State<HomePage> {
                                 .textSecondary,
                             fontSize: 13,
                             height: 1.5,
+                          ),
+                        ),
+
+                        const SizedBox(
+                          height:
+                          AppSpacing.xl,
+                        ),
+
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton.icon(
+                            onPressed: () {
+                              widget.onNavigateToStations?.call();
+                            },
+                            icon: const Icon(Icons.search_rounded, size: 18),
+                            label: const Text(
+                              'Find stations',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
                           ),
                         ),
 
@@ -1641,4 +1708,30 @@ class _HomePageState extends State<HomePage> {
       ),
     );
   }
+}
+
+class BottomWaveClipper extends CustomClipper<Path> {
+  @override
+  Path getClip(Size size) {
+    var path = Path();
+    
+    path.lineTo(0, size.height - 10);
+
+    path.quadraticBezierTo(
+      size.width * 0.25, size.height,
+      size.width * 0.5, size.height - 25,
+    );
+
+    path.quadraticBezierTo(
+      size.width * 0.75, size.height - 50,
+      size.width, size.height - 40,
+    );
+
+    path.lineTo(size.width, 0);
+    path.close();
+    return path;
+  }
+
+  @override
+  bool shouldReclip(CustomClipper<Path> oldClipper) => false;
 }

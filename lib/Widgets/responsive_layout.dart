@@ -13,17 +13,7 @@ class ResponsiveLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final bool useTabletLayout =
-            constraints.maxWidth >= ResponsiveBreakpoints.tabletWidth;
-
-        if (useTabletLayout) {
-          return tablet;
-        }
-
-        return mobile;
-      },
-    );
+    // Always use the mobile layout for tablets as well.
+    return mobile;
   }
 }

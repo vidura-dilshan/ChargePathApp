@@ -367,7 +367,7 @@ class _LogInState extends State<LogIn> {
             constraints.maxWidth >= 850;
 
         final bool isShortHeight =
-            constraints.maxHeight < 650;
+            constraints.maxHeight < 750;
 
         return Stack(
           children: [
@@ -393,6 +393,8 @@ class _LogInState extends State<LogIn> {
   Widget _buildMobileLayout({
     required bool isShortHeight,
   }) {
+    final bool isPortrait = MediaQuery.of(context).orientation == Orientation.portrait;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       resizeToAvoidBottomInset: true,
@@ -400,9 +402,18 @@ class _LogInState extends State<LogIn> {
         bottom: false,
         child: Column(
           children: [
-            _buildMobileBrandHeader(
-              isShortHeight: isShortHeight,
-            ),
+            isPortrait
+                ? ClipPath(
+                    clipper: BottomWaveClipper(),
+                    child: _buildMobileBrandHeader(
+                      isShortHeight: isShortHeight,
+                      isPortrait: true,
+                    ),
+                  )
+                : _buildMobileBrandHeader(
+                    isShortHeight: isShortHeight,
+                    isPortrait: false,
+                  ),
 
             Expanded(
               child: SingleChildScrollView(
@@ -429,12 +440,15 @@ class _LogInState extends State<LogIn> {
 
   Widget _buildMobileBrandHeader({
     required bool isShortHeight,
+    bool isPortrait = true,
   }) {
     final double screenHeight = MediaQuery.of(context).size.height;
 
+    double headerHeight = screenHeight * (isShortHeight ? 0.25 : 0.30);
+    if (headerHeight < 210) headerHeight = 210;
+
     return SizedBox(
-      height: screenHeight *
-          (isShortHeight ? 0.20 : 0.28),
+      height: headerHeight,
       width: double.infinity,
       child: Stack(
         fit: StackFit.expand,
@@ -481,26 +495,29 @@ class _LogInState extends State<LogIn> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (Navigator.canPop(context))
-                  Material(
-                    color: Colors.white.withOpacity(0.16),
-                    shape: const CircleBorder(),
-                    child: InkWell(
-                      onTap: () {
-                        Navigator.pop(context);
-                      },
-                      customBorder: const CircleBorder(),
-                      child: const Padding(
-                        padding: EdgeInsets.all(9),
-                        child: Icon(
-                          Icons.arrow_back_rounded,
-                          color: Colors.white,
-                          size: 20,
+                  Padding(
+                    padding: EdgeInsets.only(bottom: isPortrait ? 16.0 : 0.0),
+                    child: Material(
+                      color: Colors.white.withOpacity(0.16),
+                      shape: const CircleBorder(),
+                      child: InkWell(
+                        onTap: () {
+                          Navigator.pop(context);
+                        },
+                        customBorder: const CircleBorder(),
+                        child: const Padding(
+                          padding: EdgeInsets.all(9),
+                          child: Icon(
+                            Icons.arrow_back_rounded,
+                            color: Colors.white,
+                            size: 20,
+                          ),
                         ),
                       ),
                     ),
                   ),
 
-                const Spacer(),
+                if (!isPortrait) const Spacer(),
 
                 const Row(
                   children: [
@@ -537,6 +554,8 @@ class _LogInState extends State<LogIn> {
                     fontWeight: FontWeight.w500,
                   ),
                 ),
+
+                if (isPortrait) const Spacer(),
               ],
             ),
           ),
@@ -824,7 +843,7 @@ class _LogInState extends State<LogIn> {
           ),
         ),
         SizedBox(
-          height: isCompactHeight ? 14 : 28,
+          height: isCompactHeight ? 12 : 20,
         ),
         _buildCustomTextField(
           controller: _emailController,
@@ -833,7 +852,7 @@ class _LogInState extends State<LogIn> {
           isCompact: isCompactHeight,
         ),
         SizedBox(
-          height: isCompactHeight ? 10 : 16,
+          height: isCompactHeight ? 8 : 14,
         ),
         _buildCustomTextField(
           controller: _passwordController,
@@ -843,7 +862,7 @@ class _LogInState extends State<LogIn> {
           isCompact: isCompactHeight,
         ),
         SizedBox(
-          height: isCompactHeight ? 6 : 10,
+          height: isCompactHeight ? 4 : 8,
         ),
         if (_isLogin)
           Row(
@@ -888,7 +907,7 @@ class _LogInState extends State<LogIn> {
             ],
           ),
         SizedBox(
-          height: isCompactHeight ? 10 : 24,
+          height: isCompactHeight ? 10 : 20,
         ),
         SizedBox(
           width: double.infinity,
@@ -913,7 +932,7 @@ class _LogInState extends State<LogIn> {
           ),
         ),
         SizedBox(
-          height: isCompactHeight ? 8 : 16,
+          height: isCompactHeight ? 8 : 12,
         ),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -949,7 +968,7 @@ class _LogInState extends State<LogIn> {
           ],
         ),
         SizedBox(
-          height: isCompactHeight ? 8 : 18,
+          height: isCompactHeight ? 8 : 14,
         ),
         Row(
           children: [
@@ -978,7 +997,7 @@ class _LogInState extends State<LogIn> {
           ],
         ),
         SizedBox(
-          height: isCompactHeight ? 8 : 18,
+          height: isCompactHeight ? 8 : 14,
         ),
         SizedBox(
           width: double.infinity,
@@ -1088,4 +1107,30 @@ class _LogInState extends State<LogIn> {
       ),
     );
   }
+}
+
+class BottomWaveClipper extends CustomClipper<Path> {
+  @override
+  Path getClip(Size size) {
+    var path = Path();
+    
+    path.lineTo(0, size.height - 10);
+
+    path.quadraticBezierTo(
+      size.width * 0.25, size.height,
+      size.width * 0.5, size.height - 25,
+    );
+
+    path.quadraticBezierTo(
+      size.width * 0.75, size.height - 50,
+      size.width, size.height - 40,
+    );
+
+    path.lineTo(size.width, 0);
+    path.close();
+    return path;
+  }
+
+  @override
+  bool shouldReclip(CustomClipper<Path> oldClipper) => false;
 }

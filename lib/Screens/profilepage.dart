@@ -162,17 +162,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final bool useWideLayout = constraints.maxWidth >= 800;
-
-        if (useWideLayout) {
-          return _buildWideLayout();
-        }
-
-        return _buildMobileLayout();
-      },
-    );
+    return _buildMobileLayout();
   }
 
   Widget _buildMobileLayout() {
@@ -185,7 +175,7 @@ class _ProfilePageState extends State<ProfilePage> {
             _buildMobileHeader(),
             Expanded(
               child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
+                physics: const ClampingScrollPhysics(),
                 padding: EdgeInsets.fromLTRB(
                   8,
                   AppSpacing.lg,
@@ -271,7 +261,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         constraints.maxWidth >= 760;
 
                     return SingleChildScrollView(
-                      physics: const BouncingScrollPhysics(),
+                      physics: const ClampingScrollPhysics(),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [

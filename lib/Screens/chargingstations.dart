@@ -814,7 +814,7 @@ class _FindStationsState extends State<FindStations> {
                     ListView.builder(
                       shrinkWrap: true,
                       physics:
-                      const BouncingScrollPhysics(),
+                      const ClampingScrollPhysics(),
                       itemCount:
                       options.length,
                       itemBuilder: (
@@ -893,18 +893,6 @@ class _FindStationsState extends State<FindStations> {
 
   @override
   Widget build(BuildContext context) {
-    final Size screenSize =
-    MediaQuery.sizeOf(context);
-
-    // Using shortestSide prevents a landscape phone
-    // from being incorrectly treated as a tablet.
-    final bool useWideLayout =
-        screenSize.shortestSide >= 600;
-
-    if (useWideLayout) {
-      return _buildWideLayout();
-    }
-
     return _buildMobileLayout();
   }
 
@@ -924,54 +912,51 @@ class _FindStationsState extends State<FindStations> {
       AppColors.background,
       body: SafeArea(
         bottom: false,
-        child: CustomScrollView(
-          physics:
-          const BouncingScrollPhysics(
-            parent:
-            AlwaysScrollableScrollPhysics(),
-          ),
-          slivers: [
-            SliverToBoxAdapter(
-              child: _buildMobileHeader(
-                compact: isLandscape,
-              ),
+        child: Column(
+          children: [
+            _buildMobileHeader(
+              compact: isLandscape,
             ),
-
-            SliverPadding(
+            
+            Padding(
               padding: EdgeInsets.fromLTRB(
                 AppSpacing.md,
                 isLandscape ? 6 : AppSpacing.sm,
                 AppSpacing.md,
                 0,
               ),
-              sliver:
-              SliverToBoxAdapter(
-                child: AppCard(
-                  padding: EdgeInsets.all(
-                    isLandscape ? 8 : 10,
-                  ),
-                  child:
-                  _buildControlsPanel(
-                    horizontalPadding: 0,
-                    isWideLayout: false,
-                    compactMobile:
-                    isLandscape,
-                  ),
+              child: AppCard(
+                padding: EdgeInsets.all(
+                  isLandscape ? 8 : 10,
+                ),
+                child:
+                _buildControlsPanel(
+                  horizontalPadding: 0,
+                  isWideLayout: false,
+                  compactMobile:
+                  isLandscape,
                 ),
               ),
             ),
-
-            SliverToBoxAdapter(
-              child: SizedBox(
-                height: isLandscape ? 4 : 6,
-              ),
+            
+            SizedBox(
+              height: isLandscape ? 4 : 6,
             ),
-
-            _buildMobileStationResultsSliver(
-              bottomPadding:
-              isLandscape
-                  ? 80
-                  : 110,
+            
+            Expanded(
+              child: CustomScrollView(
+                cacheExtent: 500,
+                physics:
+                const ClampingScrollPhysics(),
+                slivers: [
+                  _buildMobileStationResultsSliver(
+                    bottomPadding:
+                    isLandscape
+                        ? 80
+                        : 110,
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -1010,7 +995,7 @@ class _FindStationsState extends State<FindStations> {
                     child:
                     SingleChildScrollView(
                       physics:
-                      const BouncingScrollPhysics(),
+                      const ClampingScrollPhysics(),
                       padding:
                       const EdgeInsets
                           .only(
@@ -1277,12 +1262,7 @@ class _FindStationsState extends State<FindStations> {
           compact ? 7 : 8,
         ),
         border: Border.all(
-          color: _isSearchActive
-              ? AppColors.primary
-              .withValues(
-            alpha: 0.50,
-          )
-              : const Color(
+          color: const Color(
             0xFFE5E7EB,
           ),
         ),
@@ -1760,7 +1740,7 @@ class _FindStationsState extends State<FindStations> {
                 child:
                 SingleChildScrollView(
                   physics:
-                  const BouncingScrollPhysics(),
+                  const ClampingScrollPhysics(),
                   padding:
                   const EdgeInsets
                       .fromLTRB(
@@ -2611,7 +2591,7 @@ class _FindStationsState extends State<FindStations> {
               bottomPadding,
             ),
             physics:
-            const BouncingScrollPhysics(),
+            const ClampingScrollPhysics(),
             itemCount:
             filtered.length + 1,
             itemBuilder: (
