@@ -17,7 +17,10 @@ import 'package:flutter/foundation.dart'
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
-      return web;
+      throw UnsupportedError(
+        'DefaultFirebaseOptions have not been configured for web - '
+        'you can reconfigure this by running the FlutterFire CLI again.',
+      );
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
@@ -49,20 +52,11 @@ class DefaultFirebaseOptions {
     }
   }
 
-  static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyBGyMnfS67wFseTKXK-GsmBJ2_HWbpvoLs',
-    appId: '1:367357238311:web:6733100cf7590952db4202',
-    messagingSenderId: '367357238311',
-    projectId: 'chargepath-3214e',
-    authDomain: 'chargepath-3214e.firebaseapp.com',
-    storageBucket: 'chargepath-3214e.firebasestorage.app',
-  );
-
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyB6eaON_9NA9DmNjxSdqxy5dYwoLmZuXZc',
-    appId: '1:367357238311:android:f95c400fdd4b813fdb4202',
-    messagingSenderId: '367357238311',
-    projectId: 'chargepath-3214e',
-    storageBucket: 'chargepath-3214e.firebasestorage.app',
+    apiKey: 'AIzaSyDUuFFc9q5UyKXr88V7c-34m6VyZ-X7s0A',
+    appId: '1:919793567818:android:bf17d111caa4d73c4c7eb3',
+    messagingSenderId: '919793567818',
+    projectId: 'chargepath-acca4',
+    storageBucket: 'chargepath-acca4.firebasestorage.app',
   );
 }

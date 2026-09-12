@@ -1,53 +1,89 @@
 {
   "project_info": {
-    "project_number": "367357238311",
-    "project_id": "chargepath-3214e",
-    "storage_bucket": "chargepath-3214e.firebasestorage.app"
+    "project_number": "919793567818",
+    "project_id": "chargepath-acca4",
+    "storage_bucket": "chargepath-acca4.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:367357238311:android:f95c400fdd4b813fdb4202",
+        "mobilesdk_app_id": "1:919793567818:android:bf17d111caa4d73c4c7eb3",
         "android_client_info": {
-          "package_name": "com.example.chargepath"
+          "package_name": "com.company.chargepath"
         }
       },
       "oauth_client": [
         {
-          "client_id": "367357238311-66ohaautggsvk4kpmmailjoc10k5n8qa.apps.googleusercontent.com",
+          "client_id": "919793567818-9r9abh9mpnn3grn95cr293m7h5ekg14d.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
-            "package_name": "com.example.chargepath",
-            "certificate_hash": "667948eb54fb602896879e69276f604ede16e29d"
-          }
-        },
-        {
-          "client_id": "367357238311-jqhenp7c52p5sgb5abo2q83be63dbmb4.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.example.chargepath",
+            "package_name": "com.company.chargepath",
             "certificate_hash": "4efdd3446e2b9652ad3c5a74c9e3f983f796c0b7"
           }
         },
         {
-          "client_id": "367357238311-hrmhiif2m8f9vhsh4hrc2opov4oe3rhi.apps.googleusercontent.com",
+          "client_id": "919793567818-gmbvgakm2vo0o8nj4fv5pao9mgo1frsv.apps.googleusercontent.com",
           "client_type": 3
         }
       ],
       "api_key": [
         {
-          "current_key": "AIzaSyB6eaON_9NA9DmNjxSdqxy5dYwoLmZuXZc"
+          "current_key": "AIzaSyDUuFFc9q5UyKXr88V7c-34m6VyZ-X7s0A"
         }
       ],
       "services": {
         "appinvite_service": {
           "other_platform_oauth_client": [
             {
-              "client_id": "367357238311-hrmhiif2m8f9vhsh4hrc2opov4oe3rhi.apps.googleusercontent.com",
+              "client_id": "919793567818-gmbvgakm2vo0o8nj4fv5pao9mgo1frsv.apps.googleusercontent.com",
               "client_type": 3
             },
             {
-              "client_id": "367357238311-9u55jmooh35kueevjvj7ecb04eal35e2.apps.googleusercontent.com",
+              "client_id": "919793567818-sqe3olq4fbib3floiknlgo2194erv0mf.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.chargepath"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:919793567818:android:140e34208b06187b4c7eb3",
+        "android_client_info": {
+          "package_name": "com.company.chargepathso"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "919793567818-itksma8rssn5vd82tp48mkbdoqmck52d.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.company.chargepathso",
+            "certificate_hash": "4efdd3446e2b9652ad3c5a74c9e3f983f796c0b7"
+          }
+        },
+        {
+          "client_id": "919793567818-gmbvgakm2vo0o8nj4fv5pao9mgo1frsv.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDUuFFc9q5UyKXr88V7c-34m6VyZ-X7s0A"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "919793567818-gmbvgakm2vo0o8nj4fv5pao9mgo1frsv.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "919793567818-sqe3olq4fbib3floiknlgo2194erv0mf.apps.googleusercontent.com",
               "client_type": 2,
               "ios_info": {
                 "bundle_id": "com.example.chargepath"
