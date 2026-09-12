@@ -16,6 +16,12 @@ class LogIn extends StatefulWidget {
 }
 
 class _LogInState extends State<LogIn> {
+  static const String _driverRole = 'driver';
+
+  static const Set<String> _validRoles = {
+    'driver',
+    'stationOwner',
+  };
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
@@ -53,79 +59,363 @@ class _LogInState extends State<LogIn> {
     }
     return true;
   }
+  // ---------------------------------------------------------------------------
+// FIRESTORE ROLE MANAGEMENT
+// ---------------------------------------------------------------------------
+
+  Future<void> _addRoleToUser(
+      User user,
+      String newRole,
+      ) async {
+    final DocumentReference<Map<String, dynamic>> userReference =
+    FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid);
+
+    final DocumentSnapshot<Map<String, dynamic>> snapshot =
+    await userReference.get();
+
+    final Set<String> roles = <String>{};
+
+    bool hasLegacyRoleField = false;
+    bool hasCreatedAt = false;
+
+    if (snapshot.exists) {
+      final Map<String, dynamic> data =
+          snapshot.data() ?? <String, dynamic>{};
+
+      // ---------------------------------------------------------
+      // Read the new roles array if it already exists.
+      // ---------------------------------------------------------
+
+      final dynamic existingRoles = data['roles'];
+
+      if (existingRoles is List) {
+        for (final dynamic role in existingRoles) {
+          if (role is String &&
+              _validRoles.contains(role)) {
+            roles.add(role);
+          }
+        }
+      }
+
+      // ---------------------------------------------------------
+      // Automatically migrate the old single "role" field.
+      //
+      // Example:
+      // role: "stationOwner"
+      //
+      // becomes:
+      // roles: ["stationOwner"]
+      // ---------------------------------------------------------
+
+      if (data.containsKey('role')) {
+        hasLegacyRoleField = true;
+
+        final dynamic legacyRole = data['role'];
+
+        if (legacyRole is String &&
+            _validRoles.contains(legacyRole)) {
+          roles.add(legacyRole);
+        }
+      }
+
+      hasCreatedAt =
+          data.containsKey('createdAt');
+    }
+
+    // Add the role belonging to this application.
+    roles.add(newRole);
+
+    final Map<String, dynamic> profileData = {
+      'email': user.email,
+      'roles': roles.toList(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+
+    // Do not overwrite an existing account creation date.
+    if (!snapshot.exists || !hasCreatedAt) {
+      profileData['createdAt'] =
+          FieldValue.serverTimestamp();
+    }
+
+    // Remove the old "role" field automatically after migration.
+    if (hasLegacyRoleField) {
+      profileData['role'] =
+          FieldValue.delete();
+    }
+
+    await userReference.set(
+      profileData,
+      SetOptions(
+        merge: true,
+      ),
+    );
+  }
+
+// ---------------------------------------------------------------------------
+// MIGRATE OLD PROFILE WITHOUT GRANTING A NEW ROLE
+// ---------------------------------------------------------------------------
+
+  Future<void> _migrateLegacyRole(
+      User user,
+      ) async {
+    final DocumentReference<Map<String, dynamic>> userReference =
+    FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid);
+
+    final DocumentSnapshot<Map<String, dynamic>> snapshot =
+    await userReference.get();
+
+    if (!snapshot.exists) {
+      return;
+    }
+
+    final Map<String, dynamic> data =
+        snapshot.data() ?? <String, dynamic>{};
+
+    // If the new roles array already exists,
+    // only clean up the old role field if necessary.
+    if (data['roles'] is List) {
+      if (data.containsKey('role')) {
+        await userReference.update({
+          'role': FieldValue.delete(),
+        });
+      }
+
+      return;
+    }
+
+    final dynamic oldRole = data['role'];
+
+    if (oldRole is! String ||
+        !_validRoles.contains(oldRole)) {
+      return;
+    }
+
+    await userReference.update({
+      'roles': [
+        oldRole,
+      ],
+      'role': FieldValue.delete(),
+      'updatedAt':
+      FieldValue.serverTimestamp(),
+    });
+  }
+  // ---------------------------------------------------------------------------
+// EXISTING CHARGEPATH ACCOUNT DIALOG
+// ---------------------------------------------------------------------------
+
+  Future<void> _showExistingAccountDialog() async {
+    if (!mounted) {
+      return;
+    }
+
+    // Hide the loading overlay before showing the dialog.
+    setState(() {
+      _isLoading = false;
+    });
+
+    final bool? goToLogin = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text(
+            'ChargePath Account Already Exists',
+          ),
+          content: const Text(
+            'This email is already registered with ChargePath.\n\n'
+                'If you created this account in the Station Owner app, '
+                'you can use the same email and password to log in to '
+                'the Driver app.\n\n'
+                'You do not need to create another account.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop(false);
+              },
+              child: const Text(
+                'Cancel',
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop(true);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text(
+                'Go to Login',
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (goToLogin == true && mounted) {
+      setState(() {
+        _isLogin = true;
+      });
+
+      // Email and password stay filled so the user
+      // can immediately press Login.
+    }
+  }
+
+// ---------------------------------------------------------------------------
+// MAIN APP REGISTRATION
+// ---------------------------------------------------------------------------
+
+  Future<String?> _registerDriverAccount() async {
+    final String email =
+    _emailController.text.trim();
+
+    final String password =
+    _passwordController.text.trim();
+
+    try {
+      final UserCredential credential =
+      await FirebaseAuth.instance
+          .createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+
+      final User? user = credential.user;
+
+      if (user == null) {
+        return 'Unable to create the account.';
+      }
+
+      // IMPORTANT:
+      // Do NOT create the Firestore profile here.
+      //
+      // The AuthWrapper will create the Driver profile
+      // only after email verification succeeds.
+      await user.sendEmailVerification();
+
+      return null;
+    } on FirebaseAuthException catch (error) {
+      if (error.code == 'email-already-in-use') {
+        await _showExistingAccountDialog();
+        return null;
+      }
+
+      rethrow;
+    }
+  }
 
   Future<void> _authenticate() async {
-    if (!_validateInputs()) return;
+    if (!_validateInputs()) {
+      return;
+    }
 
-    // Close the keyboard before showing the loading screen.
     FocusManager.instance.primaryFocus?.unfocus();
 
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+    });
 
     try {
       if (_isLogin) {
-        await FirebaseAuth.instance.signInWithEmailAndPassword(
+        await FirebaseAuth.instance
+            .signInWithEmailAndPassword(
           email: _emailController.text.trim(),
           password: _passwordController.text.trim(),
         );
+
+
       } else {
-        final UserCredential credential =
-        await FirebaseAuth.instance.createUserWithEmailAndPassword(
-          email: _emailController.text.trim(),
-          password: _passwordController.text.trim(),
-        );
+        // -------------------------------------------------------
+        // SIGN UP
+        // -------------------------------------------------------
 
-        final User? user = credential.user;
+        final String? errorMessage =
+        await _registerDriverAccount();
 
-        if (user != null) {
-          // Create the application profile for this Firebase user.
-          // Since this account was registered through the Main app,
-          // its role is permanently marked as a driver.
-          await FirebaseFirestore.instance
-              .collection('users')
-              .doc(user.uid)
-              .set({
-            'email': user.email,
-            'role': 'driver',
-            'createdAt': FieldValue.serverTimestamp(),
-          });
+        if (errorMessage != null) {
+          if (mounted) {
+            setState(() {
+              _isLoading = false;
+            });
+          }
 
-          // Send the normal ChargePath verification email.
-          await user.sendEmailVerification();
+          _showErrorDialog(errorMessage);
+          return;
         }
       }
-      // Success is handled by AuthWrapper in main.dart
-    } on FirebaseAuthException catch (e) {
-      // If error, turn off loading so user can retry
-      if (mounted) setState(() => _isLoading = false);
 
-      String errorMessage = "An error occurred";
-      switch (e.code) {
-        case 'user-not-found':
-          errorMessage = "No user found for that email.";
-          break;
-        case 'wrong-password':
-          errorMessage = "Wrong password provided.";
-          break;
-        case 'email-already-in-use':
-          errorMessage = "The account already exists.";
-          break;
-        case 'weak-password':
-          errorMessage = "The password provided is too weak.";
-          break;
-        case 'invalid-email':
-          errorMessage = "The email address is invalid.";
-          break;
-        case 'network-request-failed':
-          errorMessage = "Check your internet connection.";
-          break;
-        default:
-          errorMessage = e.message ?? "Authentication failed.";
+      // AuthWrapper handles navigation after successful authentication.
+    } on FirebaseAuthException catch (error) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
       }
+
+      String errorMessage;
+
+      switch (error.code) {
+        case 'user-not-found':
+        case 'wrong-password':
+        case 'invalid-credential':
+          errorMessage =
+          'The email or password is incorrect.';
+          break;
+
+        case 'weak-password':
+          errorMessage =
+          'The password provided is too weak.';
+          break;
+
+        case 'invalid-email':
+          errorMessage =
+          'The email address is invalid.';
+          break;
+
+        case 'network-request-failed':
+          errorMessage =
+          'Please check your internet connection.';
+          break;
+
+        case 'operation-not-allowed':
+          errorMessage =
+          'Email and password authentication is not enabled.';
+          break;
+
+        case 'too-many-requests':
+          errorMessage =
+          'Too many attempts were made. '
+              'Please try again later.';
+          break;
+
+        default:
+          errorMessage =
+              error.message ??
+                  'Authentication failed.';
+      }
+
       _showErrorDialog(errorMessage);
-    } catch (e) {
-      if (mounted) setState(() => _isLoading = false);
-      _showErrorDialog("An unexpected error occurred: $e");
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+
+      debugPrint(
+        'Authentication error: $error',
+      );
+
+      _showErrorDialog(
+        'An unexpected error occurred.',
+      );
     }
   }
 
@@ -223,7 +513,6 @@ class _LogInState extends State<LogIn> {
   }
 
   Future<void> _signInWithGoogle() async {
-    // Close keyboard before opening Google authentication.
     FocusManager.instance.primaryFocus?.unfocus();
 
     if (mounted) {
@@ -233,23 +522,28 @@ class _LogInState extends State<LogIn> {
     }
 
     try {
+      UserCredential firebaseCredential;
+
       if (kIsWeb) {
-        // Flutter Web uses Firebase's browser popup directly.
-        final GoogleAuthProvider googleProvider = GoogleAuthProvider();
+        final GoogleAuthProvider googleProvider =
+        GoogleAuthProvider();
 
         googleProvider.setCustomParameters({
           'prompt': 'select_account',
         });
 
-        await FirebaseAuth.instance.signInWithPopup(googleProvider);
+        firebaseCredential =
+        await FirebaseAuth.instance
+            .signInWithPopup(
+          googleProvider,
+        );
       } else {
-        // Android and iOS continue using the Google Sign-In package.
-        final GoogleSignIn googleSignIn = GoogleSignIn();
+        final GoogleSignIn googleSignIn =
+        GoogleSignIn();
 
         final GoogleSignInAccount? googleUser =
         await googleSignIn.signIn();
 
-        // The user closed the Google account selection window.
         if (googleUser == null) {
           if (mounted) {
             setState(() {
@@ -260,16 +554,21 @@ class _LogInState extends State<LogIn> {
           return;
         }
 
-        final GoogleSignInAuthentication googleAuthentication =
+        final GoogleSignInAuthentication
+        googleAuthentication =
         await googleUser.authentication;
 
         final OAuthCredential credential =
         GoogleAuthProvider.credential(
-          accessToken: googleAuthentication.accessToken,
-          idToken: googleAuthentication.idToken,
+          accessToken:
+          googleAuthentication.accessToken,
+          idToken:
+          googleAuthentication.idToken,
         );
 
-        await FirebaseAuth.instance.signInWithCredential(
+        firebaseCredential =
+        await FirebaseAuth.instance
+            .signInWithCredential(
           credential,
         );
       }
@@ -286,8 +585,13 @@ class _LogInState extends State<LogIn> {
         });
       }
 
-      debugPrint('Firebase Auth code: ${error.code}');
-      debugPrint('Firebase Auth message: ${error.message}');
+      debugPrint(
+        'Firebase Auth code: ${error.code}',
+      );
+
+      debugPrint(
+        'Firebase Auth message: ${error.message}',
+      );
 
       String errorMessage;
 
@@ -326,10 +630,13 @@ class _LogInState extends State<LogIn> {
 
         default:
           errorMessage =
-              error.message ?? 'Google authentication failed.';
+              error.message ??
+                  'Google authentication failed.';
       }
 
-      _showErrorDialog(errorMessage);
+      _showErrorDialog(
+        errorMessage,
+      );
     } on PlatformException catch (error) {
       if (mounted) {
         setState(() {
@@ -337,9 +644,13 @@ class _LogInState extends State<LogIn> {
         });
       }
 
-      debugPrint('Google Sign-In code: ${error.code}');
-      debugPrint('Google Sign-In message: ${error.message}');
-      debugPrint('Google Sign-In details: ${error.details}');
+      debugPrint(
+        'Google Sign-In code: ${error.code}',
+      );
+
+      debugPrint(
+        'Google Sign-In message: ${error.message}',
+      );
 
       _showErrorDialog(
         error.message ??
@@ -352,8 +663,13 @@ class _LogInState extends State<LogIn> {
         });
       }
 
-      debugPrint('Google Sign-In error: $error');
-      debugPrint('Stack trace: $stackTrace');
+      debugPrint(
+        'Google Sign-In error: $error',
+      );
+
+      debugPrint(
+        'Stack trace: $stackTrace',
+      );
 
       _showErrorDialog(
         'Google Sign-In failed.\n\n$error',

@@ -16,7 +16,7 @@ class EmailVerificationScreen extends StatefulWidget {
   });
 
   final User user;
-  final VoidCallback onVerified;
+  final Future<void> Function() onVerified;
 
   @override
   State<EmailVerificationScreen> createState() =>
@@ -45,7 +45,7 @@ class _EmailVerificationScreenState
 
       if (user != null &&
           user.emailVerified) {
-        widget.onVerified();
+        await widget.onVerified();
         return;
       }
 
