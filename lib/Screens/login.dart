@@ -6,6 +6,7 @@ import 'package:chargepath/Theme/app_spacing.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class LogIn extends StatefulWidget {
   const LogIn({super.key});
@@ -68,12 +69,30 @@ class _LogInState extends State<LogIn> {
           password: _passwordController.text.trim(),
         );
       } else {
-        final credential = await FirebaseAuth.instance
-            .createUserWithEmailAndPassword(
+        final UserCredential credential =
+        await FirebaseAuth.instance.createUserWithEmailAndPassword(
           email: _emailController.text.trim(),
           password: _passwordController.text.trim(),
         );
-        await credential.user?.sendEmailVerification();
+
+        final User? user = credential.user;
+
+        if (user != null) {
+          // Create the application profile for this Firebase user.
+          // Since this account was registered through the Main app,
+          // its role is permanently marked as a driver.
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .set({
+            'email': user.email,
+            'role': 'driver',
+            'createdAt': FieldValue.serverTimestamp(),
+          });
+
+          // Send the normal ChargePath verification email.
+          await user.sendEmailVerification();
+        }
       }
       // Success is handled by AuthWrapper in main.dart
     } on FirebaseAuthException catch (e) {
