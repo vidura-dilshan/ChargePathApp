@@ -11,13 +11,17 @@ import 'package:flutter_polyline_points/flutter_polyline_points.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class ChargingRoute extends StatefulWidget {
+  final String? stationId;
   final LatLng destination;
   final String destinationName;
 
   const ChargingRoute({
     super.key,
+    this.stationId,
     required this.destination,
     required this.destinationName,
   });
@@ -26,7 +30,8 @@ class ChargingRoute extends StatefulWidget {
   State<ChargingRoute> createState() => _ChargingRouteState();
 }
 
-class _ChargingRouteState extends State<ChargingRoute> {
+class _ChargingRouteState extends State<ChargingRoute>
+    with WidgetsBindingObserver {
   // ── GOOGLE MAPS ───────────────────────────────────────────────────────────
   static const String _kGoogleApiKey =
       "AIzaSyALER_NJqGFdwseum4UGUk_wTTYZbGK-es";
@@ -54,16 +59,860 @@ class _ChargingRouteState extends State<ChargingRoute> {
   String _totalDistance = "--";
   String _totalDuration = "--";
 
+  // ── ARRIVAL DETECTION ──────────────────────────────────────────────────────
+
+  static const double _arrivalRadiusMeters = 100.0;
+
+// True after Google Maps has been opened.
+  bool _navigationOpened = false;
+
+// Stops multiple location checks from running at the same time.
+  bool _isCheckingArrival = false;
+
+// Prevents the arrival flow from running repeatedly
+// after arrival has already been verified.
+  bool _arrivalVerified = false;
+
+  @override
   @override
   void initState() {
     super.initState();
+
+    WidgetsBinding.instance.addObserver(this);
+
     _initCustomIcons();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+
     _mapController?.dispose();
+
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(
+      AppLifecycleState state,
+      ) {
+    super.didChangeAppLifecycleState(state);
+
+    // We only care when:
+    //
+    // 1. Google Maps was opened
+    // 2. ChargePath becomes active again
+    // 3. Arrival has not already been verified
+    if (state == AppLifecycleState.resumed &&
+        _navigationOpened &&
+        !_arrivalVerified) {
+      Future.microtask(
+        _checkArrivalAfterReturning,
+      );
+    }
+  }
+
+  Future<void> _checkArrivalAfterReturning() async {
+    if (_isCheckingArrival ||
+        _arrivalVerified) {
+      return;
+    }
+
+    final String? stationId =
+        widget.stationId;
+
+    // Route Planner stops may not currently have
+    // a Firestore station document ID.
+    if (stationId == null ||
+        stationId.trim().isEmpty) {
+      debugPrint(
+        'ARRIVAL_DEBUG: No stationId was supplied. '
+            'Arrival check skipped.',
+      );
+
+      return;
+    }
+
+    final User? currentUser =
+        FirebaseAuth.instance.currentUser;
+
+    if (currentUser == null) {
+      debugPrint(
+        'ARRIVAL_DEBUG: No logged-in user.',
+      );
+
+      return;
+    }
+
+    _isCheckingArrival = true;
+
+    try {
+      // -----------------------------------------------------------------------
+      // 1. GET THE STATION
+      // -----------------------------------------------------------------------
+
+      final DocumentSnapshot<
+          Map<String, dynamic>>
+      stationSnapshot =
+      await FirebaseFirestore.instance
+          .collection('stations')
+          .doc(stationId)
+          .get();
+
+      if (!stationSnapshot.exists) {
+        debugPrint(
+          'ARRIVAL_DEBUG: Station does not exist.',
+        );
+
+        return;
+      }
+
+      final Map<String, dynamic>
+      stationData =
+      stationSnapshot.data()!;
+
+      // -----------------------------------------------------------------------
+      // 2. MAKE SURE THIS DRIVER BOOKED THIS STATION
+      // -----------------------------------------------------------------------
+
+      final String bookingUserId =
+          stationData['booking_user_id']
+              ?.toString()
+              .trim() ??
+              '';
+
+      if (bookingUserId !=
+          currentUser.uid) {
+        debugPrint(
+          'ARRIVAL_DEBUG: Current user does not '
+              'have the booking for this station.',
+        );
+
+        return;
+      }
+
+      // -----------------------------------------------------------------------
+      // 3. READ STATION LOCATION
+      // -----------------------------------------------------------------------
+
+      final double? stationLatitude =
+      double.tryParse(
+        stationData['latitude']
+            ?.toString()
+            .trim() ??
+            '',
+      );
+
+      final double? stationLongitude =
+      double.tryParse(
+        stationData['longitude']
+            ?.toString()
+            .trim() ??
+            '',
+      );
+
+      if (stationLatitude == null ||
+          stationLongitude == null) {
+        debugPrint(
+          'ARRIVAL_DEBUG: Station coordinates are invalid.',
+        );
+
+        return;
+      }
+
+      // -----------------------------------------------------------------------
+      // 4. CHECK LOCATION SERVICE
+      // -----------------------------------------------------------------------
+
+      final bool serviceEnabled =
+      await Geolocator
+          .isLocationServiceEnabled();
+
+      if (!serviceEnabled) {
+        debugPrint(
+          'ARRIVAL_DEBUG: Location service is disabled.',
+        );
+
+        return;
+      }
+
+      // -----------------------------------------------------------------------
+      // 5. CHECK LOCATION PERMISSION
+      // -----------------------------------------------------------------------
+
+      LocationPermission permission =
+      await Geolocator
+          .checkPermission();
+
+      if (permission ==
+          LocationPermission.denied) {
+        permission =
+        await Geolocator
+            .requestPermission();
+      }
+
+      if (permission ==
+          LocationPermission.denied ||
+          permission ==
+              LocationPermission
+                  .deniedForever) {
+        debugPrint(
+          'ARRIVAL_DEBUG: Location permission denied.',
+        );
+
+        return;
+      }
+
+      // -----------------------------------------------------------------------
+      // 6. GET DRIVER LOCATION
+      // -----------------------------------------------------------------------
+
+      final Position driverPosition =
+      await Geolocator
+          .getCurrentPosition(
+        desiredAccuracy:
+        LocationAccuracy.high,
+      );
+
+      // -----------------------------------------------------------------------
+      // 7. CALCULATE DISTANCE
+      // -----------------------------------------------------------------------
+
+      final double distanceInMeters =
+      Geolocator.distanceBetween(
+        driverPosition.latitude,
+        driverPosition.longitude,
+        stationLatitude,
+        stationLongitude,
+      );
+
+      debugPrint(
+        'ARRIVAL_DEBUG: Distance to station = '
+            '${distanceInMeters.toStringAsFixed(2)} metres',
+      );
+
+      // -----------------------------------------------------------------------
+      // 8. WITHIN 100 METRES?
+      // -----------------------------------------------------------------------
+
+      if (distanceInMeters <=
+          _arrivalRadiusMeters) {
+        _arrivalVerified = true;
+
+        // We no longer need to keep checking after
+        // the arrival has been verified.
+        _navigationOpened = false;
+
+        debugPrint(
+          'ARRIVAL_DEBUG: Arrival verified.',
+        );
+
+        if (!mounted) {
+          return;
+        }
+
+        await _showFinishChargingPopup();
+      } else {
+        debugPrint(
+          'ARRIVAL_DEBUG: Driver is outside '
+              'the 100 m arrival radius.',
+        );
+
+        // IMPORTANT:
+        // Do not set _navigationOpened = false here.
+        //
+        // This means if the user later returns to
+        // ChargePath again while at the station,
+        // we can check their location again.
+      }
+    } on FirebaseException catch (e) {
+      debugPrint(
+        'ARRIVAL_DEBUG: Firestore error: '
+            '${e.code} - ${e.message}',
+      );
+    } catch (e) {
+      debugPrint(
+        'ARRIVAL_DEBUG: Arrival check failed: $e',
+      );
+    } finally {
+      _isCheckingArrival = false;
+    }
+  }
+
+  Future<void> _showAmountPaidPopup() async {
+    if (!mounted) {
+      return;
+    }
+
+    final TextEditingController amountController =
+    TextEditingController();
+
+    String? errorMessage;
+    bool isSaving = false;
+
+    final double? confirmedAmount =
+    await showDialog<double>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext dialogContext) {
+        return StatefulBuilder(
+          builder: (
+              BuildContext context,
+              void Function(void Function())
+              setDialogState,
+              ) {
+            return PopScope(
+              // Driver cannot escape the payment
+              // popup using Android back.
+              canPop: false,
+
+              child: AlertDialog(
+                shape: RoundedRectangleBorder(
+                  borderRadius:
+                  BorderRadius.circular(20),
+                ),
+
+                title: const Row(
+                  children: [
+                    Icon(
+                      Icons.payments_rounded,
+                      color: AppColors.primary,
+                    ),
+
+                    SizedBox(width: 10),
+
+                    Expanded(
+                      child: Text(
+                        'Amount Paid',
+                      ),
+                    ),
+                  ],
+                ),
+
+                content: Column(
+                  mainAxisSize:
+                  MainAxisSize.min,
+                  crossAxisAlignment:
+                  CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Enter the amount you paid at '
+                          '${widget.destinationName}.',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        height: 1.4,
+                      ),
+                    ),
+
+                    const SizedBox(
+                      height: 18,
+                    ),
+
+                    TextField(
+                      controller:
+                      amountController,
+
+                      autofocus: true,
+
+                      enabled:
+                      !isSaving,
+
+                      keyboardType:
+                      const TextInputType
+                          .numberWithOptions(
+                        decimal: true,
+                      ),
+
+                      decoration:
+                      InputDecoration(
+                        labelText:
+                        'Amount Paid',
+
+                        prefixText:
+                        'Rs. ',
+
+                        hintText:
+                        '0.00',
+
+                        errorText:
+                        errorMessage,
+
+                        border:
+                        OutlineInputBorder(
+                          borderRadius:
+                          BorderRadius
+                              .circular(
+                            12,
+                          ),
+                        ),
+
+                        focusedBorder:
+                        OutlineInputBorder(
+                          borderRadius:
+                          BorderRadius
+                              .circular(
+                            12,
+                          ),
+                          borderSide:
+                          const BorderSide(
+                            color:
+                            AppColors
+                                .primary,
+                            width: 2,
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(
+                      height: 10,
+                    ),
+
+                    Text(
+                      'You must enter the amount paid '
+                          'before continuing.',
+                      style: TextStyle(
+                        color:
+                        AppColors
+                            .textSecondary,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+
+                actions: [
+                  SizedBox(
+                    width:
+                    double.infinity,
+                    child:
+                    ElevatedButton(
+                      onPressed:
+                      isSaving
+                          ? null
+                          : () async {
+                        final String
+                        enteredText =
+                        amountController
+                            .text
+                            .trim();
+
+                        final double?
+                        amount =
+                        double.tryParse(
+                          enteredText,
+                        );
+
+                        // -----------------------------------------
+                        // VALIDATION
+                        // -----------------------------------------
+
+                        if (enteredText
+                            .isEmpty) {
+                          setDialogState(
+                                () {
+                              errorMessage =
+                              'Please enter the amount paid.';
+                            },
+                          );
+
+                          return;
+                        }
+
+                        if (amount ==
+                            null) {
+                          setDialogState(
+                                () {
+                              errorMessage =
+                              'Please enter a valid amount.';
+                            },
+                          );
+
+                          return;
+                        }
+
+                        if (amount <=
+                            0) {
+                          setDialogState(
+                                () {
+                              errorMessage =
+                              'Amount must be greater than Rs. 0.';
+                            },
+                          );
+
+                          return;
+                        }
+
+                        // -----------------------------------------
+                        // START SAVING
+                        // -----------------------------------------
+
+                        setDialogState(
+                              () {
+                            isSaving =
+                            true;
+
+                            errorMessage =
+                            null;
+                          },
+                        );
+
+                        try {
+                          await _savePaymentToFirestore(
+                            amount,
+                          );
+
+                          if (!dialogContext
+                              .mounted) {
+                            return;
+                          }
+
+                          // Firestore succeeded.
+                          //
+                          // Only NOW can the payment popup close.
+                          Navigator.of(
+                            dialogContext,
+                          ).pop(
+                            amount,
+                          );
+                        } catch (e) {
+                          debugPrint(
+                            'PAYMENT_DEBUG: '
+                                'Payment save failed: $e',
+                          );
+
+                          if (!dialogContext
+                              .mounted) {
+                            return;
+                          }
+
+                          setDialogState(
+                                () {
+                              isSaving =
+                              false;
+
+                              String
+                              message =
+                              e.toString();
+
+                              message =
+                                  message
+                                      .replaceFirst(
+                                    'Exception: ',
+                                    '',
+                                  );
+
+                              errorMessage =
+                                  message;
+                            },
+                          );
+                        }
+                      },
+
+                      style:
+                      ElevatedButton
+                          .styleFrom(
+                        backgroundColor:
+                        AppColors.primary,
+
+                        foregroundColor:
+                        Colors.white,
+
+                        padding:
+                        const EdgeInsets
+                            .symmetric(
+                          vertical: 14,
+                        ),
+
+                        shape:
+                        RoundedRectangleBorder(
+                          borderRadius:
+                          BorderRadius
+                              .circular(
+                            12,
+                          ),
+                        ),
+                      ),
+
+                      child:
+                      isSaving
+                          ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child:
+                        CircularProgressIndicator(
+                          strokeWidth:
+                          2,
+                          color:
+                          Colors.white,
+                        ),
+                      )
+                          : const Text(
+                        'Confirm Amount',
+                        style:
+                        TextStyle(
+                          fontWeight:
+                          FontWeight
+                              .bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    // Dispose after Flutter has removed the dialog.
+    WidgetsBinding.instance
+        .addPostFrameCallback(
+          (_) {
+        amountController.dispose();
+      },
+    );
+
+    if (!mounted ||
+        confirmedAmount == null) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context)
+        .showSnackBar(
+      SnackBar(
+        content: Text(
+          'Payment recorded successfully. '
+              'Rs.${confirmedAmount.toStringAsFixed(2)}',
+        ),
+        backgroundColor:
+        Colors.green.shade700,
+      ),
+    );
+  }
+
+  Future<void> _savePaymentToFirestore(
+      double amount,
+      ) async {
+    final User? currentUser =
+        FirebaseAuth.instance.currentUser;
+
+    if (currentUser == null) {
+      throw Exception(
+        'You must be signed in to complete the payment.',
+      );
+    }
+
+    final String? stationId =
+        widget.stationId;
+
+    if (stationId == null ||
+        stationId.trim().isEmpty) {
+      throw Exception(
+        'Station information is missing.',
+      );
+    }
+
+    final DocumentReference<Map<String, dynamic>>
+    stationReference =
+    FirebaseFirestore.instance
+        .collection('stations')
+        .doc(stationId);
+
+    await FirebaseFirestore.instance.runTransaction(
+          (Transaction transaction) async {
+        final DocumentSnapshot<Map<String, dynamic>>
+        stationSnapshot =
+        await transaction.get(
+          stationReference,
+        );
+
+        if (!stationSnapshot.exists) {
+          throw Exception(
+            'The charging station no longer exists.',
+          );
+        }
+
+        final Map<String, dynamic> data =
+        stationSnapshot.data()!;
+
+        // ---------------------------------------------------------------------
+        // VERIFY THIS DRIVER OWNS THE CURRENT BOOKING
+        // ---------------------------------------------------------------------
+
+        final String bookingUserId =
+            data['booking_user_id']
+                ?.toString()
+                .trim() ??
+                '';
+
+        if (bookingUserId !=
+            currentUser.uid) {
+          throw Exception(
+            'This booking does not belong to the current user.',
+          );
+        }
+
+        // ---------------------------------------------------------------------
+        // READ CURRENT TOTAL INCOME
+        // ---------------------------------------------------------------------
+
+        final double currentTotalIncome =
+            double.tryParse(
+              data['total_income']
+                  ?.toString()
+                  .trim() ??
+                  '0',
+            ) ??
+                0.0;
+
+        // ---------------------------------------------------------------------
+        // ADD THIS PAYMENT
+        // ---------------------------------------------------------------------
+
+        final double newTotalIncome =
+            currentTotalIncome + amount;
+
+        debugPrint(
+          'PAYMENT_DEBUG: Current total income = '
+              '$currentTotalIncome',
+        );
+
+        debugPrint(
+          'PAYMENT_DEBUG: Payment amount = $amount',
+        );
+
+        debugPrint(
+          'PAYMENT_DEBUG: New total income = '
+              '$newTotalIncome',
+        );
+
+        // ---------------------------------------------------------------------
+        // UPDATE STATION
+        // ---------------------------------------------------------------------
+
+        transaction.update(
+          stationReference,
+          {
+            // Most recent completed charging payment.
+            'actual_income':
+            amount.toStringAsFixed(2),
+
+            // Lifetime accumulated income.
+            'total_income':
+            newTotalIncome.toStringAsFixed(2),
+
+            // Booking is now completed.
+            'booking_date': '',
+            'booking_time': '',
+            'booking_user_id': '',
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _showFinishChargingPopup() async {
+    if (!mounted) {
+      return;
+    }
+
+    await showDialog<void>(
+      context: context,
+
+      // User must choose Yes or No.
+      barrierDismissible: false,
+
+      builder: (BuildContext dialogContext) {
+        return PopScope(
+          canPop: false,
+          child: AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+
+            title: const Row(
+              children: [
+                Icon(
+                  Icons.ev_station_rounded,
+                  color: AppColors.primary,
+                ),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Charging Session',
+                  ),
+                ),
+              ],
+            ),
+
+            content: Text(
+              'Did you finish charging at '
+                  '${widget.destinationName}?',
+              style: const TextStyle(
+                fontSize: 15,
+                height: 1.4,
+              ),
+            ),
+
+            actions: [
+              // ---------------------------------------------------------------
+              // NO
+              // ---------------------------------------------------------------
+
+              TextButton(
+                onPressed: () {
+                  Navigator.of(dialogContext).pop();
+
+                  debugPrint(
+                    'ARRIVAL_DEBUG: Driver selected NO - '
+                        'charging was not completed.',
+                  );
+                },
+                child: const Text(
+                  'No',
+                ),
+              ),
+
+              // ---------------------------------------------------------------
+              // YES
+              // ---------------------------------------------------------------
+
+              ElevatedButton(
+                onPressed: () async {
+                  Navigator.of(dialogContext).pop();
+
+                  debugPrint(
+                    'ARRIVAL_DEBUG: Driver selected YES - '
+                        'charging completed.',
+                  );
+
+                  // Give the first dialog a moment to close.
+                  await Future.delayed(
+                    const Duration(milliseconds: 150),
+                  );
+
+                  if (!mounted) {
+                    return;
+                  }
+
+                  // Open the mandatory amount-paid popup.
+                  await _showAmountPaidPopup();
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text(
+                  'Yes, Finished',
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   // ── CUSTOM ICON GENERATION ────────────────────────────────────────────────
@@ -425,16 +1274,28 @@ class _ChargingRouteState extends State<ChargingRoute> {
     );
 
     try {
+      // Mark that external navigation is about to start.
+      //
+      // When ChargePath becomes active again,
+      // didChangeAppLifecycleState() will perform
+      // the 100 m check.
+      _navigationOpened = true;
+
       final bool launched = await launchUrl(
         googleMapsUrl,
         mode: LaunchMode.externalApplication,
       );
+
+      if (!launched) {
+        _navigationOpened = false;
+      }
       if (!launched && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Could not open Google Maps.')),
         );
       }
     } catch (e) {
+      _navigationOpened = false;
       debugPrint("Could not launch Google Maps: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

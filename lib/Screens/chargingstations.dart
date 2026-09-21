@@ -109,9 +109,20 @@ class _FindStationsState extends State<FindStations> {
       _onFavoritesChanged,
     );
 
+    // -------------------------------------------------------------------------
+    // IMPORTANT:
+    // Driver app only receives ACTIVE stations.
+    //
+    // Pending, Inactive and Rejected stations will not appear in the list.
+    // -------------------------------------------------------------------------
+
     _stationsStream =
         FirebaseFirestore.instance
-            .collection('users')
+            .collection('stations')
+            .where(
+          'status',
+          isEqualTo: 'Active',
+        )
             .snapshots();
 
     _searchFocusNode.addListener(() {
@@ -600,6 +611,19 @@ class _FindStationsState extends State<FindStations> {
       doc.data()
       as Map<String, dynamic>;
 
+      // Extra protection.
+      // Even though the Firestore query already requests only Active stations,
+      // do not display anything that is not Active.
+      final String status =
+          data['status']
+              ?.toString()
+              .trim() ??
+              '';
+
+      if (status != 'Active') {
+        return false;
+      }
+
       if (_selectedChargingType !=
           'All') {
         final double power =
@@ -656,7 +680,8 @@ class _FindStationsState extends State<FindStations> {
       if (filterCenter != null) {
         final double? latitude =
         double.tryParse(
-          data['latitude']?.toString() ??
+          data['latitude']
+              ?.toString() ??
               '',
         );
 
@@ -917,11 +942,13 @@ class _FindStationsState extends State<FindStations> {
             _buildMobileHeader(
               compact: isLandscape,
             ),
-            
+
             Padding(
               padding: EdgeInsets.fromLTRB(
                 AppSpacing.md,
-                isLandscape ? 6 : AppSpacing.sm,
+                isLandscape
+                    ? 6
+                    : AppSpacing.sm,
                 AppSpacing.md,
                 0,
               ),
@@ -938,11 +965,12 @@ class _FindStationsState extends State<FindStations> {
                 ),
               ),
             ),
-            
+
             SizedBox(
-              height: isLandscape ? 4 : 6,
+              height:
+              isLandscape ? 4 : 6,
             ),
-            
+
             Expanded(
               child: CustomScrollView(
                 cacheExtent: 500,
@@ -1049,9 +1077,13 @@ class _FindStationsState extends State<FindStations> {
       width: double.infinity,
       padding: EdgeInsets.fromLTRB(
         AppSpacing.lg,
-        compact ? 6 : AppSpacing.md,
+        compact
+            ? 6
+            : AppSpacing.md,
         AppSpacing.lg,
-        compact ? AppSpacing.sm : AppSpacing.md,
+        compact
+            ? AppSpacing.sm
+            : AppSpacing.md,
       ),
       decoration:
       const BoxDecoration(
@@ -1067,7 +1099,8 @@ class _FindStationsState extends State<FindStations> {
               Icon(
                 Icons.ev_station_rounded,
                 color: Colors.white,
-                size: compact ? 22 : 28,
+                size:
+                compact ? 22 : 28,
               ),
               const SizedBox(
                 width: AppSpacing.sm,
@@ -1103,7 +1136,8 @@ class _FindStationsState extends State<FindStations> {
           ],
 
           SizedBox(
-            height: compact ? 6 : AppSpacing.sm,
+            height:
+            compact ? 6 : AppSpacing.sm,
           ),
 
           _buildSearchBar(
@@ -1254,11 +1288,13 @@ class _FindStationsState extends State<FindStations> {
           ? 34
           : 34,
       padding: EdgeInsets.symmetric(
-        horizontal: compact ? 8 : 10,
+        horizontal:
+        compact ? 8 : 10,
       ),
       decoration: BoxDecoration(
         color: AppColors.white,
-        borderRadius: BorderRadius.circular(
+        borderRadius:
+        BorderRadius.circular(
           compact ? 7 : 8,
         ),
         border: Border.all(
@@ -1270,7 +1306,8 @@ class _FindStationsState extends State<FindStations> {
           BoxShadow(
             color: Colors.black
                 .withValues(
-              alpha: useDarkBackground
+              alpha:
+              useDarkBackground
                   ? 0.12
                   : 0.04,
             ),
@@ -1292,9 +1329,8 @@ class _FindStationsState extends State<FindStations> {
           ),
 
           SizedBox(
-            width: compact
-                ? 6
-                : AppSpacing.sm,
+            width:
+            compact ? 6 : AppSpacing.sm,
           ),
 
           Expanded(
@@ -1332,8 +1368,10 @@ class _FindStationsState extends State<FindStations> {
 
           if (_isSearching)
             SizedBox(
-              width: compact ? 15 : 18,
-              height: compact ? 15 : 18,
+              width:
+              compact ? 15 : 18,
+              height:
+              compact ? 15 : 18,
               child:
               const CircularProgressIndicator(
                 strokeWidth: 2,
@@ -1349,7 +1387,8 @@ class _FindStationsState extends State<FindStations> {
                 Icons.close,
                 color: AppColors
                     .textSecondary,
-                size: compact ? 18 : 20,
+                size:
+                compact ? 18 : 20,
               ),
             ),
 
@@ -1368,7 +1407,8 @@ class _FindStationsState extends State<FindStations> {
                     .arrow_circle_right_rounded,
                 color:
                 AppColors.primary,
-                size: compact ? 22 : 26,
+                size:
+                compact ? 22 : 26,
               ),
             ),
           ],
@@ -1420,7 +1460,9 @@ class _FindStationsState extends State<FindStations> {
               Expanded(
                 child: Container(
                   padding: EdgeInsets.all(
-                    compactMobile ? 2 : 3,
+                    compactMobile
+                        ? 2
+                        : 3,
                   ),
                   decoration:
                   BoxDecoration(
@@ -1477,7 +1519,8 @@ class _FindStationsState extends State<FindStations> {
 
           if (_showDistanceSlider) ...[
             SizedBox(
-              height: compactMobile ? 4 : 6,
+              height:
+              compactMobile ? 4 : 6,
             ),
             _buildDistanceRadiusControl(
               compact:
@@ -1604,7 +1647,8 @@ class _FindStationsState extends State<FindStations> {
           ],
 
           SizedBox(
-            height: compactMobile ? 2 : 4,
+            height:
+            compactMobile ? 2 : 4,
           ),
         ],
       ),
@@ -1619,8 +1663,10 @@ class _FindStationsState extends State<FindStations> {
     bool compact = false,
   }) {
     final bool hasActiveFilter =
-        _selectedConnectorType != 'All' ||
-            _selectedChargingType != 'All';
+        _selectedConnectorType !=
+            'All' ||
+            _selectedChargingType !=
+                'All';
 
     final double buttonSize =
     compact ? 34 : 40;
@@ -1673,8 +1719,10 @@ class _FindStationsState extends State<FindStations> {
 
               if (hasActiveFilter)
                 Positioned(
-                  top: compact ? 6 : 8,
-                  right: compact ? 6 : 8,
+                  top:
+                  compact ? 6 : 8,
+                  right:
+                  compact ? 6 : 8,
                   child: Container(
                     width: 7,
                     height: 7,
@@ -1858,7 +1906,8 @@ class _FindStationsState extends State<FindStations> {
                         _connectorTypes
                             .map(
                               (option) {
-                            final bool selected =
+                            final bool
+                            selected =
                                 _selectedConnectorType ==
                                     option;
 
@@ -1944,7 +1993,8 @@ class _FindStationsState extends State<FindStations> {
                         _chargingTypes
                             .map(
                               (option) {
-                            final bool selected =
+                            final bool
+                            selected =
                                 _selectedChargingType ==
                                     option;
 
@@ -2076,8 +2126,10 @@ class _FindStationsState extends State<FindStations> {
           children: [
             Icon(
               Icons.radar_rounded,
-              color: AppColors.primary,
-              size: compact ? 15 : 17,
+              color:
+              AppColors.primary,
+              size:
+              compact ? 15 : 17,
             ),
 
             const SizedBox(
@@ -2131,7 +2183,8 @@ class _FindStationsState extends State<FindStations> {
         ),
 
         SizedBox(
-          height: compact ? 18 : 22,
+          height:
+          compact ? 18 : 22,
           child: SliderTheme(
             data:
             SliderTheme.of(context)
@@ -2163,7 +2216,8 @@ class _FindStationsState extends State<FindStations> {
               ),
             ),
             child: Slider(
-              value: _distanceValue,
+              value:
+              _distanceValue,
               min: 1,
               max: 50,
               onChanged: (value) {
@@ -2201,7 +2255,8 @@ class _FindStationsState extends State<FindStations> {
               Icons.place,
               color:
               AppColors.primary,
-              size: compact ? 14 : 16,
+              size:
+              compact ? 14 : 16,
             ),
             const SizedBox(
               width: 6,
@@ -2285,7 +2340,8 @@ class _FindStationsState extends State<FindStations> {
               Icons.location_off,
               color:
               AppColors.warning,
-              size: compact ? 14 : 16,
+              size:
+              compact ? 14 : 16,
             ),
             const SizedBox(
               width: 6,
@@ -2348,7 +2404,8 @@ class _FindStationsState extends State<FindStations> {
             Icons.location_on,
             color:
             AppColors.success,
-            size: compact ? 14 : 16,
+            size:
+            compact ? 14 : 16,
           ),
           const SizedBox(
             width: 6,
@@ -2506,7 +2563,8 @@ class _FindStationsState extends State<FindStations> {
                 }
 
                 return _buildStationFromDocument(
-                  filtered[index - 1],
+                  filtered[
+                  index - 1],
                 );
               },
               childCount:
@@ -2685,6 +2743,23 @@ class _FindStationsState extends State<FindStations> {
     document.data()
     as Map<String, dynamic>;
 
+    // -------------------------------------------------------------------------
+    // STATION OWNER FLAG
+    // -------------------------------------------------------------------------
+    //
+    // "1" = station registered by a Station Owner.
+    //       Driver can book and route.
+    //
+    // "0" = regular/system station.
+    //       Driver can route only.
+    // -------------------------------------------------------------------------
+
+    final bool isSoStation =
+        data['is_so_user']
+            ?.toString()
+            .trim() ==
+            '1';
+
     final int availablePlugs =
         int.tryParse(
           data['available_plugs']
@@ -2724,13 +2799,15 @@ class _FindStationsState extends State<FindStations> {
 
     final double? latitude =
     double.tryParse(
-      data['latitude']?.toString() ??
+      data['latitude']
+          ?.toString() ??
           '',
     );
 
     final double? longitude =
     double.tryParse(
-      data['longitude']?.toString() ??
+      data['longitude']
+          ?.toString() ??
           '',
     );
 
@@ -2756,31 +2833,49 @@ class _FindStationsState extends State<FindStations> {
         longitude,
       );
 
-      distanceText = distanceKm < 1
+      distanceText =
+      distanceKm < 1
           ? '${(distanceKm * 1000).toInt()} m away'
           : '${distanceKm.toStringAsFixed(1)} km away';
     }
 
     return _buildStationCard(
       doc: document,
+
       name: stationName,
+
       address:
-      data['address']?.toString() ??
+      data['address']
+          ?.toString() ??
           ((latitude != null &&
               longitude != null)
               ? 'Lat: ${latitude.toStringAsFixed(4)}, '
               'Lng: ${longitude.toStringAsFixed(4)}'
               : 'Location unavailable'),
+
       distance: distanceText,
+
       availabilityText:
       '$availablePlugs/$totalSlots Available',
+
       power:
       '${data['charging_power']?.toString() ?? '0'} kW',
+
       connectors: connectorList,
-      statusColor: isAvailable
+
+      statusColor:
+      isAvailable
           ? AppColors.success
           : AppColors.danger,
-      isAvailable: isAvailable,
+
+      isAvailable:
+      isAvailable,
+
+      // New:
+      // Controls whether the Book button is shown.
+      isSoStation:
+      isSoStation,
+
       stationLatLng:
       latitude != null &&
           longitude != null
@@ -2789,7 +2884,9 @@ class _FindStationsState extends State<FindStations> {
         longitude,
       )
           : null,
-      stationName: stationName,
+
+      stationName:
+      stationName,
     );
   }
 
@@ -2840,8 +2937,7 @@ class _FindStationsState extends State<FindStations> {
               shape: BoxShape.circle,
             ),
             child: const Icon(
-              Icons
-                  .ev_station_outlined,
+              Icons.ev_station_outlined,
               size: 34,
               color:
               AppColors.primary,
@@ -3043,7 +3139,8 @@ class _FindStationsState extends State<FindStations> {
         ),
         padding:
         EdgeInsets.symmetric(
-          vertical: compact ? 5 : 7,
+          vertical:
+          compact ? 5 : 7,
         ),
         decoration: BoxDecoration(
           color: isSelected
@@ -3085,7 +3182,8 @@ class _FindStationsState extends State<FindStations> {
                 .textSecondary,
             fontWeight:
             FontWeight.w600,
-            fontSize: compact ? 10 : 12,
+            fontSize:
+            compact ? 10 : 12,
           ),
         ),
       ),
@@ -3183,7 +3281,8 @@ class _FindStationsState extends State<FindStations> {
         vertical: 6,
       ),
       decoration: BoxDecoration(
-        color: AppColors.primary,
+        color:
+        AppColors.primary,
         borderRadius:
         BorderRadius.circular(
           20,
@@ -3233,6 +3332,13 @@ class _FindStationsState extends State<FindStations> {
     required List<String> connectors,
     required Color statusColor,
     required bool isAvailable,
+
+    // -------------------------------------------------------------------------
+    // NEW:
+    // Determines whether the Book button should be displayed.
+    // -------------------------------------------------------------------------
+    required bool isSoStation,
+
     required LatLng? stationLatLng,
     required String stationName,
   }) {
@@ -3285,7 +3391,8 @@ class _FindStationsState extends State<FindStations> {
                 ),
 
                 const SizedBox(
-                  width: AppSpacing.sm,
+                  width:
+                  AppSpacing.sm,
                 ),
 
                 Expanded(
@@ -3300,7 +3407,8 @@ class _FindStationsState extends State<FindStations> {
                         const TextStyle(
                           fontSize: 15,
                           fontWeight:
-                          FontWeight.bold,
+                          FontWeight
+                              .bold,
                           color: AppColors
                               .textPrimary,
                           height: 1.2,
@@ -3355,7 +3463,8 @@ class _FindStationsState extends State<FindStations> {
                             Icons
                                 .near_me_rounded,
                             size: 12,
-                            color: AppColors
+                            color:
+                            AppColors
                                 .primary,
                           ),
                           const SizedBox(
@@ -3386,7 +3495,8 @@ class _FindStationsState extends State<FindStations> {
                 ),
 
                 const SizedBox(
-                  width: AppSpacing.sm,
+                  width:
+                  AppSpacing.sm,
                 ),
 
                 GestureDetector(
@@ -3413,7 +3523,8 @@ class _FindStationsState extends State<FindStations> {
                           .background,
                       shape:
                       BoxShape.circle,
-                      border: Border.all(
+                      border:
+                      Border.all(
                         color: isFavourite
                             ? Colors
                             .amber
@@ -3562,86 +3673,110 @@ class _FindStationsState extends State<FindStations> {
               height: AppSpacing.md,
             ),
 
+            // -----------------------------------------------------------------
+            // ACTION BUTTONS
+            // -----------------------------------------------------------------
+
             Row(
               children: [
-                Expanded(
-                  child: SizedBox(
-                    height: 42,
-                    child:
-                    ElevatedButton.icon(
-                      onPressed:
-                      isAvailable
-                          ? () {
-                        Navigator
-                            .push(
-                          context,
-                          MaterialPageRoute(
-                            builder:
-                                (_) =>
-                                BookStation(
-                                  preSelectedStationId:
-                                  doc.id,
-                                  preSelectedStationName:
-                                  stationName,
-                                  stationData:
-                                  data,
-                                ),
+                // -------------------------------------------------------------
+                // BOOK
+                //
+                // Only SO-created stations support booking.
+                //
+                // is_so_user = "1" -> show Book
+                // is_so_user = "0" -> do not show Book
+                // -------------------------------------------------------------
+
+                if (isSoStation) ...[
+                  Expanded(
+                    child: SizedBox(
+                      height: 42,
+                      child:
+                      ElevatedButton.icon(
+                        onPressed:
+                        isAvailable
+                            ? () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  BookStation(
+                                    preSelectedStationId:
+                                    doc.id,
+                                    preSelectedStationName:
+                                    stationName,
+                                    stationData:
+                                    data,
+                                  ),
+                            ),
+                          );
+                        }
+                            : null,
+                        icon:
+                        const Icon(
+                          Icons
+                              .bookmark_add_rounded,
+                          size: 17,
+                        ),
+                        label: Text(
+                          isAvailable
+                              ? 'Book'
+                              : 'Full',
+                          style:
+                          const TextStyle(
+                            fontWeight:
+                            FontWeight
+                                .bold,
+                            fontSize: 13,
                           ),
-                        );
-                      }
-                          : null,
-                      icon: const Icon(
-                        Icons
-                            .bookmark_add_rounded,
-                        size: 17,
-                      ),
-                      label: Text(
-                        isAvailable
-                            ? 'Book'
-                            : 'Full',
+                        ),
                         style:
-                        const TextStyle(
-                          fontWeight:
-                          FontWeight
-                              .bold,
-                          fontSize: 13,
-                        ),
-                      ),
-                      style:
-                      ElevatedButton
-                          .styleFrom(
-                        backgroundColor:
-                        isAvailable
-                            ? AppColors
-                            .primary
-                            : const Color(
-                          0xFFD1D5DB,
-                        ),
-                        foregroundColor:
-                        Colors.white,
-                        disabledBackgroundColor:
-                        const Color(
-                          0xFFD1D5DB,
-                        ),
-                        disabledForegroundColor:
-                        Colors.white,
-                        elevation: 0,
-                        shape:
-                        RoundedRectangleBorder(
-                          borderRadius:
-                          BorderRadius
-                              .circular(
-                            12,
+                        ElevatedButton
+                            .styleFrom(
+                          backgroundColor:
+                          isAvailable
+                              ? AppColors
+                              .primary
+                              : const Color(
+                            0xFFD1D5DB,
+                          ),
+                          foregroundColor:
+                          Colors.white,
+                          disabledBackgroundColor:
+                          const Color(
+                            0xFFD1D5DB,
+                          ),
+                          disabledForegroundColor:
+                          Colors.white,
+                          elevation: 0,
+                          shape:
+                          RoundedRectangleBorder(
+                            borderRadius:
+                            BorderRadius
+                                .circular(
+                              12,
+                            ),
                           ),
                         ),
                       ),
                     ),
                   ),
-                ),
 
-                const SizedBox(
-                  width: AppSpacing.sm,
-                ),
+                  const SizedBox(
+                    width:
+                    AppSpacing.sm,
+                  ),
+                ],
+
+                // -------------------------------------------------------------
+                // ROUTE
+                //
+                // Route exists for every station.
+                //
+                // When Book is hidden, Expanded automatically makes this
+                // button use the full available width.
+                // -------------------------------------------------------------
 
                 Expanded(
                   child: SizedBox(
@@ -3649,17 +3784,15 @@ class _FindStationsState extends State<FindStations> {
                     child:
                     OutlinedButton.icon(
                       onPressed:
-                      stationLatLng ==
-                          null
+                      stationLatLng == null
                           ? null
                           : () {
-                        Navigator
-                            .push(
+                        Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder:
-                                (_) =>
+                            builder: (_) =>
                                 ChargingRoute(
+                                  stationId: doc.id,
                                   destination:
                                   stationLatLng,
                                   destinationName:
@@ -3668,14 +3801,17 @@ class _FindStationsState extends State<FindStations> {
                           ),
                         );
                       },
-                      icon: const Icon(
+                      icon:
+                      const Icon(
                         Icons
                             .directions_rounded,
                         size: 17,
                       ),
-                      label: const Text(
+                      label:
+                      const Text(
                         'Route',
-                        style: TextStyle(
+                        style:
+                        TextStyle(
                           fontWeight:
                           FontWeight
                               .bold,
